@@ -1,22 +1,24 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Header } from "@/components/layout/Header";
 
 export const metadata: Metadata = {
-  title: "o²Wave — Generador de contenido para ONGs y PYMEs",
-  description: "Genera contenido para redes sociales con IA, optimizado para organizaciones sin fines de lucro y pequeñas empresas.",
+  title: "o²Wave — Contenido para redes en segundos",
+  description: "Genera contenido para redes sociales con IA. Diseñado para ONGs y PYMEs.",
+  manifest: "/manifest.json",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#0F0F0F",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className="h-full">
-      <body className="min-h-full flex flex-col" style={{ background: "var(--background)" }}>
-        <Header />
-        <div className="flex-1">{children}</div>
+    <html lang="es">
+      <body className="min-h-screen" style={{ background: "var(--bg)", fontFamily: "Montserrat, sans-serif" }}>
+        {children}
       </body>
     </html>
   );

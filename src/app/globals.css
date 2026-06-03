@@ -1,33 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --orange: #f9b23b;
-  --orange-dark: #e09820;
-  --orange-light: #FEF7E6;
+  --orange-light: #fff8ef;
   --green: #93bf30;
-  --green-dark: #7aa526;
-  --green-light: #F0F7E0;
+  --green-light: #f0f7e6;
   --black: #0F0F0F;
   --gray: #6B7280;
   --gray-light: #F3F4F6;
   --border: #E5E7EB;
-  --background: #F9FAFB;
-  --white: #FFFFFF;
+  --bg: #F3F4F6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--black);
-}
-
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
-  background: var(--background);
+  background: var(--bg);
   color: var(--black);
-  font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+  font-family: 'Montserrat', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Safe area for mobile nav */
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 4rem); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
