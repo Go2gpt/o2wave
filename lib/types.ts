@@ -1,7 +1,8 @@
 export type RedSocial = "Instagram" | "Facebook" | "TikTok";
 export type FormatoInstagram = "Post 1080×1080" | "Story 9:16";
 export type TipoOrganizacion = "ONG" | "Empresa";
-export type Tono = "Profesional" | "Cercano" | "Inspirador" | "Urgente";
+export type Tono = "Motivador" | "Informativo" | "Cercano" | "Urgente";
+export type OverlayPosition = "top" | "center" | "bottom";
 
 export interface FormData {
   nombreOrganizacion: string;
