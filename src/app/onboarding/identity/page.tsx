@@ -62,7 +62,7 @@ export default function OnboardingIdentityPage() {
         tipografia,
         estilo,
         web_url: webUrl,
-        raw_analysis: analysis as Record<string, unknown>,
+        raw_analysis: analysis as unknown as Record<string, unknown>,
       }, { onConflict: "user_id" });
 
       // Update profile
