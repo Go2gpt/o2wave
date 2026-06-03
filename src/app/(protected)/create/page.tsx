@@ -1,0 +1,254 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Logo from "@/components/Logo";
+import Spinner from "@/components/ui/Spinner";
+import { createClient } from "@/lib/supabase";
+import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
+
+const TONOS: Tono[] = ["Motivador", "Informativo", "Cercano", "Urgente"];
+const RED_OPTIONS = [
+  { value: "Instagram" as RedSocial, label: "Insta", emoji: "📸" },
+  { value: "Facebook" as RedSocial, label: "Face", emoji: "👥" },
+  { value: "TikTok" as RedSocial, label: "TikTok", emoji: "🎵" },
+];
+const FORMATO_OPTIONS = [
+  { value: "Post 1080×1080" as FormatoInstagram, label: "Post" },
+  { value: "Story 9:16" as FormatoInstagram, label: "Story" },
+];
+const TIPOS = [
+  { value: "ong" as TipoEntidad, label: "ONG", emoji: "🤝" },
+  { value: "pyme" as TipoEntidad, label: "PYME", emoji: "🏢" },
+  { value: "autonomo" as TipoEntidad, label: "Autónomo", emoji: "💼" },
+];
+
+const pill = (active: boolean) => active
+  ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
+  : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280" };
+
+export default function CreatePage() {
+  const router = useRouter();
+  const supabase = createClient();
+
+  const [form, setForm] = useState<ContentFormData>({
+    nombreOrganizacion: "",
+    tipoOrganizacion: "ong",
+    redSocial: "Instagram",
+    formatoInstagram: "Post 1080×1080",
+    entornoTikTok: "",
+    tema: "",
+    tono: "Cercano",
+    incluirHashtags: true,
+    incluirEmojis: true,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = <K extends keyof ContentFormData>(k: K, v: ContentFormData[K]) =>
+    setForm(f => ({ ...f, [k]: v }));
+
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.nombreOrganizacion.trim() || !form.tema.trim()) return;
+    setError("");
+    setLoading(true);
+
+    try {
+      // Generate text and image in parallel
+      const [textRes, imageRes] = await Promise.all([
+        fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }),
+        form.redSocial !== "TikTok"
+          ? fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) })
+          : Promise.resolve(null),
+      ]);
+
+      const textData = await textRes.json();
+      if (textData.error) throw new Error(textData.error);
+
+      const imageData = imageRes ? await imageRes.json() : null;
+
+      // Save to Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      const postData = {
+        user_id: user?.id,
+        red_social: form.redSocial,
+        formato: form.formatoInstagram,
+        texto: textData.texto,
+        imagen_url: imageData?.imagenUrl,
+        tema: form.tema,
+        tono: form.tono,
+        tipo_entidad: form.tipoOrganizacion,
+        nombre_entidad: form.nombreOrganizacion,
+      };
+
+      const { data: saved } = await supabase.from("generated_posts").insert(postData).select().single();
+
+      // Navigate to result with post id
+      router.push(`/result?id=${saved?.id}`);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error generando contenido");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center px-5">
+      <div className="relative w-24 h-24 mb-8">
+        <div className="absolute inset-0 rounded-full border-4 border-gray-100" />
+        <div className="absolute inset-0 rounded-full border-4 border-t-transparent animate-spin"
+          style={{ borderColor: "#f9b23b", borderTopColor: "transparent" }} />
+        <div className="absolute inset-0 flex items-center justify-center text-3xl">✨</div>
+      </div>
+      <h2 className="text-lg font-bold text-gray-900 mb-2">Generando tu contenido...</h2>
+      <p className="text-sm text-gray-400">Claude AI está trabajando para ti</p>
+    </div>
+  );
+
+  return (
+    <div className="max-w-lg mx-auto">
+      {/* Header */}
+      <div className="px-5 pt-8 pb-2 flex items-center justify-between">
+        <Logo size="sm" />
+        <span className="text-xs font-semibold text-gray-400 bg-white px-3 py-1.5 rounded-full border border-gray-200">
+          ✨ Claude AI
+        </span>
+      </div>
+
+      <div className="px-5 pb-2">
+        <h1 className="text-xl font-bold text-gray-900">Crear contenido</h1>
+      </div>
+
+      <form onSubmit={handleGenerate} className="px-5 space-y-4 pb-4">
+        {/* Nombre */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Nombre de tu organización
+          </label>
+          <input value={form.nombreOrganizacion} onChange={e => set("nombreOrganizacion", e.target.value)}
+            placeholder="Ej: Fundación Futuro Verde" required
+            className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors"
+            onFocus={e => e.target.style.borderColor = "#f9b23b"}
+            onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+        </div>
+
+        {/* Tipo */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Tipo</label>
+          <div className="flex gap-2">
+            {TIPOS.map(({ value, label, emoji }) => (
+              <button key={value} type="button" onClick={() => set("tipoOrganizacion", value)}
+                className="flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all"
+                style={pill(form.tipoOrganizacion === value)}>
+                <span className="block text-lg mb-0.5">{emoji}</span>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Red social */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Red social</label>
+          <div className="flex gap-2">
+            {RED_OPTIONS.map(({ value, label, emoji }) => (
+              <button key={value} type="button" onClick={() => set("redSocial", value)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                style={pill(form.redSocial === value)}>
+                <span>{emoji}</span><span>{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {form.redSocial === "Instagram" && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Formato</p>
+              <div className="flex gap-2">
+                {FORMATO_OPTIONS.map(({ value, label }) => (
+                  <button key={value} type="button" onClick={() => set("formatoInstagram", value)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                    style={pill(form.formatoInstagram === value)}>
+                    <span className="inline-block rounded-sm"
+                      style={{ width: value === "Post 1080×1080" ? "11px" : "8px", height: value === "Post 1080×1080" ? "11px" : "14px",
+                        backgroundColor: form.formatoInstagram === value ? "#f9b23b" : "#d1d5db", flexShrink: 0 }} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {form.redSocial === "TikTok" && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Entorno o ubicación</p>
+              <textarea value={form.entornoTikTok || ""} onChange={e => set("entornoTikTok", e.target.value)}
+                rows={2} placeholder="Ej: Oficina moderna, exterior urbano..."
+                className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none resize-none transition-colors"
+                onFocus={e => e.target.style.borderColor = "#f9b23b"}
+                onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+            </div>
+          )}
+        </div>
+
+        {/* Tema */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">¿Sobre qué publicar?</label>
+          <textarea value={form.tema} onChange={e => set("tema", e.target.value)}
+            rows={3} placeholder="Describe el tema o mensaje que quieres comunicar..." required
+            className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none resize-none transition-colors"
+            onFocus={e => e.target.style.borderColor = "#f9b23b"}
+            onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+        </div>
+
+        {/* Tono */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Tono</label>
+          <div className="flex gap-2 flex-wrap">
+            {TONOS.map(t => (
+              <button key={t} type="button" onClick={() => set("tono", t)}
+                className="px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                style={pill(form.tono === t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Opciones */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          {(["incluirHashtags", "incluirEmojis"] as const).map(key => (
+            <button key={key} type="button" onClick={() => set(key, !form[key])}
+              className="w-full flex items-center justify-between">
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-700">
+                  {key === "incluirHashtags" ? "Incluir hashtags" : "Incluir emojis"}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {key === "incluirHashtags" ? "Hashtags relevantes" : "Emojis expresivos"}
+                </p>
+              </div>
+              <div className="w-11 h-6 rounded-full relative transition-all flex-shrink-0"
+                style={{ backgroundColor: form[key] ? "#f9b23b" : "#e5e7eb" }}>
+                <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-all"
+                  style={{ left: form[key] ? "calc(100% - 22px)" : "2px" }} />
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {error && (
+          <div className="rounded-xl p-3 bg-red-50 border border-red-100">
+            <p className="text-xs text-red-600 font-medium">⚠️ {error}</p>
+          </div>
+        )}
+
+        <button type="submit" disabled={!form.nombreOrganizacion.trim() || !form.tema.trim()}
+          className="w-full py-4 rounded-2xl font-bold text-white text-base disabled:opacity-40 transition-all active:scale-[0.98]"
+          style={{ backgroundColor: "#f9b23b" }}>
+          Generar contenido
+        </button>
+      </form>
+    </div>
+  );
+}
