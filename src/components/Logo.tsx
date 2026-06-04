@@ -15,30 +15,17 @@ const FONT_SIZES: Record<NonNullable<LogoProps["size"]>, number> = {
 export default function Logo({ size = "md" }: LogoProps) {
   const fontSize = FONT_SIZES[size];
   return (
-    <span
-      className="inline-flex items-baseline font-black tracking-tight leading-none select-none"
-      style={{ fontSize }}
-    >
-      {/* "O" verde con "2" como superíndice anclado a su esquina superior derecha */}
-      <span
-        className="relative inline-block"
-        style={{ color: "#93bf30", marginRight: "0.3em" }}
-      >
+    <span className="inline-flex items-baseline font-black tracking-tight leading-none select-none" style={{ fontSize }}>
+      <span className="relative inline-block" style={{ color: "#93bf30" }}>
         O
-        <span
-          className="absolute font-black"
-          style={{
-            left: "100%",
-            top: "-0.05em",
-            fontSize: "0.5em",
-            lineHeight: 1,
-            transform: "translateY(-40%)",
-          }}
-        >
-          2
-        </span>
+        <span className="absolute font-black" style={{
+          right: "-0.45em",
+          top: "-0.1em",
+          fontSize: "0.45em",
+          lineHeight: 1,
+        }}>2</span>
       </span>
-      <span style={{ color: "#f9b23b" }}>Wave</span>
+      <span style={{ color: "#f9b23b", marginLeft: "0.3em" }}>Wave</span>
     </span>
   );
 }
