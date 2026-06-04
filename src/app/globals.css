@@ -18,8 +18,11 @@
 
 * { box-sizing: border-box; }
 
+html, body {
+  background-color: #0F0F0F;
+}
+
 body {
-  background: var(--bg);
   color: var(--black);
   font-family: 'Montserrat', sans-serif;
   -webkit-font-smoothing: antialiased;
