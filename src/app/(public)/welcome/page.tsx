@@ -11,9 +11,9 @@ export default function WelcomePage() {
           style={{ background: "radial-gradient(circle, #f9b23b 0%, transparent 70%)" }} />
       </div>
 
-      <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
+      <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center" style={{ paddingBottom: "100px" }}>
         {/* Logo */}
-        <img src="/logo.png" alt="o²Wave" height={310} style={{ height: 310, width: "auto" }} className="mb-8" />
+        <img src="/logo.png" alt="o²Wave" height={310} style={{ height: 310, width: "auto" }} className="mb-4" />
 
         {/* Animated wave */}
         <style>{`
@@ -23,7 +23,7 @@ export default function WelcomePage() {
           }
           .o2-wave { animation: o2-wave-move 6s linear infinite; }
         `}</style>
-        <div className="w-full overflow-hidden" style={{ height: 80, marginBottom: "2rem" }}>
+        <div className="w-full overflow-hidden" style={{ height: 80, marginBottom: "1rem" }}>
           <svg className="o2-wave" viewBox="0 0 1200 80" preserveAspectRatio="none"
             style={{ width: "200%", height: "100%", display: "block" }}>
             <path fill="#f9b23b" fillOpacity="0.8"
@@ -40,13 +40,13 @@ export default function WelcomePage() {
           <span style={{ color: "#f9b23b" }}>Nosotros el resto.</span>
         </h1>
 
-        <p className="text-gray-400 text-sm leading-relaxed max-w-xs mb-10">
+        <p className="text-gray-400 text-sm leading-relaxed max-w-xs mb-5">
           Genera contenido para redes sociales con IA.
           Diseñado para ONGs y PYMEs que quieren comunicar mejor, sin perder tiempo.
         </p>
 
         {/* Claude badge */}
-        <div className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full mb-10"
+        <div className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full mb-5"
           style={{ backgroundColor: "rgba(147,191,48,0.15)", color: "#93bf30", border: "1px solid rgba(147,191,48,0.3)" }}>
           <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#93bf30" }} />
           Potenciado por Claude AI
