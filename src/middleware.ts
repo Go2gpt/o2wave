@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/auth"];
+const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/auth", "/onboarding"];
 const AUTH_ROUTES = ["/login", "/register", "/welcome"];
 
 export async function middleware(request: NextRequest) {
@@ -40,6 +40,26 @@ export async function middleware(request: NextRequest) {
   // Authenticated users shouldn't access auth pages
   if (session && AUTH_ROUTES.includes(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Force onboarding completion for authenticated users.
+  // Skip /onboarding and /auth (the flow itself) and /api (so the
+  // onboarding page's fetch to /api/analyze-web is not redirected).
+  if (
+    session &&
+    !pathname.startsWith("/onboarding") &&
+    !pathname.startsWith("/auth") &&
+    !pathname.startsWith("/api")
+  ) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_complete")
+      .eq("id", session.user.id)
+      .single();
+
+    if (!profile?.onboarding_complete) {
+      return NextResponse.redirect(new URL("/onboarding/web", request.url));
+    }
   }
 
   // Unauthenticated users can't access protected routes
