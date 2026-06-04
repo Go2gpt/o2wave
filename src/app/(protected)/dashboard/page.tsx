@@ -3,6 +3,15 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import Logo from "@/components/Logo";
 
+function limpiarMarkdown(texto: string): string {
+  return texto
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^---$/gm, '')
+    .replace(/^#{1,6}\s/gm, '')
+    .trim();
+}
+
 export default async function DashboardPage() {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -120,7 +129,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-gray-700 truncate">{post.tema}</p>
-                  <p className="text-[10px] text-gray-400 truncate">{post.texto?.slice(0, 50)}...</p>
+                  <p className="text-[10px] text-gray-400 truncate">{limpiarMarkdown(post.texto || "").slice(0, 50)}...</p>
                 </div>
                 <span className="text-[10px] text-gray-300 flex-shrink-0">
                   {new Date(post.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}

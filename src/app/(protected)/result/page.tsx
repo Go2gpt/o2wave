@@ -12,6 +12,15 @@ import type { GeneratedPost } from "@/types";
 type OverlayPos = "top" | "center" | "bottom";
 const POS_CLASS: Record<OverlayPos, string> = { top: "items-start", center: "items-center", bottom: "items-end" };
 
+function limpiarMarkdown(texto: string): string {
+  return texto
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^---$/gm, '')
+    .replace(/^#{1,6}\s/gm, '')
+    .trim();
+}
+
 function ResultContent() {
   const params = useSearchParams();
   const router = useRouter();
@@ -205,7 +214,7 @@ function ResultContent() {
         </div>
         <div className="px-4 py-3">
           <pre className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "inherit" }}>
-            {post.texto}
+            {limpiarMarkdown(post.texto || "")}
           </pre>
         </div>
         {/* Row 2: text actions */}
