@@ -15,6 +15,24 @@ export default function WelcomePage() {
         {/* Logo */}
         <img src="/logo.png" alt="o²Wave" height={310} style={{ height: 310, width: "auto" }} className="mb-8" />
 
+        {/* Animated wave */}
+        <style>{`
+          @keyframes o2-wave-move {
+            from { transform: translateX(-50%); }
+            to   { transform: translateX(0); }
+          }
+          .o2-wave { animation: o2-wave-move 6s linear infinite; }
+        `}</style>
+        <div className="w-full overflow-hidden" style={{ height: 50, marginBottom: "2rem" }}>
+          <svg className="o2-wave" viewBox="0 0 1200 50" preserveAspectRatio="none"
+            style={{ width: "200%", height: "100%", display: "block" }}>
+            <path fill="#f9b23b" fillOpacity="0.8"
+              d="M0,25 C150,45 350,5 600,25 C850,45 1050,5 1200,25 L1200,50 L0,50 Z" />
+            <path fill="#f9b23b" fillOpacity="0.2"
+              d="M0,30 C200,10 400,45 600,30 C800,10 1000,45 1200,30 L1200,50 L0,50 Z" />
+          </svg>
+        </div>
+
         {/* Headline */}
         <h1 className="text-2xl font-bold text-white leading-snug mb-3 max-w-xs">
           Tú pones un rato al día.
