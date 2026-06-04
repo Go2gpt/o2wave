@@ -1,16 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import { limpiarMarkdown } from "@/lib/formatText";
 import Logo from "@/components/Logo";
-
-function limpiarMarkdown(texto: string): string {
-  return texto
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .replace(/^---$/gm, '')
-    .replace(/^#{1,6}\s/gm, '')
-    .trim();
-}
 
 export default async function DashboardPage() {
   const supabase = createClient();

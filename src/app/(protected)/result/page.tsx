@@ -6,20 +6,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
+import { limpiarMarkdown } from "@/lib/formatText";
 import Spinner from "@/components/ui/Spinner";
 import type { GeneratedPost } from "@/types";
 
 type OverlayPos = "top" | "center" | "bottom";
 const POS_CLASS: Record<OverlayPos, string> = { top: "items-start", center: "items-center", bottom: "items-end" };
-
-function limpiarMarkdown(texto: string): string {
-  return texto
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .replace(/^---$/gm, '')
-    .replace(/^#{1,6}\s/gm, '')
-    .trim();
-}
 
 function ResultContent() {
   const params = useSearchParams();
@@ -91,9 +83,9 @@ function ResultContent() {
     } finally { setRegenTxt(false); }
   };
 
-  const copyText = () => { navigator.clipboard.writeText(post?.texto || ""); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copyText = () => { navigator.clipboard.writeText(limpiarMarkdown(post?.texto || "")); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const downloadText = () => {
-    const blob = new Blob([post?.texto || ""], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([limpiarMarkdown(post?.texto || "")], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
     a.download = `o2wave-texto-${id}.txt`; a.click();
   };
