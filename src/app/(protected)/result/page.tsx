@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
+import { pollForImage } from "@/lib/pollImage";
 import Spinner from "@/components/ui/Spinner";
 import type { GeneratedPost } from "@/types";
 
@@ -48,9 +49,12 @@ function ResultContent() {
       };
       const res = await fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData }) });
       const data = await res.json();
-      if (data.imagenUrl) {
-        await supabase.from("generated_posts").update({ imagen_url: data.imagenUrl }).eq("id", post.id);
-        setPost(p => p ? { ...p, imagen_url: data.imagenUrl } : p);
+      if (data.predictionId) {
+        const imagenUrl = await pollForImage(data.predictionId);
+        if (imagenUrl) {
+          await supabase.from("generated_posts").update({ imagen_url: imagenUrl }).eq("id", post.id);
+          setPost(p => p ? { ...p, imagen_url: imagenUrl } : p);
+        }
       }
     } finally { setRegenImg(false); }
   };

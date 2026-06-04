@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
+import { pollForImage } from "@/lib/pollImage";
 import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
 
 const TONOS: Tono[] = ["Motivador", "Informativo", "Cercano", "Urgente"];
@@ -66,7 +67,13 @@ export default function CreatePage() {
       const textData = await textRes.json();
       if (textData.error) throw new Error(textData.error);
 
+      // The image route returns a predictionId; poll our status endpoint
+      // (token stays server-side) until the image is ready.
       const imageData = imageRes ? await imageRes.json() : null;
+      let imagenUrl: string | undefined;
+      if (imageData?.predictionId) {
+        imagenUrl = (await pollForImage(imageData.predictionId)) ?? undefined;
+      }
 
       // Save to Supabase
       const { data: { user } } = await supabase.auth.getUser();
@@ -75,7 +82,7 @@ export default function CreatePage() {
         red_social: form.redSocial,
         formato: form.formatoInstagram,
         texto: textData.texto,
-        imagen_url: imageData?.imagenUrl,
+        imagen_url: imagenUrl,
         tema: form.tema,
         tono: form.tono,
         tipo_entidad: form.tipoOrganizacion,
