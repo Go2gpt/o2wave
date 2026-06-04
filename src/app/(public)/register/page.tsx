@@ -7,38 +7,35 @@ import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 
-const PLANES = [
+const BLOQUES = [
   {
-    id: "ong_pequena",
-    label: "ONG pequeña",
+    titulo: "ONG o entidad social",
+    subtitulo: "El precio depende de vuestra capacidad.",
     emoji: "🤝",
-    precio: null,
-    precioLabel: "Gratis",
-    desc: "Sin personal remunerado · Verificación de documentos",
     color: "#93bf30",
     bg: "#f0f7e6",
+    opciones: [
+      { id: "ong_pequena", label: "Pequeña · Gratis" },
+      { id: "ong_mediana", label: "Mediana · 9€/mes" },
+    ],
   },
   {
-    id: "ong_mediana",
-    label: "ONG mediana",
-    emoji: "🏛️",
-    precio: "9",
-    precioLabel: "9€/mes",
-    desc: "Con estructura y presupuesto",
-    color: "#93bf30",
-    bg: "#f0f7e6",
-  },
-  {
-    id: "empresa",
-    label: "Empresa",
+    titulo: "Empresa o negocio",
+    subtitulo: "Pymes sin equipo de redes.",
     emoji: "🏢",
-    precio: "9",
-    precioLabel: "9€/mes",
-    desc: "Early Bird · Primeros 100 usuarios",
     color: "#f9b23b",
     bg: "#fff8ef",
+    opciones: [
+      { id: "empresa", label: "Desde 9€/mes" },
+    ],
   },
 ];
+
+const TIPO_COLOR: Record<string, string> = {
+  ong_pequena: "#93bf30",
+  ong_mediana: "#93bf30",
+  empresa: "#f9b23b",
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -86,7 +83,7 @@ export default function RegisterPage() {
     }
   };
 
-  const selected = PLANES.find(p => p.id === tipo)!;
+  const selectedColor = TIPO_COLOR[tipo] ?? "#f9b23b";
 
   if (emailSent) {
     return (
@@ -119,47 +116,37 @@ export default function RegisterPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-1">Crear cuenta</h1>
         <p className="text-sm text-gray-500 mb-6">Elige tu tipo de entidad</p>
 
-        {/* Plan selector */}
-        <div className="space-y-2.5 mb-6">
-          {PLANES.map((plan) => (
-            <button key={plan.id} type="button" onClick={() => setTipo(plan.id)}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left"
-              style={tipo === plan.id
-                ? { borderColor: plan.color, backgroundColor: plan.bg }
-                : { borderColor: "#e5e7eb", backgroundColor: "#fff" }}>
-              <span className="text-2xl">{plan.emoji}</span>
-              <div className="flex-1">
-                <p className="font-bold text-sm" style={{ color: tipo === plan.id ? plan.color : "#374151" }}>
-                  {plan.label}
-                </p>
-                <p className="text-xs text-gray-400">{plan.desc}</p>
+        {/* Entity-type selector: two blocks */}
+        <div className="space-y-3 mb-4">
+          {BLOQUES.map((bloque) => (
+            <div key={bloque.titulo} className="rounded-2xl border-2 p-4"
+              style={{ borderColor: "#e5e7eb" }}>
+              <div className="flex items-center gap-2.5 mb-3">
+                <span className="text-xl">{bloque.emoji}</span>
+                <div>
+                  <p className="font-bold text-sm text-gray-900">{bloque.titulo}</p>
+                  <p className="text-xs text-gray-400">{bloque.subtitulo}</p>
+                </div>
               </div>
-              <div className="text-right">
-                {plan.precioLabel === "Gratis" ? (
-                  <p className="font-black text-lg" style={{ color: "#93bf30" }}>
-                    Gratis
-                  </p>
-                ) : (
-                  <p className="font-black text-lg" style={{ color: tipo === plan.id ? plan.color : "#374151" }}>
-                    {plan.precioLabel}
-                  </p>
-                )}
+              <div className="flex gap-2">
+                {bloque.opciones.map((op) => (
+                  <button key={op.id} type="button" onClick={() => setTipo(op.id)}
+                    className="flex-1 py-2.5 px-3 rounded-xl border-2 text-sm font-semibold transition-all"
+                    style={tipo === op.id
+                      ? { borderColor: bloque.color, backgroundColor: bloque.bg, color: bloque.color }
+                      : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280" }}>
+                    {op.label}
+                  </button>
+                ))}
               </div>
-            </button>
+            </div>
           ))}
         </div>
 
-        {/* Solidarity message for ONG */}
-        {(tipo === "ong_pequena" || tipo === "ong_mediana") && (
-          <div className="rounded-2xl p-4 mb-5 flex items-start gap-3"
-            style={{ backgroundColor: "#f0f7e6", border: "1px solid rgba(147,191,48,0.3)" }}>
-            <span className="text-lg">💚</span>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              <strong style={{ color: "#93bf30" }}>Precio solidario para el tercer sector.</strong>{" "}
-              Porque las organizaciones que cambian el mundo merecen las mismas herramientas que las grandes empresas.
-            </p>
-          </div>
-        )}
+        {/* Solidarity tagline */}
+        <p className="text-center text-xs text-gray-400 mb-6">
+          Las que pueden, sostienen a las que no pueden.
+        </p>
 
         {/* Form */}
         <form onSubmit={handleRegister} className="space-y-3">
@@ -170,7 +157,7 @@ export default function RegisterPage() {
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="hola@tuorganizacion.org" required
               className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
-              onFocus={e => e.target.style.borderColor = selected.color}
+              onFocus={e => e.target.style.borderColor = selectedColor}
               onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
           </div>
           <div>
@@ -180,7 +167,7 @@ export default function RegisterPage() {
             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               placeholder="Mínimo 8 caracteres" minLength={8} required
               className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
-              onFocus={e => e.target.style.borderColor = selected.color}
+              onFocus={e => e.target.style.borderColor = selectedColor}
               onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
           </div>
 
@@ -192,12 +179,12 @@ export default function RegisterPage() {
 
           <button type="submit" disabled={loading}
             className="w-full py-4 rounded-2xl font-bold text-white text-base mt-2 disabled:opacity-50 transition-all active:scale-[0.98]"
-            style={{ backgroundColor: selected.color }}>
+            style={{ backgroundColor: selectedColor }}>
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <Spinner /> Creando cuenta...
               </span>
-            ) : "Empezar gratis"}
+            ) : "Continuar"}
           </button>
         </form>
 
