@@ -26,8 +26,6 @@ export default async function DashboardPage() {
     .limit(3);
 
   const nombre = profile?.nombre_entidad || session.user.email?.split("@")[0] || "Usuario";
-  const hora = new Date().getHours();
-  const saludo = hora < 13 ? "Buenos días" : hora < 20 ? "Buenas tardes" : "Buenas noches";
 
   const nextDate = keyDates?.[0];
   const daysUntil = nextDate
@@ -35,10 +33,10 @@ export default async function DashboardPage() {
     : null;
 
   const QUICK_ACTIONS = [
-    { href: "/create", icon: "✨", label: "Crear post", color: "#f9b23b", bg: "#fff8ef" },
-    { href: "/calendar", icon: "📅", label: "Días clave", color: "#93bf30", bg: "#f0f7e6" },
-    { href: "/send",    icon: "📤", label: "Enviar PDF", color: "#6366f1", bg: "#eef2ff" },
-    { href: "/stats",   icon: "📊", label: "Estadísticas", color: "#ec4899", bg: "#fdf2f8" },
+    { href: "/create",   icon: "✨", title: "Crear contenido",          subtitle: "Instagram, Facebook o TikTok.", color: "#f9b23b", bg: "#fff8ef" },
+    { href: "/calendar", icon: "📅", title: "Calendario de días clave", subtitle: "3 eventos esta semana.",        color: "#93bf30", bg: "#f0f7e6" },
+    { href: "/send",     icon: "📤", title: "Envío automático",         subtitle: "Pack semanal en PDF listo.",    color: "#6366f1", bg: "#eef2ff" },
+    { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8" },
   ];
 
   const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵" };
@@ -57,7 +55,7 @@ export default async function DashboardPage() {
 
       {/* Greeting */}
       <div className="px-5 mb-5">
-        <h1 className="text-xl font-bold text-gray-900">{saludo}, {nombre} 👋</h1>
+        <h1 className="text-xl font-bold text-gray-900">Hola, {nombre} 👋</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           {recentPosts?.length
             ? `Tienes ${recentPosts.length} publicación${recentPosts.length > 1 ? "es" : ""} reciente${recentPosts.length > 1 ? "s" : ""}.`
@@ -88,13 +86,19 @@ export default async function DashboardPage() {
       {/* Quick actions */}
       <div className="px-5 mb-5">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Acceso rápido</p>
-        <div className="grid grid-cols-4 gap-2">
-          {QUICK_ACTIONS.map(({ href, icon, label, color, bg }) => (
+        <div className="space-y-2">
+          {QUICK_ACTIONS.map(({ href, icon, title, subtitle, color, bg }) => (
             <Link key={href} href={href}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all active:scale-95"
-              style={{ backgroundColor: bg }}>
-              <span className="text-2xl">{icon}</span>
-              <span className="text-[10px] font-bold text-center" style={{ color }}>{label}</span>
+              className="bg-white rounded-2xl p-3.5 flex items-center gap-3 shadow-sm transition-all active:scale-[0.98]">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                style={{ backgroundColor: bg }}>
+                {icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-800">{title}</p>
+                <p className="text-xs text-gray-400">{subtitle}</p>
+              </div>
+              <span className="text-lg font-bold flex-shrink-0" style={{ color }}>→</span>
             </Link>
           ))}
         </div>
