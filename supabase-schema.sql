@@ -32,8 +32,8 @@ CREATE POLICY "Users can insert own profile"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email)
-  VALUES (NEW.id, NEW.email);
+  INSERT INTO public.profiles (id, email, tipo_entidad)
+  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'tipo_entidad');
   RETURN NEW;
 END;
 $$;
