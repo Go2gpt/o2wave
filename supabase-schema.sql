@@ -47,7 +47,7 @@ CREATE TRIGGER on_auth_user_created
 -- 2. BRAND IDENTITY
 CREATE TABLE IF NOT EXISTS public.brand_identity (
   id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id      UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  user_id      UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
   colores      JSONB DEFAULT '[]',
   tipografia   TEXT,
   estilo       TEXT,

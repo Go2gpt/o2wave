@@ -56,7 +56,7 @@ export default function OnboardingIdentityPage() {
       const webUrl = sessionStorage.getItem("web_url") || "";
 
       // Save brand identity
-      await supabase.from("brand_identity").upsert({
+      const { error: brandError } = await supabase.from("brand_identity").upsert({
         user_id: user.id,
         colores,
         tipografia,
@@ -64,14 +64,16 @@ export default function OnboardingIdentityPage() {
         web_url: webUrl,
         raw_analysis: analysis as unknown as Record<string, unknown>,
       }, { onConflict: "user_id" });
+      if (brandError) { console.error("brand_identity error:", brandError); setSaving(false); return; }
 
       // Update profile
-      await supabase.from("profiles").update({
+      const { error: profileError } = await supabase.from("profiles").update({
         nombre_entidad: nombre,
         sector,
         web_url: webUrl,
         onboarding_complete: true,
       }).eq("id", user.id);
+      if (profileError) { console.error("profiles error:", profileError); setSaving(false); return; }
 
       sessionStorage.removeItem("brand_analysis");
       sessionStorage.removeItem("web_url");
