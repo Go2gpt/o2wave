@@ -43,12 +43,9 @@ export default function LoginPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-1">Bienvenido de vuelta</h1>
         <p className="text-sm text-gray-500 mb-8">Accede a tu cuenta</p>
 
-        {/* Illustration */}
+        {/* Logo */}
         <div className="flex justify-center mb-8">
-          <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl"
-            style={{ background: "linear-gradient(135deg, #0F0F0F 0%, #1c1c1c 100%)" }}>
-            <Logo size="md" />
-          </div>
+          <Logo size="xl" />
         </div>
 
         <form onSubmit={handleLogin} className="space-y-3">
