@@ -13,7 +13,7 @@ export default function WelcomePage() {
 
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
         {/* Logo */}
-        <img src="/logo.png" alt="o²Wave" height={280} style={{ height: 280, width: "auto" }} className="mb-8" />
+        <img src="/logo.png" alt="o²Wave" height={310} style={{ height: 310, width: "auto" }} className="mb-8" />
 
         {/* Headline */}
         <h1 className="text-2xl font-bold text-white leading-snug mb-3 max-w-xs">
