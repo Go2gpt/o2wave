@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ContentFormData } from "@/types";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const { formData }: { formData: ContentFormData } = await request.json();
@@ -12,7 +14,8 @@ export async function POST(request: NextRequest) {
     const aspectRatio = redSocial === "Instagram" && formatoInstagram === "Story 9:16" ? "9:16"
       : redSocial === "Facebook" ? "16:9" : "1:1";
 
-    const orgType = tipoOrganizacion === "ong" ? "non-profit organization" : "small business";
+    const orgType = (tipoOrganizacion === "ong_pequena" || tipoOrganizacion === "ong_mediana")
+      ? "non-profit organization" : "small business";
     const imagePrompt = `Professional social media image for ${redSocial} from ${orgType} "${nombreOrganizacion}" about "${tema}". Modern design, vibrant colors, high quality, clean composition. No text, no words, no letters in the image.`;
 
     const res = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {

@@ -1,5 +1,11 @@
 export type Plan = "free" | "basico" | "pro" | "enterprise";
-export type TipoEntidad = "ong" | "pyme" | "autonomo";
+export type TipoEntidad =
+  | "ong"
+  | "pyme"
+  | "autonomo"
+  | "ong_pequena"
+  | "ong_mediana"
+  | "empresa";
 export type RedSocial = "Instagram" | "Facebook" | "TikTok";
 export type FormatoInstagram = "Post 1080×1080" | "Story 9:16";
 export type Tono = "Motivador" | "Informativo" | "Cercano" | "Urgente";
