@@ -45,30 +45,37 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { tipo_entidad: tipo } },
+        options: {
+          data: { tipo_entidad: tipo },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/web`,
+        },
       });
       if (signUpError) throw signUpError;
 
-      // Update profile with tipo_entidad
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      // If email confirmation is disabled, a session is returned immediately
+      // and we can go straight into onboarding. Otherwise, prompt the user to
+      // confirm via the email link (which lands on /auth/callback).
+      if (data.session) {
         await supabase.from("profiles").upsert({
-          id: user.id,
+          id: data.session.user.id,
           email,
           tipo_entidad: tipo,
           plan: "free",
         });
+        router.push("/onboarding/web");
+      } else {
+        setEmailSent(true);
       }
-      router.push("/onboarding/web");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al registrarse");
     } finally {
@@ -77,6 +84,25 @@ export default function RegisterPage() {
   };
 
   const selected = PLANES.find(p => p.id === tipo)!;
+
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-5 text-center">
+        <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mb-6"
+          style={{ backgroundColor: "#f0f7e6" }}>📩</div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Revisa tu correo</h2>
+        <p className="text-sm text-gray-500 mb-1">Hemos enviado un enlace de confirmación a</p>
+        <p className="text-sm font-semibold text-gray-800 mb-6">{email}</p>
+        <p className="text-xs text-gray-400 max-w-xs mb-8">
+          Pulsa el enlace del email para activar tu cuenta y continuar con la configuración.
+        </p>
+        <Link href="/login"
+          className="px-6 py-3 rounded-2xl font-semibold text-sm border-2 border-gray-200 text-gray-600">
+          Volver a iniciar sesión
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
