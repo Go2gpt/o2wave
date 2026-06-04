@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id                  UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email               TEXT NOT NULL,
   nombre_entidad      TEXT,
-  tipo_entidad        TEXT CHECK (tipo_entidad IN ('ong', 'pyme', 'autonomo')),
+  tipo_entidad        TEXT CHECK (tipo_entidad IN ('ong_pequena', 'ong_mediana', 'empresa')),
   sector              TEXT,
   web_url             TEXT,
   plan                TEXT DEFAULT 'free' CHECK (plan IN ('free', 'basico', 'pro', 'enterprise')),

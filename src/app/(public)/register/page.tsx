@@ -9,38 +9,41 @@ import { createClient } from "@/lib/supabase";
 
 const PLANES = [
   {
-    id: "ong",
-    label: "ONG / Asociación",
+    id: "ong_pequena",
+    label: "ONG pequeña",
     emoji: "🤝",
-    precio: "9",
-    desc: "Sin ánimo de lucro",
+    precio: null,
+    precioLabel: "Gratis",
+    desc: "Sin personal remunerado · Verificación de documentos",
     color: "#93bf30",
     bg: "#f0f7e6",
   },
   {
-    id: "autonomo",
-    label: "Autónomo / Freelance",
-    emoji: "💼",
-    precio: "14",
-    desc: "Profesional independiente",
-    color: "#f9b23b",
-    bg: "#fff8ef",
+    id: "ong_mediana",
+    label: "ONG mediana",
+    emoji: "🏛️",
+    precio: "9",
+    precioLabel: "9€/mes",
+    desc: "Con estructura y presupuesto",
+    color: "#93bf30",
+    bg: "#f0f7e6",
   },
   {
-    id: "pyme",
-    label: "PYME / Empresa",
+    id: "empresa",
+    label: "Empresa",
     emoji: "🏢",
-    precio: "19",
-    desc: "Pequeña o mediana empresa",
-    color: "#6366f1",
-    bg: "#eef2ff",
+    precio: "9",
+    precioLabel: "9€/mes",
+    desc: "Early Bird · Primeros 100 usuarios",
+    color: "#f9b23b",
+    bg: "#fff8ef",
   },
 ];
 
 export default function RegisterPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [tipo, setTipo] = useState<string>("ong");
+  const [tipo, setTipo] = useState<string>("ong_pequena");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -132,17 +135,22 @@ export default function RegisterPage() {
                 <p className="text-xs text-gray-400">{plan.desc}</p>
               </div>
               <div className="text-right">
-                <p className="font-black text-lg" style={{ color: tipo === plan.id ? plan.color : "#374151" }}>
-                  {plan.precio}€
-                </p>
-                <p className="text-[10px] text-gray-400">/mes</p>
+                {plan.precioLabel === "Gratis" ? (
+                  <p className="font-black text-lg" style={{ color: "#93bf30" }}>
+                    Gratis
+                  </p>
+                ) : (
+                  <p className="font-black text-lg" style={{ color: tipo === plan.id ? plan.color : "#374151" }}>
+                    {plan.precioLabel}
+                  </p>
+                )}
               </div>
             </button>
           ))}
         </div>
 
         {/* Solidarity message for ONG */}
-        {tipo === "ong" && (
+        {(tipo === "ong_pequena" || tipo === "ong_mediana") && (
           <div className="rounded-2xl p-4 mb-5 flex items-start gap-3"
             style={{ backgroundColor: "#f0f7e6", border: "1px solid rgba(147,191,48,0.3)" }}>
             <span className="text-lg">💚</span>
