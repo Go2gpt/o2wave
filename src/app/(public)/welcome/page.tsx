@@ -18,6 +18,29 @@ export default function WelcomePage() {
           <Logo size="xl" />
         </div>
 
+        {/* Animated wave */}
+        <style>{`
+          @keyframes o2-wave-move {
+            from { transform: translateX(-50%); }
+            to   { transform: translateX(0); }
+          }
+          .o2-wave { animation: o2-wave-move 6s linear infinite; }
+        `}</style>
+        <div className="w-full overflow-hidden mb-8" style={{ height: 40 }}>
+          <svg
+            className="o2-wave"
+            viewBox="0 0 1200 40"
+            preserveAspectRatio="none"
+            style={{ width: "200%", height: "100%", display: "block" }}
+          >
+            <path
+              fill="#f9b23b"
+              fillOpacity="0.3"
+              d="M0,20 C150,40 350,0 600,20 C750,30 850,10 1200,20 L1200,40 L0,40 Z"
+            />
+          </svg>
+        </div>
+
         {/* Headline */}
         <h1 className="text-2xl font-bold text-white leading-snug mb-3 max-w-xs">
           Tu pones un rato al día.
