@@ -23,13 +23,13 @@ export default function WelcomePage() {
           }
           .o2-wave { animation: o2-wave-move 6s linear infinite; }
         `}</style>
-        <div className="w-full overflow-hidden" style={{ height: 50, marginBottom: "2rem" }}>
-          <svg className="o2-wave" viewBox="0 0 1200 50" preserveAspectRatio="none"
+        <div className="w-full overflow-hidden" style={{ height: 80, marginBottom: "2rem" }}>
+          <svg className="o2-wave" viewBox="0 0 1200 80" preserveAspectRatio="none"
             style={{ width: "200%", height: "100%", display: "block" }}>
             <path fill="#f9b23b" fillOpacity="0.8"
-              d="M0,25 C150,45 350,5 600,25 C850,45 1050,5 1200,25 L1200,50 L0,50 Z" />
+              d="M0,40 C150,75 350,5 600,40 C850,75 1050,5 1200,40 L1200,80 L0,80 Z" />
             <path fill="#f9b23b" fillOpacity="0.2"
-              d="M0,30 C200,10 400,45 600,30 C800,10 1000,45 1200,30 L1200,50 L0,50 Z" />
+              d="M0,45 C200,10 400,70 600,45 C800,10 1000,70 1200,45 L1200,80 L0,80 Z" />
           </svg>
         </div>
 
