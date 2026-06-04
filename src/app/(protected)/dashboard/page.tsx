@@ -1,8 +1,18 @@
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { limpiarMarkdown } from "@/lib/formatText";
 import Logo from "@/components/Logo";
+
+async function deletePost(formData: FormData) {
+  "use server";
+  const id = formData.get("id") as string;
+  if (!id) return;
+  const supabase = createClient();
+  await supabase.from("generated_posts").delete().eq("id", id);
+  revalidatePath("/dashboard");
+}
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -121,11 +131,20 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-gray-700 truncate">{post.tema}</p>
-                  <p className="text-[10px] text-gray-400 truncate">{limpiarMarkdown(post.texto || "").slice(0, 50)}...</p>
+                  <p className="text-[10px] text-gray-400 truncate">{limpiarMarkdown(post.texto || "").slice(0, 60)}...</p>
                 </div>
-                <span className="text-[10px] text-gray-300 flex-shrink-0">
-                  {new Date(post.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
-                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] text-gray-300">
+                    {new Date(post.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+                  </span>
+                  <form action={deletePost}>
+                    <input type="hidden" name="id" value={post.id} />
+                    <button type="submit" aria-label="Borrar post"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                      🗑️
+                    </button>
+                  </form>
+                </div>
               </div>
             ))}
           </div>
