@@ -26,10 +26,10 @@ export default function WelcomePage() {
         <div className="w-full overflow-hidden" style={{ height: 80, marginBottom: "2rem" }}>
           <svg className="o2-wave" viewBox="0 0 1200 80" preserveAspectRatio="none"
             style={{ width: "200%", height: "100%", display: "block" }}>
-            <path fill="#f9b23b" fillOpacity="0.85"
-              d="M0,55 C80,55 120,10 180,12 C240,14 270,58 340,55 C420,52 480,48 600,55 C680,55 720,10 780,12 C840,14 870,58 940,55 C1020,52 1080,48 1200,55 L1200,80 L0,80 Z" />
-            <path fill="#f9b23b" fillOpacity="0.25"
-              d="M0,65 C100,45 200,68 340,63 C480,58 540,66 600,65 C700,45 800,68 940,63 C1080,58 1140,66 1200,65 L1200,80 L0,80 Z" />
+            <path fill="#f9b23b" fillOpacity="0.8"
+              d="M0,30 C150,70 350,0 600,30 C850,70 1050,0 1200,30 L1200,80 L0,80 Z" />
+            <path fill="#f9b23b" fillOpacity="0.2"
+              d="M0,40 C200,5 400,70 600,40 C800,5 1000,70 1200,40 L1200,80 L0,80 Z" />
           </svg>
         </div>
 
