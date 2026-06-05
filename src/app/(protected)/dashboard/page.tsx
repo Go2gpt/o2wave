@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { limpiarMarkdown } from "@/lib/formatText";
+import { getPermisos } from "@/lib/permissions";
 import Logo from "@/components/Logo";
 
 async function deletePost(formData: FormData) {
@@ -37,6 +38,7 @@ export default async function DashboardPage() {
     .limit(3);
 
   const nombre = profile?.nombre_entidad || session.user.email?.split("@")[0] || "Usuario";
+  const permisos = getPermisos(profile?.tipo_entidad);
 
   const nextDate = keyDates?.[0];
   const daysUntil = nextDate
@@ -44,10 +46,10 @@ export default async function DashboardPage() {
     : null;
 
   const QUICK_ACTIONS = [
-    { href: "/create",   icon: "✨", title: "Crear contenido",          subtitle: "Instagram, Facebook o TikTok.", color: "#f9b23b", bg: "#fff8ef" },
-    { href: "/calendar", icon: "📅", title: "Calendario de días clave", subtitle: "3 eventos esta semana.",        color: "#93bf30", bg: "#f0f7e6" },
-    { href: "/send",     icon: "📤", title: "Envío automático",         subtitle: "Pack semanal en PDF listo.",    color: "#6366f1", bg: "#eef2ff" },
-    { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8" },
+    { href: "/create",   icon: "✨", title: "Crear contenido",          subtitle: "Instagram, Facebook o TikTok.", color: "#f9b23b", bg: "#fff8ef", locked: false },
+    { href: "/calendar", icon: "📅", title: "Calendario de días clave", subtitle: "3 eventos esta semana.",        color: "#93bf30", bg: "#f0f7e6", locked: !permisos.calendario },
+    { href: "/send",     icon: "📤", title: "Envío automático",         subtitle: "Pack semanal en PDF listo.",    color: "#6366f1", bg: "#eef2ff", locked: !permisos.envioPdf },
+    { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8", locked: !permisos.estadisticas },
   ];
 
   const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵" };
@@ -98,18 +100,19 @@ export default async function DashboardPage() {
       <div className="px-5 mb-5">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Acceso rápido</p>
         <div className="space-y-2">
-          {QUICK_ACTIONS.map(({ href, icon, title, subtitle, color, bg }) => (
-            <Link key={href} href={href}
-              className="bg-white rounded-2xl p-3.5 flex items-center gap-3 shadow-sm transition-all active:scale-[0.98]">
+          {QUICK_ACTIONS.map(({ href, icon, title, subtitle, color, bg, locked }) => (
+            <Link key={href} href={locked ? "/plans" : href}
+              className="bg-white rounded-2xl p-3.5 flex items-center gap-3 shadow-sm transition-all active:scale-[0.98]"
+              style={locked ? { opacity: 0.6 } : undefined}>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                 style={{ backgroundColor: bg }}>
-                {icon}
+                {locked ? "🔒" : icon}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-gray-800">{title}</p>
-                <p className="text-xs text-gray-400">{subtitle}</p>
+                <p className="text-xs text-gray-400">{locked ? "Disponible en plan superior" : subtitle}</p>
               </div>
-              <span className="text-lg font-bold flex-shrink-0" style={{ color }}>→</span>
+              <span className="text-lg font-bold flex-shrink-0" style={{ color: locked ? "#9ca3af" : color }}>→</span>
             </Link>
           ))}
         </div>

@@ -1,13 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
+import { createClient } from "@/lib/supabase";
+import { getPermisos } from "@/lib/permissions";
 
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const REDES = ["Instagram", "Facebook", "TikTok"];
 
 export default function SendPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.replace("/welcome"); return; }
+      const { data: profile } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
+      if (!getPermisos(profile?.tipo_entidad).envioPdf) { router.replace("/plans"); return; }
+      setAllowed(true);
+    })();
+  }, [router, supabase]);
+
   const [email, setEmail] = useState("");
   const [dia, setDia] = useState("Lunes");
   const [redes, setRedes] = useState<string[]>(["Instagram"]);
@@ -29,6 +46,12 @@ export default function SendPage() {
   const pill = (active: boolean) => active
     ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
     : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280" };
+
+  if (allowed === null) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Spinner size={8} color="gray-400" />
+    </div>
+  );
 
   if (sent) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 text-center">

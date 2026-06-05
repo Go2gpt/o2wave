@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
+import { getPermisos } from "@/lib/permissions";
 
 export default async function StatsPage() {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/welcome");
+
+  const { data: permProfile } = await supabase.from("profiles").select("tipo_entidad").eq("id", session.user.id).single();
+  if (!getPermisos(permProfile?.tipo_entidad).estadisticas) redirect("/plans");
 
   // User's own stats
   const { count: totalPosts } = await supabase

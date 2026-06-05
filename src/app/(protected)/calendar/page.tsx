@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import { getPermisos } from "@/lib/permissions";
 
 const TIPO_COLORS: Record<string, { bg: string; color: string; icon: string }> = {
   internacional: { bg: "#eef2ff", color: "#6366f1", icon: "🌍" },
@@ -28,7 +29,8 @@ export default async function CalendarPage() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/welcome");
 
-  const { data: profile } = await supabase.from("profiles").select("sector").eq("id", session.user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("sector, tipo_entidad").eq("id", session.user.id).single();
+  if (!getPermisos(profile?.tipo_entidad).calendario) redirect("/plans");
 
   // Fetch dates — sector-aware
   const today = new Date().toISOString().split("T")[0];

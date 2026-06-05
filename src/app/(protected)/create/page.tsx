@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
+import { getPermisos, contarPostsMes, type Permisos } from "@/lib/permissions";
 import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
 
 const TONOS: Tono[] = ["Motivador", "Informativo", "Cercano", "Urgente"];
@@ -45,6 +47,20 @@ export default function CreatePage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [permisos, setPermisos] = useState<Permisos | null>(null);
+  const [postsMes, setPostsMes] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
+      setPermisos(getPermisos(profile?.tipo_entidad));
+      setPostsMes(await contarPostsMes(supabase, user.id));
+    })();
+  }, [supabase]);
+
+  const limiteAlcanzado = !!permisos?.postsMaxMes && postsMes >= permisos.postsMaxMes;
 
   const set = <K extends keyof ContentFormData>(k: K, v: ContentFormData[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -52,6 +68,7 @@ export default function CreatePage() {
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nombreOrganizacion.trim() || !form.tema.trim()) return;
+    if (limiteAlcanzado) return;
     setError("");
     setLoading(true);
 
@@ -159,13 +176,15 @@ export default function CreatePage() {
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Red social</label>
           <div className="flex gap-2">
-            {RED_OPTIONS.map(({ value, label, emoji }) => (
-              <button key={value} type="button" onClick={() => set("redSocial", value)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
-                style={pill(form.redSocial === value)}>
-                <span>{emoji}</span><span>{label}</span>
-              </button>
-            ))}
+            {RED_OPTIONS
+              .filter(o => !permisos || (permisos.redesSociales as readonly string[]).includes(o.value))
+              .map(({ value, label, emoji }) => (
+                <button key={value} type="button" onClick={() => set("redSocial", value)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                  style={pill(form.redSocial === value)}>
+                  <span>{emoji}</span><span>{label}</span>
+                </button>
+              ))}
           </div>
 
           {form.redSocial === "Instagram" && (
@@ -250,11 +269,28 @@ export default function CreatePage() {
           </div>
         )}
 
-        <button type="submit" disabled={!form.nombreOrganizacion.trim() || !form.tema.trim()}
-          className="w-full py-4 rounded-2xl font-bold text-white text-base disabled:opacity-40 transition-all active:scale-[0.98]"
-          style={{ backgroundColor: "#f9b23b" }}>
-          Generar contenido
-        </button>
+        {permisos?.postsMaxMes != null && (
+          <div className="flex items-center justify-between text-xs font-semibold px-1">
+            <span className="text-gray-500">{postsMes} de {permisos.postsMaxMes} posts este mes</span>
+            {limiteAlcanzado && (
+              <Link href="/plans" className="font-bold" style={{ color: "#f9b23b" }}>Mejora tu plan →</Link>
+            )}
+          </div>
+        )}
+
+        {limiteAlcanzado ? (
+          <Link href="/plans"
+            className="block w-full py-4 rounded-2xl font-bold text-white text-base text-center transition-all active:scale-[0.98]"
+            style={{ backgroundColor: "#0F0F0F" }}>
+            🔒 Límite alcanzado · Mejora tu plan
+          </Link>
+        ) : (
+          <button type="submit" disabled={!form.nombreOrganizacion.trim() || !form.tema.trim()}
+            className="w-full py-4 rounded-2xl font-bold text-white text-base disabled:opacity-40 transition-all active:scale-[0.98]"
+            style={{ backgroundColor: "#f9b23b" }}>
+            Generar contenido
+          </button>
+        )}
       </form>
     </div>
   );
