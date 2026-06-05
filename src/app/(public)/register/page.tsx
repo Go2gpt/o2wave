@@ -43,9 +43,12 @@ export default function RegisterPage() {
   const [tipo, setTipo] = useState<string>("ong_pequena");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [nif, setNif] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+
+  const pideNif = tipo === "ong_pequena" || tipo === "ong_mediana";
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +59,7 @@ export default function RegisterPage() {
         email,
         password,
         options: {
-          data: { tipo_entidad: tipo },
+          data: { tipo_entidad: tipo, nif: pideNif ? nif : null },
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/web`,
         },
       });
@@ -70,6 +73,7 @@ export default function RegisterPage() {
           id: data.session.user.id,
           email,
           tipo_entidad: tipo,
+          nif: pideNif ? nif : null,
           plan: "free",
         });
         router.push("/onboarding/web");
@@ -170,6 +174,22 @@ export default function RegisterPage() {
               onFocus={e => e.target.style.borderColor = selectedColor}
               onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
           </div>
+
+          {pideNif && (
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                NIF de la entidad
+              </label>
+              <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())}
+                placeholder="Ej: G12345678" required
+                className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
+                onFocus={e => e.target.style.borderColor = selectedColor}
+                onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Necesario para verificar tu entidad sin ánimo de lucro.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl p-3 bg-red-50 border border-red-100">
