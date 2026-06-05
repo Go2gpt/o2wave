@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -27,6 +27,8 @@ function ResultContent() {
   const [copied, setCopied] = useState(false);
   const [regenImg, setRegenImg] = useState(false);
   const [regenTxt, setRegenTxt] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) { router.push("/create"); return; }
@@ -58,6 +60,33 @@ function ResultContent() {
         }
       }
     } finally { setRegenImg(false); }
+  };
+
+  const uploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !post) return;
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `${user.id}/${Date.now()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("post-images")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) { console.error("upload error:", upErr); return; }
+
+      const { data: pub } = supabase.storage.from("post-images").getPublicUrl(path);
+      const imagenUrl = pub.publicUrl;
+
+      await supabase.from("generated_posts").update({ imagen_url: imagenUrl }).eq("id", post.id);
+      setPost(p => p ? { ...p, imagen_url: imagenUrl } : p);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const regenerateText = async () => {
@@ -145,9 +174,9 @@ function ResultContent() {
                 <Spinner size={8} color="gray-300" />
               </div>
             )}
-            {regenImg && (
+            {(regenImg || uploading) && (
               <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
-                <Spinner /><p className="text-white text-sm font-semibold">Generando tu contenido...</p>
+                <Spinner /><p className="text-white text-sm font-semibold">{uploading ? "Subiendo imagen..." : "Generando tu contenido..."}</p>
               </div>
             )}
           </div>
@@ -155,7 +184,9 @@ function ResultContent() {
           {/* Row 1: image actions */}
           <div className="px-4 pt-3 pb-1 flex gap-2 flex-wrap">
             <button onClick={downloadImage} disabled={!post.imagen_url} className={btn} style={btnStyle}>↓ Imagen</button>
-            <button onClick={regenerateImage} disabled={regenImg} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
+            <button onClick={regenerateImage} disabled={regenImg || uploading} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
+            <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir imagen</button>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
             <button onClick={() => { setOverlayOpen(o => !o); if (!overlayText) setOverlayText(post.texto?.split("\n").find(l => l.trim()) || ""); }}
               className={btn} style={overlayOpen ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" } : btnStyle}>
               ✎ Editar texto
