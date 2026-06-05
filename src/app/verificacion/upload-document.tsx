@@ -42,14 +42,12 @@ export default function UploadDocument({ userId, reenvio = false }: { userId: st
         return
       }
 
-      // Guarda la ruta y deja el estado pendiente de revisión.
-      // En un reenvío tras rechazo, limpia el motivo anterior.
-      const { error: updErr } = await supabase
-        .from('profiles')
-        .update({ documento_url: path, estado_verificacion: 'pendiente', motivo_rechazo: null })
-        .eq('id', userId)
-      if (updErr) {
-        console.error('profile update error:', updErr)
+      // Registra el envío vía RPC SECURITY DEFINER: hace el UPDATE con los
+      // permisos del propietario de la función (no del usuario), evitando que
+      // el cliente pueda escribir estado_verificacion directamente.
+      const { error: rpcErr } = await supabase.rpc('submit_verification_document', { p_path: path })
+      if (rpcErr) {
+        console.error('rpc error:', rpcErr)
         setError('No se pudo guardar el documento. Inténtalo de nuevo.')
         return
       }
