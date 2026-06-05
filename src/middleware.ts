@@ -53,12 +53,25 @@ export async function middleware(request: NextRequest) {
   ) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("onboarding_complete")
+      .select("onboarding_complete, tipo_entidad, estado_verificacion")
       .eq("id", session.user.id)
       .single();
 
     if (!profile?.onboarding_complete) {
       return NextResponse.redirect(new URL("/onboarding/web", request.url));
+    }
+
+    // Gate de verificación documental para ONGs
+    const requiereVerificacion =
+      profile?.tipo_entidad === "ong_pequena" ||
+      profile?.tipo_entidad === "ong_mediana";
+
+    if (
+      requiereVerificacion &&
+      profile?.estado_verificacion !== "verificada" &&
+      !pathname.startsWith("/verificacion")
+    ) {
+      return NextResponse.redirect(new URL("/verificacion", request.url));
     }
   }
 
