@@ -64,3 +64,25 @@ export function priceId(plan: PlanActual, ciclo: PlanCiclo): string | null {
   const env = ENV_KEY[`${plan}_${ciclo}`];
   return (env && process.env[env]) || null;
 }
+
+/** Mapeo inverso: a partir de un price ID de Stripe, deduce plan + ciclo. */
+export function planDesdePrice(price: string | null | undefined): { plan: PlanActual; ciclo: PlanCiclo } | null {
+  if (!price) return null;
+  for (const [key, env] of Object.entries(ENV_KEY)) {
+    if (process.env[env] && process.env[env] === price) {
+      const ciclo: PlanCiclo = key.endsWith("_anual") ? "anual" : "mensual";
+      const plan = key.replace(/_(mensual|anual)$/, "") as PlanActual;
+      return { plan, ciclo };
+    }
+  }
+  return null;
+}
+
+/**
+ * Duración de la Fase 1 del Early Bird antes de pasar a Standard.
+ * Anual: 1 año (1 ciclo). Mensual: 12 meses (12 ciclos).
+ * (El SDK de Stripe usa `duration`, no `iterations`.)
+ */
+export function earlyBirdDuration(ciclo: PlanCiclo): { interval: "month" | "year"; interval_count: number } {
+  return ciclo === "anual" ? { interval: "year", interval_count: 1 } : { interval: "month", interval_count: 12 };
+}

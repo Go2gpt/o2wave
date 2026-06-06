@@ -76,11 +76,43 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS posts_gratis_usados int NOT
 > `ong_pequena` gratis hasta que se suscriban). Sebas es admin → acceso
 > indefinido (bypass por `es_admin`).
 
+## 6. Webhook (Fase 3) — configurar en Stripe Dashboard
+
+Crear un endpoint en **Developers → Webhooks** apuntando a
+`https://o2wave.app/api/stripe/webhook` y copiar su **signing secret**
+(`whsec_...`) a la env var `STRIPE_WEBHOOK_SECRET`.
+
+Eventos a suscribir:
+- `checkout.session.completed` → guarda `stripe_customer_id`, `stripe_subscription_id`, `plan_actual`, `plan_ciclo`, `plan_estado='activa'` en `profiles`. Si el plan es **Early Bird**, convierte la suscripción en un *Subscription Schedule* (ver §7).
+- `customer.subscription.created` / `customer.subscription.updated` → refleja `plan_actual`/`plan_ciclo` según el precio activo (incluye el salto Early Bird→Standard), `plan_estado` (active→activa, past_due/unpaid→suspendida, canceled→cancelada) y `plan_periodo_fin`.
+- `customer.subscription.deleted` → `plan_estado='cancelada'`, `plan_actual='ong_pequena'`.
+- `invoice.payment_failed` → `plan_estado='suspendida'`.
+- `invoice.payment_succeeded` → `plan_estado='activa'` + actualiza `plan_periodo_fin`.
+
+El checkout (`/api/stripe/checkout`) crea la sesión en modo `subscription` con
+`allow_promotion_codes`, `automatic_tax` (Stripe Tax) y mete `{user_id, plan, ciclo}`
+en metadata (sesión y suscripción).
+
+## 7. Early Bird → Standard (downgrade automático, Fase 7)
+
+Stripe Checkout no crea schedules directamente. Patrón implementado:
+1. El usuario paga **Early Bird** vía Checkout (precio 9€).
+2. En `checkout.session.completed`, el webhook hace
+   `subscriptionSchedules.create({ from_subscription })` y luego `update()` con 2 fases:
+   - **Fase 1**: precio Early Bird con `duration` = **1 año** (anual) o **12 meses** (mensual).
+   - **Fase 2**: precio **Standard** (sin `duration`/`end_date` → continúa indefinidamente).
+   - `end_behavior: "release"`.
+3. Al terminar la Fase 1, Stripe renueva ya al precio Standard y emite
+   `customer.subscription.updated`, que actualiza `plan_actual='standard'` en `profiles`.
+
+> Nota: el SDK usa `duration` (no `iterations`). No requiere configuración manual
+> en el Dashboard; todo lo hace el webhook.
+
 ## Pendiente (fases siguientes)
 - Fase 2: pantalla `/plans`.
-- Fase 3: `/api/stripe/checkout`, `/api/stripe/webhook` + configurar el webhook
-  en Stripe Dashboard apuntando a `https://o2wave.app/api/stripe/webhook`.
+- Fase 4: Customer Portal (`/api/stripe/portal`) + sección en `/perfil`.
 - Fase 4: Customer Portal (`/api/stripe/portal`) + sección en `/perfil`.
 - Fase 5/6: límites, posts gratis, suspensión.
-- Fase 7: downgrade Early Bird → Standard.
 - Fase 8: banner de pago fallido.
+
+✅ Hecho: Fase 1 (setup), Fase 3 (checkout + webhook), Fase 7 (Early Bird → Standard vía Subscription Schedule).

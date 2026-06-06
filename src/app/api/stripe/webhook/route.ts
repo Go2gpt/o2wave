@@ -1,0 +1,143 @@
+import { NextRequest, NextResponse } from "next/server";
+import type Stripe from "stripe";
+import { getStripe } from "@/lib/stripe";
+import { createAdminClient } from "@/lib/supabase-admin";
+import { planDesdePrice, priceId, earlyBirdDuration } from "@/lib/plans";
+import type { PlanActual, PlanCiclo, PlanEstado } from "@/types";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function estadoDeStatus(status: string): PlanEstado {
+  if (status === "active" || status === "trialing") return "activa";
+  if (status === "past_due" || status === "unpaid" || status === "incomplete") return "suspendida";
+  if (status === "canceled" || status === "incomplete_expired") return "cancelada";
+  return "activa";
+}
+
+function periodoFin(sub: Stripe.Subscription): string | null {
+  const s = sub as unknown as { current_period_end?: number; items?: { data?: { current_period_end?: number }[] } };
+  const ts = s.current_period_end ?? s.items?.data?.[0]?.current_period_end;
+  return ts ? new Date(ts * 1000).toISOString() : null;
+}
+
+async function patchPorCustomer(customerId: string, patch: Record<string, unknown>) {
+  if (!customerId) return;
+  await createAdminClient().from("profiles").update(patch).eq("stripe_customer_id", customerId);
+}
+
+/** Convierte una suscripción Early Bird recién creada en un schedule de 2 fases. */
+async function convertirEarlyBird(stripe: Stripe, subId: string, ciclo: PlanCiclo) {
+  const earlybird = priceId("earlybird", ciclo);
+  const standard = priceId("standard", ciclo);
+  if (!earlybird || !standard) { console.error("Early Bird: faltan price IDs"); return; }
+  try {
+    const schedule = await stripe.subscriptionSchedules.create({ from_subscription: subId });
+    const start = schedule.phases[0]?.start_date;
+    await stripe.subscriptionSchedules.update(schedule.id, {
+      end_behavior: "release",
+      phases: [
+        { items: [{ price: earlybird, quantity: 1 }], start_date: start, duration: earlyBirdDuration(ciclo) },
+        { items: [{ price: standard, quantity: 1 }] }, // fase final sin fin → continúa indefinidamente
+      ],
+    });
+    console.log(`Early Bird ${ciclo}: schedule ${schedule.id} (Fase 1 ${JSON.stringify(earlyBirdDuration(ciclo))} → Standard)`);
+  } catch (e) {
+    // Reintento del webhook con schedule ya creado, o suscripción ya programada.
+    console.error("convertirEarlyBird:", e instanceof Error ? e.message : e);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const sig = request.headers.get("stripe-signature");
+  if (!secret || !sig) return NextResponse.json({ error: "Webhook no configurado" }, { status: 400 });
+
+  const stripe = getStripe();
+  let event: Stripe.Event;
+  try {
+    const raw = await request.text();
+    event = stripe.webhooks.constructEvent(raw, sig, secret);
+  } catch (e) {
+    console.error("Firma de webhook inválida:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Firma inválida" }, { status: 400 });
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode !== "subscription") break;
+        const userId = session.metadata?.user_id || session.client_reference_id || "";
+        const plan = (session.metadata?.plan || "") as PlanActual;
+        const ciclo = (session.metadata?.ciclo || "mensual") as PlanCiclo;
+        const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+        const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
+
+        if (userId) {
+          await createAdminClient().from("profiles").update({
+            stripe_customer_id: customerId ?? null,
+            stripe_subscription_id: subId ?? null,
+            plan_actual: plan || null,
+            plan_ciclo: ciclo,
+            plan_estado: "activa" as PlanEstado,
+          }).eq("id", userId);
+        }
+
+        // Early Bird → programar el salto a Standard en la renovación.
+        if (plan === "earlybird" && subId) await convertirEarlyBird(stripe, subId, ciclo);
+        break;
+      }
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const sub = event.data.object as Stripe.Subscription;
+        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+        const price = sub.items.data[0]?.price?.id;
+        const mapped = planDesdePrice(price);
+        const patch: Record<string, unknown> = {
+          stripe_subscription_id: sub.id,
+          plan_estado: estadoDeStatus(sub.status),
+          plan_periodo_fin: periodoFin(sub),
+        };
+        // Refleja el plan/ciclo según el precio activo (incluye el salto Early Bird→Standard).
+        if (mapped) { patch.plan_actual = mapped.plan; patch.plan_ciclo = mapped.ciclo; }
+        await patchPorCustomer(customerId, patch);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+        await patchPorCustomer(customerId, { plan_estado: "cancelada" as PlanEstado, plan_actual: "ong_pequena" as PlanActual });
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const inv = event.data.object as Stripe.Invoice;
+        const customerId = typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
+        if (customerId) await patchPorCustomer(customerId, { plan_estado: "suspendida" as PlanEstado });
+        break;
+      }
+
+      case "invoice.payment_succeeded": {
+        const inv = event.data.object as Stripe.Invoice;
+        const customerId = typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
+        const periodEndTs = inv.lines?.data?.[0]?.period?.end;
+        if (customerId) {
+          await patchPorCustomer(customerId, {
+            plan_estado: "activa" as PlanEstado,
+            ...(periodEndTs ? { plan_periodo_fin: new Date(periodEndTs * 1000).toISOString() } : {}),
+          });
+        }
+        break;
+      }
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (e) {
+    console.error(`webhook ${event.type} error:`, e instanceof Error ? e.message : e);
+    // Devolvemos 200 para que Stripe no reintente indefinidamente errores no recuperables.
+    return NextResponse.json({ received: true, warn: "handler error" });
+  }
+}
