@@ -39,18 +39,18 @@ export async function POST(request: NextRequest) {
       await getResend().emails.send({
         from: FROM_EMAIL,
         to: target.email,
-        subject: "Necesitamos revisar tu verificación en O2Wave",
+        subject: "Necesitamos revisar tu verificación en o2Wave",
         html: `
           <div style="font-family:Arial,sans-serif;color:#0F0F0F;line-height:1.6">
             <h2 style="color:#f9b23b;margin-bottom:8px">Tu verificación necesita una revisión</h2>
             <p>Hola,</p>
-            <p>No hemos podido completar la verificación de tu organización en <strong>O2Wave</strong>.</p>
+            <p>No hemos podido completar la verificación de tu organización en <strong>o2Wave</strong>.</p>
             <div style="border-left:3px solid #f9b23b;background:#fff8ef;padding:10px 14px;margin:16px 0">
               <strong>Motivo:</strong><br/>${motivoLimpio}
             </div>
             <p>Puedes subir un documento nuevo entrando en
             <a href="https://o2wave.app/verificacion" style="color:#93bf30;font-weight:bold">o2wave.app/verificacion</a>.</p>
-            <p style="color:#6b7280;font-size:13px;margin-top:24px">El equipo de O2Wave</p>
+            <p style="color:#6b7280;font-size:13px;margin-top:24px">El equipo de o2Wave</p>
           </div>`,
       });
     }

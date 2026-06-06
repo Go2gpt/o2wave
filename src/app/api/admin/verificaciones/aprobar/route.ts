@@ -42,15 +42,15 @@ export async function POST(request: NextRequest) {
       await getResend().emails.send({
         from: FROM_EMAIL,
         to: target.email,
-        subject: "Tu organización ha sido verificada en O2Wave",
+        subject: "Tu organización ha sido verificada en o2Wave",
         html: `
           <div style="font-family:Arial,sans-serif;color:#0F0F0F;line-height:1.6">
             <h2 style="color:#93bf30;margin-bottom:8px">¡Verificación completada! 🎉</h2>
             <p>Hola,</p>
-            <p>Hemos verificado tu ${tipo} en <strong>O2Wave</strong>. Tu cuenta ya está activa
+            <p>Hemos verificado tu ${tipo} en <strong>o2Wave</strong>. Tu cuenta ya está activa
             y puedes acceder a <strong>todas las funciones</strong> de tu plan.</p>
             <p>Entra y empieza a generar contenido para tu comunidad.</p>
-            <p style="color:#6b7280;font-size:13px;margin-top:24px">Comunicas tú, ayudas a muchos.<br/>El equipo de O2Wave</p>
+            <p style="color:#6b7280;font-size:13px;margin-top:24px">Comunicas tú, ayudas a muchos.<br/>El equipo de o2Wave</p>
           </div>`,
       });
     }

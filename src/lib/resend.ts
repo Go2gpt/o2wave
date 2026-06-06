@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-export const FROM_EMAIL = "O2Wave <noreply@generacion-o2.org>";
+export const FROM_EMAIL = "o2Wave <noreply@generacion-o2.org>";
 
 /**
  * Devuelve un cliente Resend inicializado. Valida la env var en runtime
