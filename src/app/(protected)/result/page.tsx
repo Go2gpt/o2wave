@@ -34,6 +34,7 @@ function ResultContent() {
   const [textEnabled, setTextEnabled] = useState(true);
   const [editingText, setEditingText] = useState(false);
   const [draftText, setDraftText] = useState("");
+  const [helpOpen, setHelpOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [sharingImg, setSharingImg] = useState(false);
   const [canShareFiles, setCanShareFiles] = useState(false);
@@ -360,11 +361,17 @@ function ResultContent() {
 
           {/* Compartir (Web Share API con archivos) */}
           {canShareFiles && (
-            <div className="px-4 pt-3 flex gap-2 flex-wrap">
+            <div className="px-4 pt-3">
               <button onClick={shareImage} disabled={!post.imagen_url || sharingImg}
-                className={btn} style={{ borderColor: "#f9b23b", backgroundColor: "#f9b23b", color: "#fff" }}>
+                className={`${btn} w-full justify-center`} style={{ borderColor: "#f9b23b", backgroundColor: "#f9b23b", color: "#fff" }}>
                 {sharingImg ? "Preparando..." : "📤 Compartir"}
               </button>
+              <p className="text-xs text-gray-500 text-center mt-2 leading-relaxed">
+                💡 ¿Primera vez? Pulsa Compartir, elige tu red, y al pegar el caption mantén pulsado el campo de texto y dale a &quot;Pegar&quot;.{" "}
+                <button onClick={() => setHelpOpen(true)} className="font-semibold underline" style={{ color: "#f9b23b" }}>
+                  Ver cómo funciona
+                </button>
+              </p>
             </div>
           )}
 
@@ -397,6 +404,30 @@ function ResultContent() {
                 Guardar
               </button>
               <button onClick={() => setEditingText(false)} className="w-full py-2.5 text-sm text-gray-500 font-medium">Cancelar</button>
+            </div>
+          </div>
+        )}
+
+        {/* Mini-modal: cómo publicar en redes */}
+        {helpOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-4" onClick={() => setHelpOpen(false)}>
+            <div className="bg-white rounded-3xl p-6 w-full sm:max-w-[480px] relative" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setHelpOpen(false)} aria-label="Cerrar"
+                className="absolute top-4 right-4 text-gray-300 hover:text-gray-600 text-xl leading-none">✕</button>
+              <h3 className="font-bold text-gray-900 text-lg mb-4 pr-6">Cómo publicar en redes</h3>
+              <ol className="space-y-3">
+                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📤</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Pulsa &quot;Compartir&quot;</strong> en o2Wave.</p></li>
+                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📱</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Elige tu red social</strong> (Instagram, Facebook, TikTok, WhatsApp...).</p></li>
+                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📋</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Sube la imagen.</strong> Cuando llegues al campo de caption (texto), <strong>mantén pulsado</strong> ahí.</p></li>
+                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📌</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Pulsa &quot;Pegar&quot;</strong> — tu texto se rellena automáticamente. ¡Listo, publica!</p></li>
+              </ol>
+              <p className="text-xs text-gray-400 mt-4 leading-relaxed">
+                o2Wave copia automáticamente tu caption al portapapeles para que solo tengas que pegarlo.
+              </p>
+              <button onClick={() => setHelpOpen(false)}
+                className="w-full py-3 rounded-2xl font-bold text-white text-sm mt-5" style={{ backgroundColor: "#f9b23b" }}>
+                Entendido
+              </button>
             </div>
           </div>
         )}
