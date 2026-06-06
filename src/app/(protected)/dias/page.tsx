@@ -12,13 +12,18 @@ export default async function DiasPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Gate de permisos: lectura mínima y robusta (solo columnas estables).
+  // No se acopla a columnas nuevas para que el bypass de admin nunca se rompa
+  // si una migración aún no se ha aplicado.
+  const { data: perfilBase } = await supabase
+    .from("profiles").select("tipo_entidad, es_admin").eq("id", user.id).single();
+  if (!getPermisos(perfilBase?.tipo_entidad, perfilBase?.es_admin).calendario) redirect("/plans");
+
   const { data: profile } = await supabase
     .from("profiles")
-    .select("categorias_preseleccionadas, mostrar_dias_espana, tipo_entidad, es_admin")
+    .select("categorias_preseleccionadas, mostrar_dias_espana")
     .eq("id", user.id)
     .single();
-
-  if (!getPermisos(profile?.tipo_entidad, profile?.es_admin).calendario) redirect("/plans");
 
   // Primera vez: preseleccionar con IA (idempotente, tolerante a fallos).
   if (profile && !profile.categorias_preseleccionadas) {
