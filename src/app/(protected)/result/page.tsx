@@ -211,6 +211,15 @@ function ResultContent() {
     if (!post?.imagen_url) return;
     setSharingImg(true);
     try {
+      const caption = limpiarMarkdown(post.texto || "");
+
+      // Workaround Instagram (descarta el text al recibir files): copiamos el
+      // caption al portapapeles antes de compartir. Dentro del gesto de usuario.
+      let copiado = false;
+      if (navigator.clipboard?.writeText) {
+        try { await navigator.clipboard.writeText(caption); copiado = true; } catch {}
+      }
+
       const aspect = aspectFor(post.red_social, post.formato);
       const res = await fetch("/api/compose-and-download", {
         method: "POST",
@@ -224,11 +233,12 @@ function ResultContent() {
       if (!res.ok) throw new Error("compose failed");
       const blob = await res.blob();
       const file = new File([blob], `o2wave-${id}.png`, { type: "image/png" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], text: limpiarMarkdown(post.texto || "") });
-      } else {
-        throw new Error("files no soportados");
-      }
+      if (!(navigator.canShare && navigator.canShare({ files: [file] }))) throw new Error("files no soportados");
+
+      // Justo antes del menú nativo, avisamos de que el caption está copiado.
+      if (copiado) setToast({ message: "Caption copiado. Pégalo en la app destino si no aparece automáticamente.", type: "info" });
+
+      await navigator.share({ files: [file], text: caption });
     } catch (e) {
       if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" });
     } finally {
@@ -348,20 +358,13 @@ function ResultContent() {
             </div>
           )}
 
-          {/* Compartir (Web Share API) */}
-          {(canShareFiles || canShareText) && (
+          {/* Compartir (Web Share API con archivos) */}
+          {canShareFiles && (
             <div className="px-4 pt-3 flex gap-2 flex-wrap">
-              {canShareFiles && (
-                <button onClick={shareImage} disabled={!post.imagen_url || sharingImg}
-                  className={btn} style={{ borderColor: "#f9b23b", backgroundColor: "#f9b23b", color: "#fff" }}>
-                  {sharingImg ? "Preparando..." : "📤 Compartir imagen"}
-                </button>
-              )}
-              {canShareText && (
-                <button onClick={() => shareText(limpiarMarkdown(post.texto || ""))} className={btn} style={btnStyle}>
-                  📤 Compartir texto
-                </button>
-              )}
+              <button onClick={shareImage} disabled={!post.imagen_url || sharingImg}
+                className={btn} style={{ borderColor: "#f9b23b", backgroundColor: "#f9b23b", color: "#fff" }}>
+                {sharingImg ? "Preparando..." : "📤 Compartir"}
+              </button>
             </div>
           )}
 
