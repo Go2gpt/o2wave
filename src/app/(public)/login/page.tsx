@@ -2,13 +2,12 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const supabase = createClient();
   const [email, setEmail] = useState("");
@@ -27,8 +26,10 @@ function LoginForm() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      router.push(redirectTo);
-      router.refresh();
+      // Navegación dura: garantiza que el servidor (middleware) reciba las
+      // cookies de sesión ya consolidadas antes de procesar el destino,
+      // evitando la carrera que mandaba a /onboarding/web por error.
+      window.location.assign(redirectTo);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al iniciar sesión";
       setError(msg === "Invalid login credentials" ? "Email o contraseña incorrectos" : msg);

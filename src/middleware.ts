@@ -54,27 +54,33 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api")
   ) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("onboarding_complete, tipo_entidad, estado_verificacion")
       .eq("id", session.user.id)
       .single();
 
-    if (!profile?.onboarding_complete) {
-      return NextResponse.redirect(new URL("/onboarding/web", request.url));
-    }
+    // Defensa: solo aplicamos los gates si la lectura del perfil fue exitosa
+    // y devolvió datos. Si la consulta falla (p. ej. carrera de cookies justo
+    // tras el login), NO expulsamos al usuario; en la siguiente navegación,
+    // con las cookies ya consolidadas, el gate vuelve a evaluarse.
+    if (!profileError && profile) {
+      if (!profile.onboarding_complete) {
+        return NextResponse.redirect(new URL("/onboarding/web", request.url));
+      }
 
-    // Gate de verificación documental para ONGs
-    const requiereVerificacion =
-      profile?.tipo_entidad === "ong_pequena" ||
-      profile?.tipo_entidad === "ong_mediana";
+      // Gate de verificación documental para ONGs
+      const requiereVerificacion =
+        profile.tipo_entidad === "ong_pequena" ||
+        profile.tipo_entidad === "ong_mediana";
 
-    if (
-      requiereVerificacion &&
-      profile?.estado_verificacion !== "verificada" &&
-      !pathname.startsWith("/verificacion")
-    ) {
-      return NextResponse.redirect(new URL("/verificacion", request.url));
+      if (
+        requiereVerificacion &&
+        profile.estado_verificacion !== "verificada" &&
+        !pathname.startsWith("/verificacion")
+      ) {
+        return NextResponse.redirect(new URL("/verificacion", request.url));
+      }
     }
   }
 
