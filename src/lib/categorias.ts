@@ -48,6 +48,10 @@ export interface DiaClave {
   ambito: string;
   relevancia: string;
   descripcion: string | null;
+  // Fechas personalizadas del usuario (tabla fechas_usuario):
+  recurrente?: boolean;            // undefined/true → se repite cada año; false → puntual
+  ano_especifico?: number | null;  // año para fechas puntuales
+  esFechaUsuario?: boolean;         // marca para renderizar el badge "Mi fecha"
 }
 
 export interface DiaProximo extends DiaClave {
@@ -56,18 +60,27 @@ export interface DiaProximo extends DiaClave {
 }
 
 /**
- * Para cada día (mes, dia) calcula su próxima ocurrencia desde hoy (este año, o
- * el siguiente si ya pasó), con los días que faltan. Ordena por fecha.
+ * Para cada día (mes, dia) calcula su próxima ocurrencia desde hoy y los días
+ * que faltan, y ordena por fecha. Los días clave normales se tratan como
+ * recurrentes (este año, o el siguiente si ya pasaron). Las fechas puntuales
+ * (recurrente === false) usan ano_especifico y se omiten si ya pasaron.
  */
 export function calcularProximos(dias: DiaClave[], hoy: Date = new Date()): DiaProximo[] {
   const hoyMid = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  return dias
-    .map((d) => {
+  const out: DiaProximo[] = [];
+  for (const d of dias) {
+    let fecha: Date;
+    if (d.recurrente === false) {
+      const year = d.ano_especifico ?? hoyMid.getFullYear();
+      fecha = new Date(year, d.mes - 1, d.dia);
+      if (fecha.getTime() < hoyMid.getTime()) continue; // puntual ya pasada → fuera
+    } else {
       const y = hoyMid.getFullYear();
-      let fecha = new Date(y, d.mes - 1, d.dia);
+      fecha = new Date(y, d.mes - 1, d.dia);
       if (fecha.getTime() < hoyMid.getTime()) fecha = new Date(y + 1, d.mes - 1, d.dia);
-      const diffDays = Math.round((fecha.getTime() - hoyMid.getTime()) / 86400000);
-      return { ...d, fechaISO: fecha.toISOString(), diffDays };
-    })
-    .sort((a, b) => a.fechaISO.localeCompare(b.fechaISO));
+    }
+    const diffDays = Math.round((fecha.getTime() - hoyMid.getTime()) / 86400000);
+    out.push({ ...d, fechaISO: fecha.toISOString(), diffDays });
+  }
+  return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO));
 }

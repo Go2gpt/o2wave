@@ -78,6 +78,10 @@ export default async function DashboardPage() {
   const QUICK_ACTIONS = [
     { href: "/create",   icon: "✨", title: "Crear contenido",          subtitle: "Instagram, Facebook o TikTok.", color: "#f9b23b", bg: "#fff8ef", locked: false },
     { href: "/dias",     icon: "📅", title: "Calendario de días clave", subtitle: subtituloCalendario,             color: "#93bf30", bg: "#f0f7e6", locked: !permisos.calendario },
+    // Tarjeta del pack: solo si el usuario activó el envío semanal.
+    ...(profile?.pack_semanal_activo
+      ? [{ href: "/pack", icon: "📦", title: "Mi pack semanal", subtitle: "Tu plan de contenido listo.", color: "#0ea5e9", bg: "#e0f2fe", locked: false }]
+      : []),
     { href: "/send",     icon: "📤", title: "Envío automático",         subtitle: "Pack semanal en PDF listo.",    color: "#6366f1", bg: "#eef2ff", locked: !permisos.envioPdf },
     { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8", locked: !permisos.estadisticas },
   ];

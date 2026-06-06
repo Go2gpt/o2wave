@@ -32,7 +32,17 @@ export interface ProfileData {
   hashtags_sugeridos: string[] | null;
   logros_numeros: string | null;
   info_extra: string | null;
+  pack_semanal_activo: boolean | null;
+  pack_dias_semana: number | null;
+  redes_activas: string[] | null;
 }
+
+const REDES_PACK = [
+  { value: "instagram", label: "Instagram", emoji: "📸" },
+  { value: "facebook", label: "Facebook", emoji: "👥" },
+  { value: "tiktok", label: "TikTok", emoji: "🎵" },
+];
+const DIAS_SEMANA_OPC = [3, 4, 5, 6, 7];
 
 interface Editable {
   nombre_entidad: string;
@@ -123,6 +133,14 @@ export default function ProfileForm({
   const [form, setForm] = useState<Editable>(initEditable);
   const [cats, setCats] = useState<string[]>(categoriasIniciales);
   const [mostrarEspana, setMostrarEspana] = useState<boolean>(mostrarDiasEspana);
+  // Pack semanal automático
+  const packActivoIni = initial.pack_semanal_activo ?? false;
+  const packDiasIni = initial.pack_dias_semana ?? 5;
+  const redesIni = (initial.redes_activas && initial.redes_activas.length ? initial.redes_activas : ["instagram"]);
+  const [packActivo, setPackActivo] = useState<boolean>(packActivoIni);
+  const [packDias, setPackDias] = useState<number>(packDiasIni);
+  const [redes, setRedes] = useState<string[]>(redesIni);
+  const toggleRed = (r: string) => setRedes((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
@@ -132,10 +150,15 @@ export default function ProfileForm({
   const toggleCat = (c: string) => setCats((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]);
 
   const catsDirty = JSON.stringify([...cats].sort()) !== JSON.stringify([...categoriasIniciales].sort());
+  const packDirty =
+    packActivo !== packActivoIni ||
+    packDias !== packDiasIni ||
+    JSON.stringify([...redes].sort()) !== JSON.stringify([...redesIni].sort());
   const dirty =
     JSON.stringify(form) !== JSON.stringify(initEditable) ||
     catsDirty ||
-    mostrarEspana !== mostrarDiasEspana;
+    mostrarEspana !== mostrarDiasEspana ||
+    packDirty;
 
   const esEmpresa = initial.tipo_entidad === "empresa";
 
@@ -162,6 +185,9 @@ export default function ProfileForm({
       info_extra: form.info_extra || null,
       colores_marca: form.colores_marca,
       mostrar_dias_espana: mostrarEspana,
+      pack_semanal_activo: packActivo,
+      pack_dias_semana: packDias,
+      redes_activas: redes.length ? redes : ["instagram"],
     };
     const { error } = await supabase.from("profiles").update(payload).eq("id", initial.id);
     if (error) { setSaving(false); setToast({ message: `Error: ${error.message}`, type: "error" }); return; }
@@ -321,6 +347,54 @@ export default function ProfileForm({
                 style={{ left: mostrarEspana ? "calc(100% - 22px)" : "2px" }} />
             </div>
           </button>
+        </section>
+
+        {/* Sección — Pack semanal automático */}
+        <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+          <button type="button" onClick={() => setPackActivo((v) => !v)} className="w-full flex items-center justify-between">
+            <div className="text-left">
+              <h2 className="text-sm font-bold text-gray-800">Pack semanal automático</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Activar envío semanal automático</p>
+            </div>
+            <div className="w-11 h-6 rounded-full relative transition-all flex-shrink-0"
+              style={{ backgroundColor: packActivo ? "#f9b23b" : "#e5e7eb" }}>
+              <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-all"
+                style={{ left: packActivo ? "calc(100% - 22px)" : "2px" }} />
+            </div>
+          </button>
+
+          {packActivo && (
+            <>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Días por semana</label>
+                <select value={packDias} onChange={(e) => setPackDias(Number(e.target.value))}
+                  className={inputCls} onFocus={onF} onBlur={onB}>
+                  {DIAS_SEMANA_OPC.map((n) => <option key={n} value={n}>{n} días</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Redes activas</label>
+                <div className="flex flex-wrap gap-2">
+                  {REDES_PACK.map(({ value, label, emoji }) => {
+                    const sel = redes.includes(value);
+                    return (
+                      <button key={value} type="button" onClick={() => toggleRed(value)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                        style={sel
+                          ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
+                          : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280" }}>
+                        <span>{emoji}</span><span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Cada domingo por la noche generamos automáticamente tu plan de contenido. Lo recibirás por email y podrás verlo dentro de la app.
+          </p>
         </section>
 
         {/* Sección 3 — Solo lectura */}

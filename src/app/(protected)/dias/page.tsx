@@ -41,13 +41,33 @@ export default async function DiasPage({ searchParams }: { searchParams: { repre
     .from("categorias_usuario").select("categoria").eq("user_id", user.id);
   const catList = (catRows || []).map((c) => c.categoria);
 
-  let proximos = [] as ReturnType<typeof calcularProximos>;
+  // Días clave de las categorías del usuario (si tiene).
+  let diasClave: DiaClave[] = [];
   if (catList.length) {
     const ambitos = profile?.mostrar_dias_espana === false ? ["internacional"] : ["internacional", "espana"];
     const { data: dias } = await supabase
       .from("dias_clave").select("*").in("categoria", catList).in("ambito", ambitos);
-    proximos = calcularProximos((dias || []) as DiaClave[]).slice(0, 30);
+    diasClave = (dias || []) as DiaClave[];
   }
 
-  return <DiasList proximos={proximos} hasCats={catList.length > 0} />;
+  // Fechas personalizadas del usuario → forma DiaClave con marca esFechaUsuario.
+  const { data: fechasRows } = await supabase
+    .from("fechas_usuario").select("*").eq("user_id", user.id);
+  const fechasUsuario: DiaClave[] = (fechasRows || []).map((f) => ({
+    id: f.id,
+    mes: f.mes,
+    dia: f.dia,
+    nombre: f.nombre,
+    categoria: "mi_fecha",
+    ambito: "personal",
+    relevancia: "alto",
+    descripcion: f.descripcion ?? null,
+    recurrente: f.recurrente ?? true,
+    ano_especifico: f.ano_especifico ?? null,
+    esFechaUsuario: true,
+  }));
+
+  const proximos = calcularProximos([...diasClave, ...fechasUsuario]).slice(0, 30);
+
+  return <DiasList proximos={proximos} hasCats={catList.length > 0} tieneFechas={fechasUsuario.length > 0} />;
 }

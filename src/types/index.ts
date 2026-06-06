@@ -67,6 +67,35 @@ export interface GuionTikTok {
   params?: { duracion: string; tono: string; entorno: string };
 }
 
+export type PackFuente = "dia_clave" | "fecha_usuario" | "ia_sugerencia";
+
+export interface PackDia {
+  fecha: string;
+  nombre_dia: string;
+  tipo: string;            // "instagram" | "facebook" | "tiktok"
+  tema: string;
+  imagen_url?: string | null;
+  titular?: string;
+  texto: string;
+  hashtags?: string[];
+  guion_tiktok?: GuionTikTok | null;
+  fuente: PackFuente;
+}
+
+export interface PackContenido {
+  dias: PackDia[];
+}
+
+export interface PackSemanal {
+  id: string;
+  user_id: string;
+  fecha_inicio: string;
+  pdf_url: string | null;
+  contenido: PackContenido;
+  email_enviado: boolean;
+  created_at: string;
+}
+
 export interface KeyDate {
   id: string;
   nombre: string;
