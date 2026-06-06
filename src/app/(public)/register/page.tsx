@@ -215,7 +215,14 @@ export default function RegisterPage() {
                 className="w-full border-2 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
                 style={{ borderColor: nifError ? "#f9b23b" : "#f3f4f6" }}
                 onFocus={e => e.target.style.borderColor = nifError ? "#f9b23b" : selectedColor}
-                onBlur={e => e.target.style.borderColor = nifError ? "#f9b23b" : "#f3f4f6"} />
+                onBlur={e => {
+                  // Feedback inmediato: valida al salir del campo (si hay algo escrito).
+                  if (nif.trim()) {
+                    const v = validarNIF(nif);
+                    setNifError(v.valido ? "" : (v.mensaje || "NIF no válido"));
+                  }
+                  e.target.style.borderColor = (nif.trim() && !validarNIF(nif).valido) ? "#f9b23b" : "#f3f4f6";
+                }} />
               {nifError ? (
                 <p className="text-[11px] font-medium mt-1.5" style={{ color: "#f9b23b" }}>⚠️ {nifError}</p>
               ) : (
