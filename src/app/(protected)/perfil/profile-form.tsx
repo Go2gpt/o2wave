@@ -179,7 +179,18 @@ export default function ProfileForm({
 
     setSaving(false);
     setToast({ message: "Cambios guardados", type: "success" });
-    router.refresh();
+
+    // Si venimos de otra pantalla (?volver=/ruta), volvemos allí tras guardar.
+    // Validamos que sea una ruta interna (empieza por "/" pero no "//", para
+    // evitar URLs externas / protocol-relative), igual que el ?redirect del login.
+    const volver = typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("volver")
+      : null;
+    if (volver && volver.startsWith("/") && !volver.startsWith("//")) {
+      setTimeout(() => router.push(volver), 900);
+    } else {
+      router.refresh();
+    }
   };
 
   const logout = async () => { await supabase.auth.signOut(); router.push("/welcome"); };

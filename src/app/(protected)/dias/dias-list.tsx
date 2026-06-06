@@ -64,7 +64,7 @@ export default function DiasList({ proximos, hasCats }: { proximos: DiaProximo[]
             <div className="text-4xl mb-3">🗓️</div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Aún no has elegido categorías de interés</p>
             <p className="text-xs text-gray-400 mb-4">Ve a tu perfil para personalizar tu calendario.</p>
-            <Link href="/perfil" className="inline-block px-5 py-2.5 rounded-xl font-bold text-white text-sm" style={{ backgroundColor: "#f9b23b" }}>
+            <Link href="/perfil?volver=/dias" className="inline-block px-5 py-2.5 rounded-xl font-bold text-white text-sm" style={{ backgroundColor: "#f9b23b" }}>
               Ir a Mi Perfil
             </Link>
           </div>

@@ -7,7 +7,7 @@ import DiasList from "./dias-list";
 
 export const dynamic = "force-dynamic";
 
-export default async function DiasPage() {
+export default async function DiasPage({ searchParams }: { searchParams: { represeleccionar?: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -18,6 +18,12 @@ export default async function DiasPage() {
   const { data: perfilBase } = await supabase
     .from("profiles").select("tipo_entidad, es_admin").eq("id", user.id).single();
   if (!getPermisos(perfilBase?.tipo_entidad, perfilBase?.es_admin).calendario) redirect("/plans");
+
+  // Re-disparar la preselección IA (solo admins): ?represeleccionar=true resetea
+  // la marca para que la lógica de abajo vuelva a ejecutarse. Útil para diagnóstico.
+  if (searchParams?.represeleccionar === "true" && perfilBase?.es_admin) {
+    await supabase.from("profiles").update({ categorias_preseleccionadas: false }).eq("id", user.id);
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
