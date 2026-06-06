@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
-import { pollForImage } from "@/lib/pollImage";
+import { pollForImage, aspectFor } from "@/lib/pollImage";
 import { getPermisos, contarPostsMes, type Permisos } from "@/lib/permissions";
 import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
 
@@ -84,12 +84,13 @@ export default function CreatePage() {
       const textData = await textRes.json();
       if (textData.error) throw new Error(textData.error);
 
-      // The image route returns a predictionId; poll our status endpoint
-      // (token stays server-side) until the image is ready.
+      // El endpoint de imagen devuelve un predictionId; al terminar, el servidor
+      // estampa el titular (textData.titular) y sube la imagen final.
       const imageData = imageRes ? await imageRes.json() : null;
       let imagenUrl: string | undefined;
       if (imageData?.predictionId) {
-        imagenUrl = (await pollForImage(imageData.predictionId)) ?? undefined;
+        const aspect = aspectFor(form.redSocial, form.formatoInstagram);
+        imagenUrl = (await pollForImage(imageData.predictionId, textData.titular || form.tema, aspect)) ?? undefined;
       }
 
       // Save to Supabase

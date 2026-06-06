@@ -5,13 +5,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import { pollForImage } from "@/lib/pollImage";
+import { pollForImage, aspectFor } from "@/lib/pollImage";
 import { limpiarMarkdown } from "@/lib/formatText";
 import Spinner from "@/components/ui/Spinner";
 import type { GeneratedPost } from "@/types";
 
-type OverlayPos = "top" | "center" | "bottom";
-const POS_CLASS: Record<OverlayPos, string> = { top: "items-start", center: "items-center", bottom: "items-end" };
 
 function ResultContent() {
   const params = useSearchParams();
@@ -21,9 +19,6 @@ function ResultContent() {
 
   const [post, setPost] = useState<GeneratedPost | null>(null);
   const [loading, setLoading] = useState(true);
-  const [overlayOpen, setOverlayOpen] = useState(false);
-  const [overlayText, setOverlayText] = useState("");
-  const [overlayPos, setOverlayPos] = useState<OverlayPos>("bottom");
   const [copied, setCopied] = useState(false);
   const [regenImg, setRegenImg] = useState(false);
   const [regenTxt, setRegenTxt] = useState(false);
@@ -53,7 +48,8 @@ function ResultContent() {
       const res = await fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData }) });
       const data = await res.json();
       if (data.predictionId) {
-        const imagenUrl = await pollForImage(data.predictionId);
+        const aspect = aspectFor(post.red_social, post.formato);
+        const imagenUrl = await pollForImage(data.predictionId, post.tema, aspect);
         if (imagenUrl) {
           await supabase.from("generated_posts").update({ imagen_url: imagenUrl }).eq("id", post.id);
           setPost(p => p ? { ...p, imagen_url: imagenUrl } : p);
@@ -159,16 +155,7 @@ function ResultContent() {
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
           <div className="relative w-full bg-gray-100" style={{ paddingTop: isStory ? "177.78%" : "100%" }}>
             {post.imagen_url ? (
-              <>
-                <img src={post.imagen_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                {overlayOpen && overlayText && (
-                  <div className={`absolute inset-0 flex flex-col ${POS_CLASS[overlayPos]} p-4 pointer-events-none`}>
-                    <div className="bg-black/60 rounded-xl px-3 py-2 backdrop-blur-sm">
-                      <p className="text-white text-sm font-bold leading-snug">{overlayText}</p>
-                    </div>
-                  </div>
-                )}
-              </>
+              <img src={post.imagen_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Spinner size={8} color="gray-300" />
@@ -187,31 +174,7 @@ function ResultContent() {
             <button onClick={regenerateImage} disabled={regenImg || uploading} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
             <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir imagen</button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
-            <button onClick={() => { setOverlayOpen(o => !o); if (!overlayText) setOverlayText(post.texto?.split("\n").find(l => l.trim()) || ""); }}
-              className={btn} style={overlayOpen ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" } : btnStyle}>
-              ✎ Editar texto
-            </button>
           </div>
-
-          {overlayOpen && (
-            <div className="mx-4 mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Posición</p>
-                <div className="flex gap-1">
-                  {(["top", "center", "bottom"] as OverlayPos[]).map(p => (
-                    <button key={p} onClick={() => setOverlayPos(p)}
-                      className="px-2 py-1 rounded-lg text-[11px] font-semibold border transition-all"
-                      style={overlayPos === p ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" } : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280" }}>
-                      {p === "top" ? "Arriba" : p === "center" ? "Centro" : "Abajo"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <textarea value={overlayText} onChange={e => setOverlayText(e.target.value)} rows={2}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none resize-none"
-                style={{ fontFamily: "inherit", borderColor: "#f9b23b" }} />
-            </div>
-          )}
         </div>
       )}
 

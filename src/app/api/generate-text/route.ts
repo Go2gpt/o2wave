@@ -45,7 +45,22 @@ Texto listo para publicar, sin explicaciones:`;
     });
 
     const texto = response.content[0].type === "text" ? response.content[0].text : "";
-    return NextResponse.json({ texto });
+
+    // Titular corto para estampar sobre la imagen (no aplica a TikTok, que no genera imagen).
+    let titular = "";
+    if (redSocial !== "TikTok") {
+      const tRes = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 40,
+        messages: [{
+          role: "user",
+          content: `Dame un titular muy corto (máximo 8 palabras), impactante y en castellano, para superponer sobre una imagen de redes sociales de "${nombreOrganizacion}" sobre: ${tema}. Responde SOLO con el titular, sin comillas ni explicaciones.`,
+        }],
+      });
+      titular = (tRes.content[0].type === "text" ? tRes.content[0].text : "").trim().replace(/^["'«»]|["'«»]$/g, "");
+    }
+
+    return NextResponse.json({ texto, titular });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Error desconocido";
     return NextResponse.json({ error: `Error generando texto: ${msg}` }, { status: 500 });

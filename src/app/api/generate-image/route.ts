@@ -4,7 +4,7 @@ import type { ContentFormData } from "@/types";
 export async function POST(request: NextRequest) {
   try {
     const { formData }: { formData: ContentFormData } = await request.json();
-    const { nombreOrganizacion, tipoOrganizacion, redSocial, formatoInstagram, tema } = formData;
+    const { tipoOrganizacion, redSocial, formatoInstagram, tema } = formData;
 
     const token = process.env.REPLICATE_API_TOKEN;
     if (!token) return NextResponse.json({ error: "REPLICATE_API_TOKEN no configurado" }, { status: 500 });
@@ -14,15 +14,27 @@ export async function POST(request: NextRequest) {
 
     const orgType = (tipoOrganizacion === "ong_pequena" || tipoOrganizacion === "ong_mediana")
       ? "non-profit organization" : "small business";
-    const imagePrompt = `Professional social media image for ${redSocial} from ${orgType} "${nombreOrganizacion}" about "${tema}". Modern design, vibrant colors, high quality, clean composition. No text, no words, no letters in the image.`;
 
-    // Create the prediction and return immediately — the client polls
-    // /api/generate-image/status for the result (no server-side polling,
-    // so the serverless function returns fast and never hits the timeout).
-    const res = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
+    // Prompt SIN texto ni logos: solo imagen visual. El texto se añade luego
+    // por código (overlay propio con Montserrat).
+    const imagePrompt = `Professional photographic illustration for the social media of a ${orgType}, about "${tema}". Modern, vibrant, high quality, clean and uncluttered composition. Clean photographic illustration. No text, no letters, no words, no typography, no logos, no watermarks, no signatures. Pure visual content only.`;
+
+    // FLUX Dev (mejor calidad base). Devolvemos el predictionId; el cliente
+    // hace polling y la composición del texto ocurre al terminar.
+    const res = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { prompt: imagePrompt, aspect_ratio: aspectRatio, output_format: "webp", output_quality: 90, num_outputs: 1 } }),
+      body: JSON.stringify({
+        input: {
+          prompt: imagePrompt,
+          aspect_ratio: aspectRatio,
+          num_outputs: 1,
+          guidance: 3.5,
+          num_inference_steps: 28,
+          output_format: "webp",
+          output_quality: 90,
+        },
+      }),
     });
 
     if (!res.ok) {
