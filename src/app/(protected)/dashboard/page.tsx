@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { limpiarMarkdown } from "@/lib/formatText";
 import { getPermisos } from "@/lib/permissions";
 import Logo from "@/components/Logo";
@@ -39,6 +40,18 @@ export default async function DashboardPage() {
 
   const nombre = profile?.nombre_entidad || session.user.email?.split("@")[0] || "Usuario";
   const permisos = getPermisos(profile?.tipo_entidad);
+
+  // Contador de verificaciones pendientes — solo para admins (service role)
+  let pendientesAdmin = 0;
+  if (profile?.es_admin) {
+    const adminCli = createAdminClient();
+    const { count } = await adminCli
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("estado_verificacion", "pendiente")
+      .not("documento_url", "is", null);
+    pendientesAdmin = count ?? 0;
+  }
 
   const nextDate = keyDates?.[0];
   const daysUntil = nextDate
@@ -117,6 +130,32 @@ export default async function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Administración (solo admins) */}
+      {profile?.es_admin && (
+        <div className="px-5 mb-5">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Administración</p>
+          <Link href="/admin"
+            className="rounded-2xl p-3.5 flex items-center gap-3 transition-all active:scale-[0.98]"
+            style={{ background: "linear-gradient(135deg, #0F0F0F 0%, #1c1c1c 100%)", display: "flex" }}>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+              style={{ backgroundColor: "rgba(249,178,59,0.15)" }}>
+              🛠️
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white">Administración</p>
+              <p className="text-xs text-gray-400">Panel interno de o2Wave</p>
+            </div>
+            {pendientesAdmin > 0 && (
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0"
+                style={{ backgroundColor: "#f9b23b", color: "#0F0F0F" }}>
+                {pendientesAdmin} pendiente{pendientesAdmin === 1 ? "" : "s"}
+              </span>
+            )}
+            <span className="text-lg font-bold flex-shrink-0" style={{ color: "#f9b23b" }}>→</span>
+          </Link>
+        </div>
+      )}
 
       {/* Recent posts */}
       <div className="px-5 mb-5">
