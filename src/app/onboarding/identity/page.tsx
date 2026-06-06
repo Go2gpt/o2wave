@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
+import { normalizarMarca } from "@/lib/formatText";
 
 interface BrandAnalysis {
   nombre: string;
@@ -66,9 +67,9 @@ export default function OnboardingIdentityPage() {
       }, { onConflict: "user_id" });
       if (brandError) { console.error("brand_identity error:", brandError); setSaving(false); return; }
 
-      // Update profile
+      // Update profile (normaliza la marca: "O2" → "o2")
       const { error: profileError } = await supabase.from("profiles").update({
-        nombre_entidad: nombre,
+        nombre_entidad: normalizarMarca(nombre),
         sector,
         web_url: webUrl,
         onboarding_complete: true,
