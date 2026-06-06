@@ -10,6 +10,11 @@ export type RedSocial = "Instagram" | "Facebook" | "TikTok";
 export type FormatoInstagram = "Post 1080×1080" | "Story 9:16";
 export type Tono = "Motivador" | "Informativo" | "Cercano" | "Urgente";
 
+// --- Suscripciones (Stripe) ---
+export type PlanActual = "ong_pequena" | "ong_mediana" | "earlybird" | "standard" | "pro";
+export type PlanCiclo = "mensual" | "anual";
+export type PlanEstado = "activa" | "cancelada" | "suspendida" | "trial";
+
 export interface Profile {
   id: string;
   email: string;
@@ -20,6 +25,14 @@ export interface Profile {
   plan: Plan;
   onboarding_complete: boolean;
   created_at: string;
+  // Stripe / suscripción
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  plan_actual?: PlanActual | null;
+  plan_ciclo?: PlanCiclo | null;
+  plan_estado?: PlanEstado | null;
+  plan_periodo_fin?: string | null;
+  posts_gratis_usados?: number | null;
 }
 
 export interface BrandIdentity {

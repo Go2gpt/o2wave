@@ -11,6 +11,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
     "@react-pdf/renderer": "^4.5.1",
+    "@stripe/stripe-js": "^9.7.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "ai": "^6.0.195",
@@ -20,6 +21,7 @@
     "react-dom": "^18",
     "resend": "^6.12.4",
     "sharp": "^0.34.5",
+    "stripe": "^22.2.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
