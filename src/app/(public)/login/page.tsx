@@ -18,6 +18,7 @@ function LoginForm() {
   // Solo se acepta una ruta interna (empieza por "/"); nunca una URL externa.
   const rawRedirect = params.get("redirect");
   const redirectTo = rawRedirect && rawRedirect.startsWith("/") ? rawRedirect : "/dashboard";
+  const porInactividad = params.get("reason") === "inactivity";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +47,15 @@ function LoginForm() {
       </div>
 
       <div className="flex-1 flex flex-col px-5 pb-8">
+        {porInactividad && (
+          <div className="rounded-xl p-3 mb-5 flex items-start gap-2"
+            style={{ backgroundColor: "#fff8ef", border: "1px solid rgba(249,178,59,0.4)" }}>
+            <span>⏱️</span>
+            <p className="text-xs font-medium" style={{ color: "#b9791a" }}>
+              Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.
+            </p>
+          </div>
+        )}
         <h1 className="text-xl font-bold text-gray-900 mb-1">Bienvenido de vuelta</h1>
         <p className="text-sm text-gray-500 mb-8">Accede a tu cuenta</p>
 
