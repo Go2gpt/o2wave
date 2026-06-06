@@ -52,6 +52,13 @@ export default function UploadDocument({ userId, reenvio = false }: { userId: st
         return
       }
 
+      // Aviso al admin (no bloqueante: si falla, el documento ya está registrado)
+      try {
+        await fetch('/api/verificaciones/notificar-admin', { method: 'POST' })
+      } catch (notifyErr) {
+        console.error('notificar-admin error:', notifyErr)
+      }
+
       router.refresh()
     } finally {
       setUploading(false)
