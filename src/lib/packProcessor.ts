@@ -13,23 +13,33 @@ const MODEL = "claude-sonnet-4-6";
 const TIEMPO_TOTAL_MS = 290_000;
 const MIN_MS_PARA_IMAGEN = 40_000;
 
-// Concurrencia de imágenes: evita la "estampida" de inits de fontconfig y acota
-// la memoria. Con ~30s/imagen y 3 en paralelo, 7 imágenes terminan en ~90s.
-const CONCURRENCIA_IMAGENES = 3;
+// DIAGNÓSTICO: concurrencia temporalmente a 1 (secuencial) para aislar si el
+// problema es de concurrencia o de otra cosa. Se subirá a 3 tras confirmar.
+const CONCURRENCIA_IMAGENES = 1;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Pre-calienta fontconfig/Pango ejecutando UNA composición de texto en serie.
- * Así la primera (y costosa) inicialización de fontconfig ocurre una sola vez
- * por instancia, antes de paralelizar — evita el error
+ * Pre-calienta fontconfig/Pango ejecutando UNA composición de texto.
+ * Singleton a nivel de módulo: la init costosa de fontconfig ocurre una sola
+ * vez por instancia (no por request), evitando el error
  * "Fontconfig error: Cannot load default config file" en las concurrentes.
  */
-async function calentarFontconfig(): Promise<void> {
-  try {
-    const dummy = await sharp({ create: { width: 16, height: 16, channels: 3, background: "#000000" } }).png().toBuffer();
-    await composeImage({ imageBuffer: dummy, headline: "·", positionX: 50, positionY: 50, fontSize: 24, aspectRatio: "1:1" });
-  } catch { /* el warm-up nunca debe romper el flujo */ }
+let _warmup: Promise<void> | null = null;
+function calentarFontconfig(): Promise<void> {
+  if (!_warmup) {
+    _warmup = (async () => {
+      const w = Date.now();
+      try {
+        const dummy = await sharp({ create: { width: 16, height: 16, channels: 3, background: "#000000" } }).png().toBuffer();
+        await composeImage({ imageBuffer: dummy, headline: "·", positionX: 50, positionY: 50, fontSize: 24, aspectRatio: "1:1" });
+        console.log(`warmup fontconfig OK en ${Date.now() - w}ms`);
+      } catch (e) {
+        console.error("warmup fontconfig FALLÓ:", e);
+      }
+    })();
+  }
+  return _warmup;
 }
 
 /** Ejecuta `fn` sobre `items` con un máximo de `limit` en paralelo (tolerante a fallos). */
@@ -182,49 +192,80 @@ Usa 3-4 segmentos. 10-12 hashtags.`;
 
 const aspectPara = (red: string) => (red === "Facebook" ? "16:9" : "1:1");
 
-/** Genera imagen FLUX (con prompt visual) + hornea titular con sharp + sube a post-images. Devuelve URL o null. */
+interface ImagenResultado { url: string | null; error: string | null; }
+
+/** Genera imagen FLUX (con prompt visual) + hornea titular con sharp + sube a post-images. */
 async function generarImagen(
-  admin: SupabaseClient, userId: string, promptImagen: string, titular: string, red: string, presupuestoMs: number,
-): Promise<string | null> {
+  admin: SupabaseClient, userId: string, promptImagen: string, titular: string, red: string, presupuestoMs: number, label: string,
+): Promise<ImagenResultado> {
   const token = process.env.REPLICATE_API_TOKEN;
-  if (!token || presupuestoMs < MIN_MS_PARA_IMAGEN) return null;
+  if (!token) { console.error(`${label}: sin REPLICATE_API_TOKEN`); return { url: null, error: "sin token replicate" }; }
+  if (presupuestoMs < MIN_MS_PARA_IMAGEN) { console.warn(`${label}: presupuesto insuficiente (${presupuestoMs}ms)`); return { url: null, error: `presupuesto insuficiente (${presupuestoMs}ms)` }; }
+  const t = Date.now();
+  const ms = () => Date.now() - t;
   try {
     const aspect = aspectPara(red);
-    // Usamos la descripción VISUAL de Claude y forzamos SIEMPRE el "sin texto"
-    // para que FLUX no pinte letras inventadas (el titular lo horneamos nosotros).
     const fluxPrompt = `${promptImagen} Sin texto, sin letras, sin palabras, sin logos. High quality, clean composition.`;
+
+    console.log(`${label}: pidiendo a FLUX (aspect ${aspect})...`);
     const startRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ input: { prompt: fluxPrompt, aspect_ratio: aspect, num_outputs: 1, guidance: 3.5, num_inference_steps: 28, output_format: "webp", output_quality: 90 } }),
     });
-    if (!startRes.ok) return null;
+    if (!startRes.ok) {
+      const body = await startRes.text();
+      console.error(`${label}: Replicate create ${startRes.status}: ${body.slice(0, 300)}`);
+      return { url: null, error: `replicate create ${startRes.status}: ${body.slice(0, 150)}` };
+    }
     const pred = await startRes.json();
     const id = pred.id as string;
+    console.log(`${label}: prediction ${id} creada en ${ms()}ms, polling...`);
 
     // Polling directo a Replicate dentro del presupuesto.
     const deadline = Date.now() + presupuestoMs - 4000;
     let rawUrl: string | null = null;
+    let ultimoEstado = "starting";
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 2000));
       const st = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-      if (!st.ok) continue;
+      if (!st.ok) { console.warn(`${label}: poll ${st.status} (reintentando)`); continue; }
       const d = await st.json();
+      ultimoEstado = d.status;
       if (d.status === "succeeded") { rawUrl = d.output?.[0] ?? null; break; }
-      if (d.status === "failed" || d.status === "canceled") return null;
+      if (d.status === "failed" || d.status === "canceled") {
+        console.error(`${label}: Replicate ${d.status}: ${JSON.stringify(d.error)?.slice(0, 200)}`);
+        return { url: null, error: `replicate ${d.status}: ${String(d.error).slice(0, 120)}` };
+      }
     }
-    if (!rawUrl) return null;
+    if (!rawUrl) { console.error(`${label}: timeout FLUX tras ${ms()}ms (estado ${ultimoEstado})`); return { url: null, error: `timeout flux (estado ${ultimoEstado})` }; }
+    console.log(`${label}: FLUX OK en ${ms()}ms, descargando...`);
 
     const imgRes = await fetch(rawUrl);
     const clean = Buffer.from(await imgRes.arrayBuffer());
-    const composed = await composeImage({ imageBuffer: clean, headline: titular, positionX: 50, positionY: 85, fontSize: 52, aspectRatio: aspect });
+    console.log(`${label}: imagen descargada (${clean.length}B) en ${ms()}ms, componiendo...`);
 
-    const filePath = `${userId}/pack-${Date.now()}.png`;
+    let composed: Buffer;
+    try {
+      composed = await composeImage({ imageBuffer: clean, headline: titular, positionX: 50, positionY: 85, fontSize: 52, aspectRatio: aspect });
+    } catch (e) {
+      console.error(`${label}: composeImage FALLÓ:`, e);
+      return { url: null, error: `compose: ${e instanceof Error ? e.message : String(e)}`.slice(0, 150) };
+    }
+    console.log(`${label}: composición OK en ${ms()}ms (${composed.length}B), subiendo a Storage...`);
+
+    const filePath = `${userId}/pack-${Date.now()}-${Math.round(presupuestoMs)}.png`;
     const { error } = await admin.storage.from("post-images").upload(filePath, composed, { contentType: "image/png", upsert: false });
-    if (error) return null;
-    return admin.storage.from("post-images").getPublicUrl(filePath).data.publicUrl;
-  } catch {
-    return null;
+    if (error) {
+      console.error(`${label}: Storage upload FALLÓ:`, error.message);
+      return { url: null, error: `storage: ${error.message}`.slice(0, 150) };
+    }
+    const url = admin.storage.from("post-images").getPublicUrl(filePath).data.publicUrl;
+    console.log(`${label}: OK total ${ms()}ms → ${url}`);
+    return { url, error: null };
+  } catch (e) {
+    console.error(`${label}: excepción tras ${ms()}ms:`, e);
+    return { url: null, error: `excepción: ${e instanceof Error ? e.message : String(e)}`.slice(0, 150) };
   }
 }
 
@@ -252,7 +293,7 @@ const RED_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "F
 
 /* --------------------------------- principal --------------------------------- */
 
-export interface ProcesarResultado { pack_id: string; dias: number; con_imagen: number; }
+export interface ProcesarResultado { pack_id: string; dias: number; con_imagen: number; fallos: string[]; }
 
 /**
  * Procesa un pack_job completo: arma los N días (fecha_usuario > día clave > IA),
@@ -340,16 +381,23 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
 
   // Pase 2: imágenes con concurrencia limitada (no TikTok), tolerante a fallos.
   let conImagen = 0;
+  const fallos: string[] = [];
   if (TIEMPO_TOTAL_MS - (Date.now() - t0) >= MIN_MS_PARA_IMAGEN) {
     await calentarFontconfig(); // init fontconfig una vez antes de paralelizar
-    const objetivos = contenido.filter((d) => d.tipo !== "tiktok");
-    const urls = await mapLimit(objetivos, CONCURRENCIA_IMAGENES, (d) => {
+    const objetivos = contenido.map((d, i) => ({ d, i })).filter((x) => x.d.tipo !== "tiktok");
+    const resultados = await mapLimit(objetivos, CONCURRENCIA_IMAGENES, ({ d, i }) => {
       const presupuesto = TIEMPO_TOTAL_MS - (Date.now() - t0); // recalculado por llamada
-      if (presupuesto < MIN_MS_PARA_IMAGEN) return Promise.resolve(null);
-      return generarImagen(admin, userId, d.prompt_imagen || promptImagenFallback(d.tema), d.titular || d.tema, RED_LABEL[d.tipo] || "Instagram", presupuesto);
+      const label = `Día ${i + 1} (${d.tipo})`;
+      if (presupuesto < MIN_MS_PARA_IMAGEN) return Promise.resolve({ url: null, error: `presupuesto agotado (${presupuesto}ms)` } as ImagenResultado);
+      return generarImagen(admin, userId, d.prompt_imagen || promptImagenFallback(d.tema), d.titular || d.tema, RED_LABEL[d.tipo] || "Instagram", presupuesto, label);
     });
-    urls.forEach((url, k) => { if (url) { objetivos[k].imagen_url = url; conImagen++; } });
+    resultados.forEach((res, k) => {
+      const { d, i } = objetivos[k];
+      if (res && res.url) { d.imagen_url = res.url; conImagen++; }
+      else fallos.push(`Día ${i + 1} (${d.tipo}): ${res?.error || "desconocido"}`);
+    });
   }
+  console.log(`pack ${userId}: ${conImagen}/${contenido.filter((d) => d.tipo !== "tiktok").length} imágenes OK; fallos: ${JSON.stringify(fallos)}`);
 
   // Guardar el pack y cerrar el job.
   const { data: pack, error: packErr } = await admin
@@ -360,7 +408,7 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
 
   await admin.from("pack_jobs").update({ estado: "done", pack_id: pack.id, updated_at: new Date().toISOString() }).eq("id", jobId);
 
-  return { pack_id: pack.id as string, dias: N, con_imagen: conImagen };
+  return { pack_id: pack.id as string, dias: N, con_imagen: conImagen, fallos };
 }
 
 export { MESES_DIA };
