@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase";
 import { pollForImage, aspectFor } from "@/lib/pollImage";
 import { limpiarMarkdown } from "@/lib/formatText";
 import Spinner from "@/components/ui/Spinner";
+import Toast, { type ToastState } from "@/components/Toast";
 import type { GeneratedPost } from "@/types";
 
 
@@ -34,6 +35,10 @@ function ResultContent() {
   const [editingText, setEditingText] = useState(false);
   const [draftText, setDraftText] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [sharingImg, setSharingImg] = useState(false);
+  const [canShareFiles, setCanShareFiles] = useState(false);
+  const [canShareText, setCanShareText] = useState(false);
+  const [toast, setToast] = useState<ToastState>(null);
   const [dragging, setDragging] = useState(false);
   const [dispW, setDispW] = useState(0);
   const [textBoxH, setTextBoxH] = useState(0);
@@ -65,6 +70,18 @@ function ResultContent() {
   useEffect(() => {
     if (textRef.current) setTextBoxH(textRef.current.offsetHeight);
   }, [headline, fontSize, dispW, textEnabled]);
+
+  // Soporte de Web Share API (texto y archivos).
+  useEffect(() => {
+    const text = typeof navigator !== "undefined" && typeof navigator.share === "function";
+    setCanShareText(text);
+    try {
+      const probe = new File([new Blob([new Uint8Array([0])], { type: "image/png" })], "probe.png", { type: "image/png" });
+      setCanShareFiles(text && typeof navigator.canShare === "function" && navigator.canShare({ files: [probe] }));
+    } catch {
+      setCanShareFiles(false);
+    }
+  }, []);
 
   const regenerateImage = async () => {
     if (!post) return;
@@ -177,6 +194,48 @@ function ResultContent() {
     }
   };
 
+  const silenciable = (e: unknown) => {
+    const name = e instanceof Error ? e.name : "";
+    return name === "AbortError" || name === "NotAllowedError";
+  };
+
+  const shareText = async (texto: string) => {
+    try {
+      await navigator.share({ text: texto });
+    } catch (e) {
+      if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" });
+    }
+  };
+
+  const shareImage = async () => {
+    if (!post?.imagen_url) return;
+    setSharingImg(true);
+    try {
+      const aspect = aspectFor(post.red_social, post.formato);
+      const res = await fetch("/api/compose-and-download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageUrl: post.imagen_url,
+          headline: textEnabled ? headline : null,
+          positionX: posX, positionY: posY, fontSize, aspectRatio: aspect,
+        }),
+      });
+      if (!res.ok) throw new Error("compose failed");
+      const blob = await res.blob();
+      const file = new File([blob], `o2wave-${id}.png`, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: limpiarMarkdown(post.texto || "") });
+      } else {
+        throw new Error("files no soportados");
+      }
+    } catch (e) {
+      if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" });
+    } finally {
+      setSharingImg(false);
+    }
+  };
+
   // Arrastre del titular (pointer events: mouse + touch)
   const onPointerDown = (e: React.PointerEvent) => {
     setDragging(true);
@@ -204,6 +263,7 @@ function ResultContent() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-5 pb-4">
+      <Toast toast={toast} onClose={() => setToast(null)} />
       {/* Back */}
       <Link href="/create" className="flex items-center gap-1.5 text-sm text-gray-500 font-semibold mb-4">
         ← Generar otro
@@ -288,6 +348,23 @@ function ResultContent() {
             </div>
           )}
 
+          {/* Compartir (Web Share API) */}
+          {(canShareFiles || canShareText) && (
+            <div className="px-4 pt-3 flex gap-2 flex-wrap">
+              {canShareFiles && (
+                <button onClick={shareImage} disabled={!post.imagen_url || sharingImg}
+                  className={btn} style={{ borderColor: "#f9b23b", backgroundColor: "#f9b23b", color: "#fff" }}>
+                  {sharingImg ? "Preparando..." : "📤 Compartir imagen"}
+                </button>
+              )}
+              {canShareText && (
+                <button onClick={() => shareText(limpiarMarkdown(post.texto || ""))} className={btn} style={btnStyle}>
+                  📤 Compartir texto
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Acciones de imagen */}
           <div className="px-4 pt-3 pb-1 flex gap-2 flex-wrap">
             <button onClick={handleDownload} disabled={!post.imagen_url || downloading} className={btn} style={btnStyle}>
@@ -297,6 +374,10 @@ function ResultContent() {
             <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir imagen</button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
           </div>
+          {/* Caso B: soporta texto pero no archivos → sugerir descargar para compartir */}
+          {!canShareFiles && canShareText && (
+            <p className="px-4 pb-3 text-[11px] text-gray-400">Descárgala y compártela en tu app preferida.</p>
+          )}
         </div>
 
         {/* Modal editar texto */}
@@ -350,6 +431,10 @@ function ResultContent() {
             {copied ? "✓ Copiado" : "📋 Copiar"}
           </button>
           <button onClick={downloadText} className={btn} style={btnStyle}>↓ Texto</button>
+          {/* En TikTok no hay imagen: ofrecemos compartir el guion (solo texto) */}
+          {isTikTok && canShareText && (
+            <button onClick={() => shareText(limpiarMarkdown(post.texto || ""))} className={btn} style={btnStyle}>📤 Compartir guion</button>
+          )}
           <button onClick={regenerateText} disabled={regenTxt} className={btn} style={btnStyle}>↻ Regenerar texto</button>
         </div>
       </div>
