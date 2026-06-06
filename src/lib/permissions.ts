@@ -37,8 +37,18 @@ export type Permisos = (typeof PERMISOS)[TipoEntidad];
 /**
  * Devuelve los permisos para un tipo de entidad. Acepta null o valores
  * antiguos; por defecto aplica el plan más restrictivo (ong_pequena).
+ *
+ * Si esAdmin es true, devuelve acceso total a todas las funciones,
+ * independientemente del tipo_entidad o plan (para revisar/probar la app).
  */
-export function getPermisos(tipoEntidad: string | null | undefined): Permisos {
+export function getPermisos(
+  tipoEntidad: string | null | undefined,
+  esAdmin: boolean | null | undefined = false
+): Permisos {
+  if (esAdmin) {
+    // Acceso total: el tier "empresa" tiene todas las features habilitadas.
+    return PERMISOS.empresa;
+  }
   if (tipoEntidad && tipoEntidad in PERMISOS) {
     return PERMISOS[tipoEntidad as TipoEntidad];
   }

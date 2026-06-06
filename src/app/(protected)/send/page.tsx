@@ -19,8 +19,8 @@ export default function SendPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace("/welcome"); return; }
-      const { data: profile } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
-      if (!getPermisos(profile?.tipo_entidad).envioPdf) { router.replace("/plans"); return; }
+      const { data: profile } = await supabase.from("profiles").select("tipo_entidad, es_admin").eq("id", user.id).single();
+      if (!getPermisos(profile?.tipo_entidad, profile?.es_admin).envioPdf) { router.replace("/plans"); return; }
       setAllowed(true);
     })();
   }, [router, supabase]);

@@ -39,7 +39,7 @@ export default async function DashboardPage() {
     .limit(3);
 
   const nombre = profile?.nombre_entidad || session.user.email?.split("@")[0] || "Usuario";
-  const permisos = getPermisos(profile?.tipo_entidad);
+  const permisos = getPermisos(profile?.tipo_entidad, profile?.es_admin);
 
   // Contador de verificaciones pendientes — solo para admins (service role)
   let pendientesAdmin = 0;

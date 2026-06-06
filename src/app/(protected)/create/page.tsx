@@ -54,8 +54,8 @@ export default function CreatePage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
-      setPermisos(getPermisos(profile?.tipo_entidad));
+      const { data: profile } = await supabase.from("profiles").select("tipo_entidad, es_admin").eq("id", user.id).single();
+      setPermisos(getPermisos(profile?.tipo_entidad, profile?.es_admin));
       setPostsMes(await contarPostsMes(supabase, user.id));
     })();
   }, [supabase]);

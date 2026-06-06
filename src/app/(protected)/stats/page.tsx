@@ -7,8 +7,8 @@ export default async function StatsPage() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/welcome");
 
-  const { data: permProfile } = await supabase.from("profiles").select("tipo_entidad").eq("id", session.user.id).single();
-  if (!getPermisos(permProfile?.tipo_entidad).estadisticas) redirect("/plans");
+  const { data: permProfile } = await supabase.from("profiles").select("tipo_entidad, es_admin").eq("id", session.user.id).single();
+  if (!getPermisos(permProfile?.tipo_entidad, permProfile?.es_admin).estadisticas) redirect("/plans");
 
   // User's own stats
   const { count: totalPosts } = await supabase
