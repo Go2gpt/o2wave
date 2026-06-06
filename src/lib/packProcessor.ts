@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { composeImage } from "@/lib/composeImage";
 import type { PackDia, PackFuente, GuionTikTok } from "@/types";
@@ -12,7 +13,39 @@ const MODEL = "claude-sonnet-4-6";
 const TIEMPO_TOTAL_MS = 290_000;
 const MIN_MS_PARA_IMAGEN = 40_000;
 
+// Concurrencia de imágenes: evita la "estampida" de inits de fontconfig y acota
+// la memoria. Con ~30s/imagen y 3 en paralelo, 7 imágenes terminan en ~90s.
+const CONCURRENCIA_IMAGENES = 3;
+
 const pad = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Pre-calienta fontconfig/Pango ejecutando UNA composición de texto en serie.
+ * Así la primera (y costosa) inicialización de fontconfig ocurre una sola vez
+ * por instancia, antes de paralelizar — evita el error
+ * "Fontconfig error: Cannot load default config file" en las concurrentes.
+ */
+async function calentarFontconfig(): Promise<void> {
+  try {
+    const dummy = await sharp({ create: { width: 16, height: 16, channels: 3, background: "#000000" } }).png().toBuffer();
+    await composeImage({ imageBuffer: dummy, headline: "·", positionX: 50, positionY: 50, fontSize: 24, aspectRatio: "1:1" });
+  } catch { /* el warm-up nunca debe romper el flujo */ }
+}
+
+/** Ejecuta `fn` sobre `items` con un máximo de `limit` en paralelo (tolerante a fallos). */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<R>): Promise<(R | null)[]> {
+  const results: (R | null)[] = new Array(items.length).fill(null);
+  let next = 0;
+  async function worker() {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      try { results[i] = await fn(items[i], i); } catch { results[i] = null; }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+}
 const MESES_DIA = (mes: number, dia: number) =>
   new Date(2000, mes - 1, dia).toLocaleDateString("es-ES", { day: "numeric", month: "long" });
 
@@ -305,19 +338,17 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
     }
   }
 
-  // Pase 2: imágenes EN PARALELO (no TikTok), tolerante a fallos individuales.
+  // Pase 2: imágenes con concurrencia limitada (no TikTok), tolerante a fallos.
   let conImagen = 0;
-  const restante = TIEMPO_TOTAL_MS - (Date.now() - t0);
-  if (restante >= MIN_MS_PARA_IMAGEN) {
-    const objetivos = contenido.map((d, i) => ({ d, i })).filter((x) => x.d.tipo !== "tiktok");
-    const resultados = await Promise.allSettled(
-      objetivos.map(({ d }) =>
-        generarImagen(admin, userId, d.prompt_imagen || promptImagenFallback(d.tema), d.titular || d.tema, RED_LABEL[d.tipo] || "Instagram", restante)
-      )
-    );
-    resultados.forEach((res, k) => {
-      if (res.status === "fulfilled" && res.value) { objetivos[k].d.imagen_url = res.value; conImagen++; }
+  if (TIEMPO_TOTAL_MS - (Date.now() - t0) >= MIN_MS_PARA_IMAGEN) {
+    await calentarFontconfig(); // init fontconfig una vez antes de paralelizar
+    const objetivos = contenido.filter((d) => d.tipo !== "tiktok");
+    const urls = await mapLimit(objetivos, CONCURRENCIA_IMAGENES, (d) => {
+      const presupuesto = TIEMPO_TOTAL_MS - (Date.now() - t0); // recalculado por llamada
+      if (presupuesto < MIN_MS_PARA_IMAGEN) return Promise.resolve(null);
+      return generarImagen(admin, userId, d.prompt_imagen || promptImagenFallback(d.tema), d.titular || d.tema, RED_LABEL[d.tipo] || "Instagram", presupuesto);
     });
+    urls.forEach((url, k) => { if (url) { objetivos[k].imagen_url = url; conImagen++; } });
   }
 
   // Guardar el pack y cerrar el job.
