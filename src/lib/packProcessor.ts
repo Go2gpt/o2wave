@@ -6,9 +6,11 @@ import type { PackDia, PackFuente, GuionTikTok } from "@/types";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-4-6";
 
-// Presupuesto de tiempo: dejamos margen bajo el maxDuration=60 del endpoint.
-const TIEMPO_TOTAL_MS = 55_000;
-const MIN_MS_PARA_IMAGEN = 25_000;
+// Presupuesto de tiempo: margen bajo el maxDuration=300 del endpoint (Vercel Pro).
+// Con ~30s por imagen (FLUX + sharp), 290s permiten generar las 5-7 imágenes
+// del pack con holgura. Abandonamos imagen si quedan <40s de seguridad.
+const TIEMPO_TOTAL_MS = 290_000;
+const MIN_MS_PARA_IMAGEN = 40_000;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const MESES_DIA = (mes: number, dia: number) =>

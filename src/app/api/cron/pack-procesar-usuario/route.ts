@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { procesarPackJob } from "@/lib/packProcessor";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 // Procesa un pack_job completo (un usuario). Lo invoca el dispatcher en
