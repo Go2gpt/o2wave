@@ -1,6 +1,23 @@
 import React from "react";
-import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import path from "path";
+import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 import type { PackSemanal, PackDia } from "@/types";
+
+// Noto Sans: cobertura Unicode completa (ñ/á/é, subíndices como ₂, etc.).
+// Helvetica (default) no soporta ₂ ni emojis → glyphs rotos.
+const FONT_DIR = path.join(process.cwd(), "public", "fonts");
+Font.register({
+  family: "NotoSans",
+  fonts: [
+    { src: path.join(FONT_DIR, "NotoSans-Regular.ttf") },
+    { src: path.join(FONT_DIR, "NotoSans-Bold.ttf"), fontWeight: "bold" },
+  ],
+});
+// Emojis como imágenes (Twemoji vía CDN): fiable en serverless, evita los
+// problemas de Noto Color Emoji en @react-pdf.
+Font.registerEmojiSource({ format: "png", url: "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/" });
+// No partir palabras (mejor para textos cortos en español).
+Font.registerHyphenationCallback((word) => [word]);
 
 const NARANJA = "#f9b23b";
 const GRIS = "#6b7280";
@@ -9,21 +26,21 @@ const AZUL = "#1e40af";
 const RED_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
 
 const s = StyleSheet.create({
-  page: { paddingTop: 36, paddingBottom: 40, paddingHorizontal: 40, fontSize: 11, color: "#111827", fontFamily: "Helvetica" },
+  page: { paddingTop: 36, paddingBottom: 40, paddingHorizontal: 40, fontSize: 11, color: "#111827", fontFamily: "NotoSans" },
   header: { backgroundColor: NARANJA, color: "#ffffff", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6, marginBottom: 16 },
-  headerTitle: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#ffffff" },
+  headerTitle: { fontSize: 13, fontWeight: "bold", color: "#ffffff" },
   headerSub: { fontSize: 9, color: "#ffffff", marginTop: 2 },
   imgWrap: { alignItems: "center", marginBottom: 14 },
   img: { width: "70%", borderRadius: 6, objectFit: "cover" },
   placeholder: { width: "70%", height: 180, backgroundColor: "#f3f4f6", borderRadius: 6, alignItems: "center", justifyContent: "center" },
   placeholderTxt: { color: GRIS, fontSize: 10 },
-  tema: { fontSize: 13, fontFamily: "Helvetica-Bold", marginBottom: 6, color: "#111827" },
+  tema: { fontSize: 13, fontWeight: "bold", marginBottom: 6, color: "#111827" },
   texto: { fontSize: 11, lineHeight: 1.5, color: "#374151", marginBottom: 10 },
   hashtags: { fontSize: 10, color: AZUL, marginTop: 4 },
-  seccion: { fontSize: 11, fontFamily: "Helvetica-Bold", marginTop: 8, marginBottom: 4, color: "#111827" },
+  seccion: { fontSize: 11, fontWeight: "bold", marginTop: 8, marginBottom: 4, color: "#111827" },
   seg: { marginBottom: 5 },
-  segTiempo: { fontFamily: "Helvetica-Bold", color: NARANJA, fontSize: 10 },
-  segVoz: { fontStyle: "italic", color: "#374151", fontSize: 10 },
+  segTiempo: { fontWeight: "bold", color: NARANJA, fontSize: 10 },
+  segVoz: { color: "#374151", fontSize: 10 },
   segAccion: { color: GRIS, fontSize: 9 },
   plano: { fontSize: 10, color: "#374151", marginBottom: 2 },
   audio: { fontSize: 10, color: "#374151", marginTop: 4 },
