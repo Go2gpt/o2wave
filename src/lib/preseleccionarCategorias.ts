@@ -7,14 +7,28 @@ import { CATEGORIAS, CATEGORIA_LABEL } from "@/lib/categorias";
  * vacío, o el perfil tiene poca información — para no dejar el calendario vacío.
  */
 const DEFAULTS_POR_TIPO: Record<string, string[]> = {
-  ong_pequena: ["social", "solidaridad_dh"],
-  ong_mediana: ["social", "solidaridad_dh"],
-  empresa: ["social"],
+  ong_pequena: ["causas_sociales", "derechos_humanos"],
+  ong_mediana: ["causas_sociales", "derechos_humanos"],
+  empresa: ["causas_sociales"],
 };
 
 function defaultsPara(tipo: string | null | undefined): string[] {
-  return (tipo && DEFAULTS_POR_TIPO[tipo]) || ["social"];
+  return (tipo && DEFAULTS_POR_TIPO[tipo]) || ["causas_sociales"];
 }
+
+/** Descripciones para guiar a la IA en la preselección. */
+const CATEGORIA_DESC: Record<string, string> = {
+  salud: "salud física y mental, enfermedades, prevención, investigación médica",
+  causas_sociales: "exclusión social, pobreza, vivienda, empleo, personas sin hogar, migración",
+  medioambiente: "clima, biodiversidad, contaminación, reciclaje, sostenibilidad",
+  mujer_igualdad: "igualdad de género, violencia machista, empoderamiento de la mujer",
+  infancia_juventud: "derechos de la infancia, juventud, educación temprana, protección de menores",
+  diversidad_lgbtiq: "diversidad sexual y de género, colectivo LGBTIQ+, orgullo",
+  mayores_discapacidad: "personas mayores, discapacidad, accesibilidad, dependencia",
+  educacion_cultura: "educación, cultura, arte, lectura, ciencia, patrimonio",
+  derechos_humanos: "derechos humanos, paz, refugio, justicia social, solidaridad internacional",
+  fiestas_tradiciones: "fiestas nacionales, autonómicas y religiosas (Constitución, Reyes, Sant Jordi, Navidad, etc.)",
+};
 
 /** Extrae y valida el array de categorías de la respuesta de Claude. */
 function extraerCategorias(raw: string): string[] {
@@ -73,14 +87,16 @@ export async function preseleccionarCategorias(supabase: SupabaseClient, userId:
     // caemos a los defaults por tipo de entidad más abajo.
     if (contexto.length >= 20) {
       try {
-        const lista = CATEGORIAS.map((c) => `- ${c} (${CATEGORIA_LABEL[c]})`).join("\n");
+        const lista = CATEGORIAS.map((c) => `- ${c} (${CATEGORIA_LABEL[c]}): ${CATEGORIA_DESC[c]}`).join("\n");
         const tipoLabel = tipoEntidad === "empresa" ? "empresa / PYME" : "ONG / entidad sin ánimo de lucro";
-        const prompt = `Eres un clasificador. A partir de los datos de una organización, elige hasta 5 categorías (de la lista) que mejor encajen con su actividad.
+        const prompt = `Eres un clasificador. A partir de los datos de una organización, elige hasta 5 categorías (de la lista) que mejor encajen con su actividad y causas.
 
 TIPO DE ORGANIZACIÓN: ${tipoLabel}
 
 CATEGORÍAS VÁLIDAS (usa exactamente estos identificadores):
 ${lista}
+
+REGLA IMPORTANTE sobre "fiestas_tradiciones": esta categoría es SOLO para organizaciones que claramente quieran publicar sobre fiestas nacionales, autonómicas o religiosas (Constitución, Reyes, Sant Jordi, Navidad, etc.). Para una ONG o entidad que trabaja con causas sociales NO la sugieras, salvo que los datos indiquen explícitamente un interés en celebrar fiestas o tradiciones culturales/religiosas.
 
 DATOS DE LA ORGANIZACIÓN:
 ${contexto}
