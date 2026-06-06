@@ -11,6 +11,8 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Cookies de sesión (sin Max-Age): mueren al cerrar el navegador.
+      cookieOptions: { maxAge: undefined },
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value;
