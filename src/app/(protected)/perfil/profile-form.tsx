@@ -300,7 +300,7 @@ export default function ProfileForm({ initial }: { initial: ProfileData }) {
           NavBottom (~80px, z-50): z-index mayor y desplazado sobre la nav. */}
       {dirty && (
         <div className="fixed left-0 right-0 z-[60] bg-white border-t border-gray-100 px-5 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]"
-          style={{ bottom: "calc(env(safe-area-inset-bottom) + 72px)" }}>
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)" }}>
           <div className="max-w-lg mx-auto">
             <button onClick={handleSave} disabled={saving}
               className="w-full py-3.5 rounded-2xl font-bold text-white text-base disabled:opacity-50 transition-all active:scale-[0.98]"
