@@ -25,11 +25,46 @@ function ResultContent() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Editor de titular sobre la imagen
+  const [headline, setHeadline] = useState("");
+  const [posX, setPosX] = useState(50);
+  const [posY, setPosY] = useState(85);
+  const [fontSize, setFontSize] = useState(52); // px referenciado a 1080
+  const [textEnabled, setTextEnabled] = useState(true);
+  const [editingText, setEditingText] = useState(false);
+  const [draftText, setDraftText] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dispW, setDispW] = useState(0);
+  const [textBoxH, setTextBoxH] = useState(0);
+  const imgBoxRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!id) { router.push("/create"); return; }
     supabase.from("generated_posts").select("*").eq("id", id).single()
-      .then(({ data }) => { setPost(data); setLoading(false); });
-  }, [id, router, supabase]);
+      .then(({ data }) => {
+        setPost(data);
+        setLoading(false);
+        if (data) setHeadline((params.get("titular") || data.tema || "").slice(0, 100));
+      });
+  }, [id, router, supabase, params]);
+
+  // Ancho mostrado de la imagen (para escalar el texto del preview a 1080).
+  useEffect(() => {
+    const el = imgBoxRef.current;
+    if (!el) return;
+    const update = () => setDispW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [post]);
+
+  // Alto del bloque de texto (para dimensionar la franja del preview).
+  useEffect(() => {
+    if (textRef.current) setTextBoxH(textRef.current.offsetHeight);
+  }, [headline, fontSize, dispW, textEnabled]);
 
   const regenerateImage = async () => {
     if (!post) return;
@@ -48,8 +83,7 @@ function ResultContent() {
       const res = await fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData }) });
       const data = await res.json();
       if (data.predictionId) {
-        const aspect = aspectFor(post.red_social, post.formato);
-        const imagenUrl = await pollForImage(data.predictionId, post.tema, aspect);
+        const imagenUrl = await pollForImage(data.predictionId);
         if (imagenUrl) {
           await supabase.from("generated_posts").update({ imagen_url: imagenUrl }).eq("id", post.id);
           setPost(p => p ? { ...p, imagen_url: imagenUrl } : p);
@@ -114,15 +148,49 @@ function ResultContent() {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
     a.download = `o2wave-texto-${id}.txt`; a.click();
   };
-  const downloadImage = async () => {
+  // Descarga con horneado: el servidor estampa el titular en la posición/tamaño elegidos.
+  const handleDownload = async () => {
     if (!post?.imagen_url) return;
+    setDownloading(true);
     try {
-      const res = await fetch(post.imagen_url);
+      const aspect = aspectFor(post.red_social, post.formato);
+      const res = await fetch("/api/compose-and-download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageUrl: post.imagen_url,
+          headline: textEnabled ? headline : null,
+          positionX: posX, positionY: posY, fontSize, aspectRatio: aspect,
+        }),
+      });
+      if (!res.ok) throw new Error("compose failed");
       const blob = await res.blob();
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-      a.download = `o2wave-imagen-${id}.png`; a.click();
-    } catch { window.open(post.imagen_url, "_blank"); }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `o2wave-${id}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      if (post.imagen_url) window.open(post.imagen_url, "_blank");
+    } finally {
+      setDownloading(false);
+    }
   };
+
+  // Arrastre del titular (pointer events: mouse + touch)
+  const onPointerDown = (e: React.PointerEvent) => {
+    setDragging(true);
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging || !imgBoxRef.current) return;
+    const r = imgBoxRef.current.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 100;
+    const y = ((e.clientY - r.top) / r.height) * 100;
+    setPosX(Math.max(5, Math.min(95, x)));
+    setPosY(Math.max(5, Math.min(95, y)));
+  };
+  const onPointerUp = () => setDragging(false);
 
   const btn = "flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border-2 text-xs font-bold transition-all active:scale-95 disabled:opacity-40";
   const btnStyle = { borderColor: "#e5e7eb", color: "#374151" };
@@ -152,8 +220,9 @@ function ResultContent() {
 
       {/* Image block */}
       {!isTikTok && (
+        <>
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
-          <div className="relative w-full bg-gray-100" style={{ paddingTop: isStory ? "177.78%" : "100%" }}>
+          <div ref={imgBoxRef} className="relative w-full bg-gray-100" style={{ paddingTop: isStory ? "177.78%" : "100%" }}>
             {post.imagen_url ? (
               <img src={post.imagen_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (
@@ -161,6 +230,31 @@ function ResultContent() {
                 <Spinner size={8} color="gray-300" />
               </div>
             )}
+
+            {/* Overlay del titular (preview que imita el horneado) */}
+            {post.imagen_url && textEnabled && headline.trim() && (
+              <>
+                <div className="absolute left-0 right-0 pointer-events-none"
+                  style={{
+                    top: `${posY}%`, transform: "translateY(-50%)",
+                    height: Math.max(textBoxH * 1.7, 80),
+                    background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.55) 50%, transparent)",
+                  }} />
+                <div ref={textRef}
+                  onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
+                  className="absolute text-center font-bold select-none"
+                  style={{
+                    left: `${posX}%`, top: `${posY}%`, transform: "translate(-50%,-50%)",
+                    maxWidth: "85%", color: "#FFFFFF", fontFamily: "Montserrat, sans-serif", fontWeight: 700,
+                    fontSize: dispW ? fontSize * (dispW / 1080) : 24, lineHeight: 1.2,
+                    textShadow: "0 0 6px rgba(0,0,0,0.6)",
+                    cursor: dragging ? "grabbing" : "grab", touchAction: "none",
+                  }}>
+                  {headline}
+                </div>
+              </>
+            )}
+
             {(regenImg || uploading) && (
               <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
                 <Spinner /><p className="text-white text-sm font-semibold">{uploading ? "Subiendo imagen..." : "Generando tu contenido..."}</p>
@@ -168,14 +262,61 @@ function ResultContent() {
             )}
           </div>
 
-          {/* Row 1: image actions */}
+          {/* Controles del editor de texto */}
+          {post.imagen_url && (
+            <div className="px-4 pt-3 space-y-3 border-b border-gray-100 pb-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Texto sobre la imagen</span>
+                <button onClick={() => setTextEnabled(v => !v)}
+                  className="text-xs font-bold" style={{ color: textEnabled ? "#9ca3af" : "#f9b23b" }}>
+                  {textEnabled ? "Quitar texto" : "Añadir texto"}
+                </button>
+              </div>
+              {textEnabled && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setDraftText(headline); setEditingText(true); }} className={btn} style={btnStyle}>✎ Editar texto</button>
+                    <span className="text-[11px] text-gray-400">Arrastra el texto sobre la imagen</span>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tamaño</label>
+                    <input type="range" min={28} max={72} value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
+                      className="w-full accent-[#f9b23b]" />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Acciones de imagen */}
           <div className="px-4 pt-3 pb-1 flex gap-2 flex-wrap">
-            <button onClick={downloadImage} disabled={!post.imagen_url} className={btn} style={btnStyle}>↓ Imagen</button>
+            <button onClick={handleDownload} disabled={!post.imagen_url || downloading} className={btn} style={btnStyle}>
+              {downloading ? "Preparando..." : "↓ Descargar"}
+            </button>
             <button onClick={regenerateImage} disabled={regenImg || uploading} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
             <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir imagen</button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
           </div>
         </div>
+
+        {/* Modal editar texto */}
+        {editingText && (
+          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70]" onClick={() => setEditingText(false)}>
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-sm" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-gray-900 mb-3">Editar texto</h3>
+              <textarea value={draftText} maxLength={100} rows={3} onChange={e => setDraftText(e.target.value)}
+                className="w-full border-2 border-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{ borderColor: "#f9b23b" }} autoFocus />
+              <p className="text-[10px] text-gray-300 text-right mt-1">{draftText.length}/100</p>
+              <button onClick={() => { setHeadline(draftText.trim()); setEditingText(false); }}
+                className="w-full py-3 rounded-2xl font-bold text-white text-sm mt-2" style={{ backgroundColor: "#f9b23b" }}>
+                Guardar
+              </button>
+              <button onClick={() => setEditingText(false)} className="w-full py-2.5 text-sm text-gray-500 font-medium">Cancelar</button>
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       {/* TikTok header */}

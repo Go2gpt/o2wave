@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
-import { pollForImage, aspectFor } from "@/lib/pollImage";
+import { pollForImage } from "@/lib/pollImage";
 import { getPermisos, contarPostsMes, type Permisos } from "@/lib/permissions";
 import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
 
@@ -89,8 +89,7 @@ export default function CreatePage() {
       const imageData = imageRes ? await imageRes.json() : null;
       let imagenUrl: string | undefined;
       if (imageData?.predictionId) {
-        const aspect = aspectFor(form.redSocial, form.formatoInstagram);
-        imagenUrl = (await pollForImage(imageData.predictionId, textData.titular || form.tema, aspect)) ?? undefined;
+        imagenUrl = (await pollForImage(imageData.predictionId)) ?? undefined;
       }
 
       // Save to Supabase
@@ -109,8 +108,9 @@ export default function CreatePage() {
 
       const { data: saved } = await supabase.from("generated_posts").insert(postData).select().single();
 
-      // Navigate to result with post id
-      router.push(`/result?id=${saved?.id}`);
+      // Navigate to result; pasamos el titular sugerido por query (para el editor).
+      const titular = textData.titular || form.tema;
+      router.push(`/result?id=${saved?.id}&titular=${encodeURIComponent(titular)}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error generando contenido");
     } finally {
