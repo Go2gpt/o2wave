@@ -35,9 +35,18 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const pathname = request.nextUrl.pathname;
 
+  // Construye un redirect copiando las cookies escritas en `response` (p. ej.
+  // el token refrescado por getSession). Sin esto, el redirect perdería el
+  // refresh y podría expulsar a un usuario válido.
+  const redirectTo = (dest: string) => {
+    const r = NextResponse.redirect(new URL(dest, request.url));
+    response.cookies.getAll().forEach((c) => r.cookies.set(c));
+    return r;
+  };
+
   // Redirect root to welcome
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/welcome", request.url));
+    return redirectTo("/welcome");
   }
 
   // Authenticated users shouldn't access auth pages. Si traen un ?redirect=
@@ -45,7 +54,7 @@ export async function middleware(request: NextRequest) {
   if (session && AUTH_ROUTES.includes(pathname)) {
     const redirectParam = request.nextUrl.searchParams.get("redirect");
     const dest = redirectParam && redirectParam.startsWith("/") ? redirectParam : "/dashboard";
-    return NextResponse.redirect(new URL(dest, request.url));
+    return redirectTo(dest);
   }
 
   // Force onboarding completion for authenticated users.
@@ -69,7 +78,7 @@ export async function middleware(request: NextRequest) {
     // con las cookies ya consolidadas, el gate vuelve a evaluarse.
     if (!profileError && profile) {
       if (!profile.onboarding_complete) {
-        return NextResponse.redirect(new URL("/onboarding/web", request.url));
+        return redirectTo("/onboarding/web");
       }
 
       // Gate de verificación documental para ONGs
@@ -82,7 +91,7 @@ export async function middleware(request: NextRequest) {
         profile.estado_verificacion !== "verificada" &&
         !pathname.startsWith("/verificacion")
       ) {
-        return NextResponse.redirect(new URL("/verificacion", request.url));
+        return redirectTo("/verificacion");
       }
     }
   }
@@ -91,7 +100,7 @@ export async function middleware(request: NextRequest) {
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   const isApi = pathname.startsWith("/api");
   if (!session && !isPublic && !isApi) {
-    return NextResponse.redirect(new URL("/welcome", request.url));
+    return redirectTo("/welcome");
   }
 
   return response;
