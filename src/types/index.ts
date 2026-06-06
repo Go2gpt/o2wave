@@ -41,10 +41,30 @@ export interface GeneratedPost {
   texto: string;
   imagen_url?: string;
   tema: string;
-  tono: Tono;
+  tono: string;
   tipo_entidad?: TipoEntidad;
   nombre_entidad?: string;
+  guion_tiktok?: GuionTikTok | null;
   created_at: string;
+}
+
+export interface GuionSegmento {
+  tiempo: string;
+  voz: string;
+  accion: string;
+}
+export interface GuionPlano {
+  numero: number;
+  descripcion: string;
+}
+export interface GuionTikTok {
+  titular: string;
+  guion: GuionSegmento[];
+  planos: GuionPlano[];
+  hashtags: string[];
+  audio_sugerido: string;
+  // Parámetros de generación, para poder regenerar con los mismos ajustes.
+  params?: { duracion: string; tono: string; entorno: string };
 }
 
 export interface KeyDate {
@@ -62,6 +82,8 @@ export interface ContentFormData {
   redSocial: RedSocial;
   formatoInstagram?: FormatoInstagram;
   entornoTikTok?: string;
+  duracionTikTok?: string;
+  tonoTikTok?: string;
   tema: string;
   tono: Tono;
   incluirHashtags: boolean;

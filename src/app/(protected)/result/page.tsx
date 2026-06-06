@@ -12,6 +12,7 @@ import Toast, { type ToastState } from "@/components/Toast";
 import type { GeneratedPost } from "@/types";
 
 
+
 function ResultContent() {
   const params = useSearchParams();
   const router = useRouter();
@@ -141,6 +142,8 @@ function ResultContent() {
     if (!post) return;
     setRegenTxt(true);
     try {
+      const esTikTok = post.red_social === "TikTok";
+      const params = post.guion_tiktok?.params;
       const formData = {
         nombreOrganizacion: post.nombre_entidad || "",
         tipoOrganizacion: post.tipo_entidad || "ong",
@@ -148,16 +151,36 @@ function ResultContent() {
         formatoInstagram: post.formato,
         tema: post.tema,
         tono: post.tono,
+        // TikTok: respetar los mismos parámetros (duración, tono, entorno).
+        duracionTikTok: params?.duracion || "30s",
+        tonoTikTok: params?.tono || post.tono || "Cercano",
+        entornoTikTok: params?.entorno || "",
         incluirHashtags: true,
         incluirEmojis: true,
       };
       const res = await fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
       const data = await res.json();
       if (data.texto) {
-        await supabase.from("generated_posts").update({ texto: data.texto }).eq("id", post.id);
-        setPost(p => p ? { ...p, texto: data.texto } : p);
+        const update = esTikTok
+          ? { texto: data.texto, guion_tiktok: data.guion ?? null }
+          : { texto: data.texto };
+        await supabase.from("generated_posts").update(update).eq("id", post.id);
+        setPost(p => p ? { ...p, ...update } : p);
       }
     } finally { setRegenTxt(false); }
+  };
+
+  // Copiar un hashtag suelto (toast informativo).
+  const copyHashtag = async (h: string) => {
+    try { await navigator.clipboard.writeText(h); setToast({ message: `Copiado: ${h}`, type: "info" }); } catch {}
+  };
+  const copyAllHashtags = async (hashtags: string[]) => {
+    try { await navigator.clipboard.writeText(hashtags.join(" ")); setToast({ message: "Todos los hashtags copiados", type: "success" }); } catch {}
+  };
+  // Copiar el guion completo formateado (usa el texto plano que ya genera el endpoint).
+  const copyFullGuion = () => {
+    navigator.clipboard.writeText(limpiarMarkdown(post?.texto || ""));
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
   const copyText = () => { navigator.clipboard.writeText(limpiarMarkdown(post?.texto || "")); setCopied(true); setTimeout(() => setCopied(false), 2000); };
@@ -270,6 +293,9 @@ function ResultContent() {
 
   const isStory = post.formato === "Story 9:16";
   const isTikTok = post.red_social === "TikTok";
+  const guion = post.guion_tiktok && Array.isArray(post.guion_tiktok.guion) && post.guion_tiktok.guion.length
+    ? post.guion_tiktok
+    : null;
   const RED_LABELS: Record<string, string> = { Instagram: "📸 Instagram", Facebook: "👥 Facebook", TikTok: "🎵 TikTok" };
 
   return (
@@ -439,19 +465,123 @@ function ResultContent() {
         <div className="rounded-2xl p-4 mb-4 flex items-center gap-4"
           style={{ background: "linear-gradient(135deg, #0F0F0F 0%, #1c1c1c 100%)" }}>
           <span className="text-4xl">🎵</span>
-          <div>
-            <p className="text-white font-bold text-sm">Script de TikTok</p>
-            <p className="text-gray-400 text-xs">Guion estructurado para video corto</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-bold text-sm">Guion de TikTok</p>
+            <p className="text-gray-400 text-xs truncate">
+              {guion?.params ? `${guion.params.duracion} · ${guion.params.tono}` : "Guion estructurado para vídeo corto"}
+            </p>
+          </div>
+          {regenTxt && <Spinner size={4} color="gray-400" />}
+        </div>
+      )}
+
+      {/* ---------- TikTok: guion estructurado ---------- */}
+      {isTikTok && guion && (
+        <div className="space-y-4 mb-4">
+          {/* GUION cronológico */}
+          <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">📜 Guion</h3>
+            </div>
+            <div className="px-4 py-3 space-y-3">
+              {guion.guion.map((s, i) => (
+                <div key={i} className="rounded-xl border border-gray-100 p-3">
+                  <p className="text-xs font-bold mb-1" style={{ color: "#f9b23b" }}>{s.tiempo}</p>
+                  {s.voz && <p className="text-sm text-gray-800 italic leading-relaxed">“{s.voz}”</p>}
+                  {s.accion && <p className="text-xs text-gray-500 mt-1.5">🎥 {s.accion}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* PLANOS */}
+          {guion.planos.length > 0 && (
+            <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">🎬 Planos a grabar</h3>
+              </div>
+              <ol className="px-4 py-3 space-y-2">
+                {guion.planos.map((p) => (
+                  <li key={p.numero} className="flex gap-3 text-sm text-gray-700">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ backgroundColor: "#fff8ef", color: "#f9b23b" }}>{p.numero}</span>
+                    <span className="leading-relaxed">{p.descripcion}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          {/* AUDIO */}
+          {guion.audio_sugerido && (
+            <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">🎵 Audio sugerido</h3>
+              </div>
+              <p className="px-4 py-3 text-sm text-gray-700 leading-relaxed">{guion.audio_sugerido}</p>
+            </section>
+          )}
+
+          {/* HASHTAGS */}
+          {guion.hashtags.length > 0 && (
+            <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">#️⃣ Hashtags</h3>
+                <button onClick={() => copyAllHashtags(guion.hashtags)} className="text-xs font-bold" style={{ color: "#f9b23b" }}>
+                  Copiar todos
+                </button>
+              </div>
+              <div className="px-4 py-3 flex flex-wrap gap-2">
+                {guion.hashtags.map((h, i) => (
+                  <button key={i} onClick={() => copyHashtag(h)}
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full transition-all active:scale-95"
+                    style={{ backgroundColor: "#f3f4f6", color: "#374151" }}>
+                    {h}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Acciones */}
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={copyFullGuion} className={btn} style={copied ? { borderColor: "#93bf30", backgroundColor: "#f0f7e6", color: "#93bf30" } : btnStyle}>
+              {copied ? "✓ Copiado" : "📋 Copiar guion completo"}
+            </button>
+            {canShareText && (
+              <button onClick={() => shareText(limpiarMarkdown(post.texto || ""))} className={btn} style={btnStyle}>📤 Compartir guion</button>
+            )}
+            <button onClick={regenerateText} disabled={regenTxt} className={btn} style={btnStyle}>↻ Regenerar texto</button>
           </div>
         </div>
       )}
 
-      {/* Text block */}
+      {/* TikTok sin guion estructurado: fallback amable con el texto bruto */}
+      {isTikTok && !guion && (
+        <div className="bg-white rounded-2xl shadow-sm mb-4 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <p className="text-xs text-gray-500">⚠️ El guion no se pudo estructurar bien, te dejo el texto sin formato. Puedes regenerar.</p>
+          </div>
+          <div className="px-4 py-3">
+            <pre className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "inherit" }}>
+              {limpiarMarkdown(post.texto || "")}
+            </pre>
+          </div>
+          <div className="px-4 pb-3 pt-2 border-t border-gray-100 flex gap-2 flex-wrap">
+            <button onClick={copyText} className={btn} style={copied ? { borderColor: "#93bf30", backgroundColor: "#f0f7e6", color: "#93bf30" } : btnStyle}>
+              {copied ? "✓ Copiado" : "📋 Copiar"}
+            </button>
+            {canShareText && <button onClick={() => shareText(limpiarMarkdown(post.texto || ""))} className={btn} style={btnStyle}>📤 Compartir guion</button>}
+            <button onClick={regenerateText} disabled={regenTxt} className={btn} style={btnStyle}>↻ Regenerar texto</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Instagram / Facebook: texto plano ---------- */}
+      {!isTikTok && (
       <div className="bg-white rounded-2xl shadow-sm mb-4 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-            {isTikTok ? "Script de TikTok" : "Texto generado"}
-          </h3>
+          <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Texto generado</h3>
           {regenTxt && <span className="flex items-center gap-1 text-xs text-gray-400"><Spinner size={3} color="gray-400" />Generando...</span>}
         </div>
         <div className="px-4 py-3">
@@ -465,13 +595,10 @@ function ResultContent() {
             {copied ? "✓ Copiado" : "📋 Copiar"}
           </button>
           <button onClick={downloadText} className={btn} style={btnStyle}>↓ Texto</button>
-          {/* En TikTok no hay imagen: ofrecemos compartir el guion (solo texto) */}
-          {isTikTok && canShareText && (
-            <button onClick={() => shareText(limpiarMarkdown(post.texto || ""))} className={btn} style={btnStyle}>📤 Compartir guion</button>
-          )}
           <button onClick={regenerateText} disabled={regenTxt} className={btn} style={btnStyle}>↻ Regenerar texto</button>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,17 @@ const TIPOS = [
   { value: "pyme" as TipoEntidad, label: "PYME", emoji: "🏢" },
   { value: "autonomo" as TipoEntidad, label: "Autónomo", emoji: "💼" },
 ];
+const DURACIONES_TIKTOK = [
+  { value: "15s", label: "15s — gancho rápido" },
+  { value: "30s", label: "30s — medio (recomendado)" },
+  { value: "60s", label: "60s — desarrollado" },
+];
+const TONOS_TIKTOK = [
+  { value: "Cercano", label: "Cercano — conversacional, como hablándole a un amigo" },
+  { value: "Profesional", label: "Profesional — informativo, con autoridad" },
+  { value: "Emotivo", label: "Emotivo — apelando a sentimientos" },
+  { value: "Divertido", label: "Divertido — humor, ligereza" },
+];
 
 const pill = (active: boolean) => active
   ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
@@ -41,6 +52,8 @@ function CreateInner() {
     redSocial: "Instagram",
     formatoInstagram: "Post 1080×1080",
     entornoTikTok: "",
+    duracionTikTok: "30s",
+    tonoTikTok: "Cercano",
     tema: "",
     tono: "Cercano",
     incluirHashtags: true,
@@ -103,16 +116,18 @@ function CreateInner() {
 
       // Save to Supabase
       const { data: { user } } = await supabase.auth.getUser();
+      const esTikTok = form.redSocial === "TikTok";
       const postData = {
         user_id: user?.id,
         red_social: form.redSocial,
-        formato: form.formatoInstagram,
+        formato: esTikTok ? null : form.formatoInstagram,
         texto: textData.texto,
         imagen_url: imagenUrl,
         tema: form.tema,
-        tono: form.tono,
+        tono: esTikTok ? form.tonoTikTok : form.tono,
         tipo_entidad: form.tipoOrganizacion,
         nombre_entidad: form.nombreOrganizacion,
+        guion_tiktok: esTikTok ? (textData.guion ?? null) : null,
       };
 
       const { data: saved } = await supabase.from("generated_posts").insert(postData).select().single();
@@ -216,13 +231,33 @@ function CreateInner() {
           )}
 
           {form.redSocial === "TikTok" && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Entorno o ubicación</p>
-              <textarea value={form.entornoTikTok || ""} onChange={e => set("entornoTikTok", e.target.value)}
-                rows={2} placeholder="Ej: Oficina moderna, exterior urbano..."
-                className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none resize-none transition-colors"
-                onFocus={e => e.target.style.borderColor = "#f9b23b"}
-                onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+            <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Entorno o ubicación</p>
+                <textarea value={form.entornoTikTok || ""} onChange={e => set("entornoTikTok", e.target.value)}
+                  rows={2} placeholder="Ej: Oficina moderna, exterior urbano..."
+                  className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none resize-none transition-colors"
+                  onFocus={e => e.target.style.borderColor = "#f9b23b"}
+                  onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Duración</p>
+                <select value={form.duracionTikTok} onChange={e => set("duracionTikTok", e.target.value)}
+                  className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors bg-white"
+                  onFocus={e => e.target.style.borderColor = "#f9b23b"}
+                  onBlur={e => e.target.style.borderColor = "#f3f4f6"}>
+                  {DURACIONES_TIKTOK.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tono</p>
+                <select value={form.tonoTikTok} onChange={e => set("tonoTikTok", e.target.value)}
+                  className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors bg-white"
+                  onFocus={e => e.target.style.borderColor = "#f9b23b"}
+                  onBlur={e => e.target.style.borderColor = "#f3f4f6"}>
+                  {TONOS_TIKTOK.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
             </div>
           )}
         </div>
@@ -237,7 +272,8 @@ function CreateInner() {
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
         </div>
 
-        {/* Tono */}
+        {/* Tono (genérico — TikTok usa su propio Tono en su bloque) */}
+        {form.redSocial !== "TikTok" && (
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Tono</label>
           <div className="flex gap-2 flex-wrap">
@@ -250,6 +286,7 @@ function CreateInner() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Opciones */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
