@@ -1,81 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
 import { createClient } from "@/lib/supabase";
-import { CATEGORIA_LABEL, CATEGORIA_COLOR, type DiaProximo } from "@/lib/categorias";
+import type { FechaUsuario } from "@/types";
 
-function etiquetaFecha(d: DiaProximo): string {
-  if (d.diffDays === 0) return "HOY";
-  if (d.diffDays === 1) return "MAÑANA";
-  return new Date(d.fechaISO).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
-}
+const pad = (n: number) => String(n).padStart(2, "0");
+const fechaLarga = (mes: number, dia: number) =>
+  new Date(2000, mes - 1, dia).toLocaleDateString("es-ES", { day: "numeric", month: "long" });
 
 interface FechaForm { id: string | null; nombre: string; fecha: string; recurrente: boolean; descripcion: string; }
 const FORM_VACIO: FechaForm = { id: null, nombre: "", fecha: "", recurrente: true, descripcion: "" };
 
-function Tarjeta({ d, destacada, compacta, onEdit, onDelete }: {
-  d: DiaProximo; destacada?: boolean; compacta?: boolean;
-  onEdit?: (d: DiaProximo) => void; onDelete?: (d: DiaProximo) => void;
-}) {
-  const col = CATEGORIA_COLOR[d.categoria] || { bg: "#f3f4f6", color: "#4b5563" };
-  const esMia = d.esFechaUsuario;
-  return (
-    <div className="bg-white rounded-2xl shadow-sm p-4" style={destacada ? { border: "2px solid #f9b23b" } : undefined}>
-      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-        <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#fff8ef", color: "#f9b23b" }}>
-          {etiquetaFecha(d)}
-        </span>
-        {esMia ? (
-          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#1e3a8a", color: "#fff" }}>
-            ⭐ Mi fecha
-          </span>
-        ) : (
-          <>
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: col.bg, color: col.color }}>
-              {CATEGORIA_LABEL[d.categoria] || d.categoria}
-            </span>
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">
-              {d.ambito === "espana" ? "🇪🇸 España" : "🌍 Internacional"}
-            </span>
-            {d.relevancia === "alto" && <span title="Relevancia alta">⭐</span>}
-          </>
-        )}
-      </div>
-      <p className="font-bold text-gray-900 text-sm">{d.nombre}</p>
-      {!compacta && d.descripcion && (
-        <p className="text-xs text-gray-500 mt-1 leading-relaxed">{d.descripcion}</p>
-      )}
-      <div className="flex items-center gap-2 mt-3 flex-wrap">
-        <Link
-          href={`/create?tema=${encodeURIComponent(d.nombre)}&fecha=${encodeURIComponent(d.fechaISO)}`}
-          className="inline-block px-4 py-2 rounded-xl text-xs font-bold text-white transition-all active:scale-95"
-          style={{ backgroundColor: "#f9b23b" }}
-        >
-          ✨ Crear contenido
-        </Link>
-        {esMia && onEdit && (
-          <button onClick={() => onEdit(d)} className="px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all active:scale-95"
-            style={{ borderColor: "#e5e7eb", color: "#374151" }}>
-            ✎ Editar
-          </button>
-        )}
-        {esMia && onDelete && (
-          <button onClick={() => onDelete(d)} className="px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95"
-            style={{ color: "#ef4444" }}>
-            Eliminar
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default function DiasList({ proximos, hasCats, tieneFechas }: { proximos: DiaProximo[]; hasCats: boolean; tieneFechas: boolean }) {
+export default function MisFechasList({ fechas }: { fechas: FechaUsuario[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [modal, setModal] = useState(false);
@@ -83,18 +23,15 @@ export default function DiasList({ proximos, hasCats, tieneFechas }: { proximos:
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
 
-  const hoyManana = proximos.filter((d) => d.diffDays <= 1);
-  const semana = proximos.filter((d) => d.diffDays >= 2 && d.diffDays <= 7);
-  const resto = proximos.filter((d) => d.diffDays >= 8);
-
   const abrirNueva = () => { setForm(FORM_VACIO); setModal(true); };
-  const abrirEdicion = (d: DiaProximo) => {
+  const abrirEdicion = (f: FechaUsuario) => {
+    const ano = f.recurrente ? new Date().getFullYear() : (f.ano_especifico ?? new Date().getFullYear());
     setForm({
-      id: d.id,
-      nombre: d.nombre,
-      fecha: d.fechaISO.slice(0, 10),
-      recurrente: d.recurrente !== false,
-      descripcion: d.descripcion || "",
+      id: f.id,
+      nombre: f.nombre,
+      fecha: `${ano}-${pad(f.mes)}-${pad(f.dia)}`,
+      recurrente: f.recurrente,
+      descripcion: f.descripcion || "",
     });
     setModal(true);
   };
@@ -107,8 +44,7 @@ export default function DiasList({ proximos, hasCats, tieneFechas }: { proximos:
     setSaving(true);
     const [yy, mm, dd] = form.fecha.split("-").map(Number);
     const fila = {
-      mes: mm,
-      dia: dd,
+      mes: mm, dia: dd,
       nombre: form.nombre.trim(),
       descripcion: form.descripcion.trim() || null,
       recurrente: form.recurrente,
@@ -134,9 +70,9 @@ export default function DiasList({ proximos, hasCats, tieneFechas }: { proximos:
     }
   };
 
-  const eliminar = async (d: DiaProximo) => {
-    if (!confirm(`¿Eliminar "${d.nombre}"?`)) return;
-    const { error } = await supabase.from("fechas_usuario").delete().eq("id", d.id);
+  const eliminar = async (f: FechaUsuario) => {
+    if (!confirm(`¿Eliminar "${f.nombre}"?`)) return;
+    const { error } = await supabase.from("fechas_usuario").delete().eq("id", f.id);
     if (error) { setToast({ message: `Error: ${error.message}`, type: "error" }); return; }
     setToast({ message: "Fecha eliminada", type: "success" });
     router.refresh();
@@ -146,69 +82,58 @@ export default function DiasList({ proximos, hasCats, tieneFechas }: { proximos:
     <div className="max-w-lg mx-auto pb-8">
       <Toast toast={toast} onClose={() => setToast(null)} />
       <div className="px-5 pt-8 pb-2 flex items-center justify-between">
-        <BackLink href="/dashboard">Inicio</BackLink>
+        <BackLink href="/dias">Calendario</BackLink>
         <Logo size="sm" />
       </div>
       <div className="px-5 pb-4">
-        <h1 className="text-xl font-bold text-gray-900">Días clave</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Tus próximas oportunidades de contenido</p>
+        <h1 className="text-xl font-bold text-gray-900">Todas mis fechas</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Gestiona tus fechas importantes del año</p>
       </div>
 
-      <div className="px-5 mb-4 space-y-2">
+      <div className="px-5 mb-4">
         <button onClick={abrirNueva}
           className="w-full py-3 rounded-2xl border-2 border-dashed text-sm font-bold transition-all active:scale-[0.99]"
           style={{ borderColor: "#f9b23b", color: "#f9b23b" }}>
           + Añadir mi propia fecha
         </button>
-        <Link href="/dias/mis-fechas" className="block text-center text-xs font-semibold text-gray-500 hover:text-gray-700">
-          Gestionar mis fechas →
-        </Link>
       </div>
 
-      {proximos.length === 0 ? (
+      {fechas.length === 0 ? (
         <div className="px-5">
           <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-            {!hasCats && !tieneFechas ? (
-              <>
-                <div className="text-4xl mb-3">🗓️</div>
-                <p className="text-sm font-semibold text-gray-700 mb-1">Aún no has elegido categorías de interés</p>
-                <p className="text-xs text-gray-400 mb-4">Ve a tu perfil para personalizar tu calendario, o añade tus propias fechas.</p>
-                <Link href="/perfil?volver=/dias" className="inline-block px-5 py-2.5 rounded-xl font-bold text-white text-sm" style={{ backgroundColor: "#f9b23b" }}>
-                  Ir a Mi Perfil
-                </Link>
-              </>
-            ) : (
-              <>
-                <div className="text-4xl mb-3">📭</div>
-                <p className="text-sm font-semibold text-gray-700">No hay días clave próximos para tus categorías.</p>
-              </>
-            )}
+            <div className="text-4xl mb-3">🗓️</div>
+            <p className="text-sm font-semibold text-gray-700 mb-1">Aún no tienes fechas propias</p>
+            <p className="text-xs text-gray-400">Añade aniversarios, hitos o cualquier fecha importante para tu organización.</p>
           </div>
         </div>
       ) : (
-        <div className="px-5 space-y-6">
-          {hoyManana.length > 0 && (
-            <section>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Hoy y mañana</p>
-              <div className="space-y-3">{hoyManana.map((d) => <Tarjeta key={d.id} d={d} destacada onEdit={abrirEdicion} onDelete={eliminar} />)}</div>
-            </section>
-          )}
-          {semana.length > 0 && (
-            <section>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Esta semana</p>
-              <div className="space-y-3">{semana.map((d) => <Tarjeta key={d.id} d={d} onEdit={abrirEdicion} onDelete={eliminar} />)}</div>
-            </section>
-          )}
-          {resto.length > 0 && (
-            <section>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Próximas semanas</p>
-              <div className="space-y-2">{resto.map((d) => <Tarjeta key={d.id} d={d} compacta onEdit={abrirEdicion} onDelete={eliminar} />)}</div>
-            </section>
-          )}
+        <div className="px-5 space-y-3">
+          {fechas.map((f) => (
+            <div key={f.id} className="bg-white rounded-2xl shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#fff8ef", color: "#f9b23b" }}>
+                  {fechaLarga(f.mes, f.dia)}
+                </span>
+                {f.recurrente ? (
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">🔁 Cada año</span>
+                ) : (
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">Solo {f.ano_especifico}</span>
+                )}
+              </div>
+              <p className="font-bold text-gray-900 text-sm">{f.nombre}</p>
+              {f.descripcion && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{f.descripcion}</p>}
+              <div className="flex items-center gap-2 mt-3">
+                <button onClick={() => abrirEdicion(f)} className="px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all active:scale-95"
+                  style={{ borderColor: "#e5e7eb", color: "#374151" }}>✎ Editar</button>
+                <button onClick={() => eliminar(f)} className="px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95"
+                  style={{ color: "#ef4444" }}>Eliminar</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Modal añadir / editar fecha */}
+      {/* Modal añadir / editar */}
       {modal && (
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4" onClick={() => !saving && setModal(false)}>
           <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-sm" onClick={(e) => e.stopPropagation()}>

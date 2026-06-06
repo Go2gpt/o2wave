@@ -67,6 +67,18 @@ export interface GuionTikTok {
   params?: { duracion: string; tono: string; entorno: string };
 }
 
+export interface FechaUsuario {
+  id: string;
+  user_id: string;
+  mes: number;
+  dia: number;
+  nombre: string;
+  descripcion: string | null;
+  recurrente: boolean;
+  ano_especifico: number | null;
+  created_at: string;
+}
+
 export type PackFuente = "dia_clave" | "fecha_usuario" | "ia_sugerencia";
 
 export interface PackDia {
