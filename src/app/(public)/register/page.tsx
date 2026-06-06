@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
+import { validarNIF, normalizarNIF } from "@/lib/nif";
 
 const BLOQUES = [
   {
@@ -44,22 +45,43 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nif, setNif] = useState("");
+  const [nifError, setNifError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
   const pideNif = tipo === "ong_pequena" || tipo === "ong_mediana";
+  const DUP_MSG = "Este NIF ya está registrado en o2Wave. Si crees que es un error, contacta con nosotros.";
+
+  const esErrorNifDuplicado = (msg: string) =>
+    msg.includes("23505") || msg.toLowerCase().includes("nif");
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNifError("");
+
+    let nifNorm: string | null = null;
+    if (pideNif) {
+      const v = validarNIF(nif);
+      if (!v.valido) { setNifError(v.mensaje || "NIF no válido"); return; }
+      nifNorm = normalizarNIF(nif);
+    }
+
     setLoading(true);
     try {
+      // Pre-chequeo de unicidad (amigable). RPC SECURITY DEFINER que ignora
+      // RLS; la constraint UNIQUE queda como red de seguridad.
+      if (nifNorm) {
+        const { data: existe } = await supabase.rpc("nif_existe", { p_nif: nifNorm });
+        if (existe === true) { setNifError(DUP_MSG); setLoading(false); return; }
+      }
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { tipo_entidad: tipo, nif: pideNif ? nif : null },
+          data: { tipo_entidad: tipo, nif: nifNorm },
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/web`,
         },
       });
@@ -69,19 +91,27 @@ export default function RegisterPage() {
       // and we can go straight into onboarding. Otherwise, prompt the user to
       // confirm via the email link (which lands on /auth/callback).
       if (data.session) {
-        await supabase.from("profiles").upsert({
+        const { error: upErr } = await supabase.from("profiles").upsert({
           id: data.session.user.id,
           email,
           tipo_entidad: tipo,
-          nif: pideNif ? nif : null,
+          nif: nifNorm,
           plan: "free",
         });
+        if (upErr) {
+          if (esErrorNifDuplicado(`${upErr.code} ${upErr.message}`)) { setNifError(DUP_MSG); return; }
+          throw upErr;
+        }
         router.push("/onboarding/web");
       } else {
         setEmailSent(true);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error al registrarse");
+      const msg = err instanceof Error ? err.message : String(err);
+      // Red de seguridad: si la constraint salta (trigger crea el profile),
+      // el signUp falla; mostramos mensaje de duplicado si lo detectamos.
+      if (esErrorNifDuplicado(msg)) setNifError(DUP_MSG);
+      else setError(err instanceof Error ? err.message : "Error al registrarse");
     } finally {
       setLoading(false);
     }
@@ -180,14 +210,19 @@ export default function RegisterPage() {
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
                 NIF de la entidad
               </label>
-              <input type="text" value={nif} onChange={e => setNif(e.target.value.toUpperCase())}
+              <input type="text" value={nif} onChange={e => { setNif(e.target.value.toUpperCase()); setNifError(""); }}
                 placeholder="Ej: G12345678" required
-                className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
-                onFocus={e => e.target.style.borderColor = selectedColor}
-                onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
-              <p className="text-[11px] text-gray-400 mt-1.5">
-                Necesario para verificar tu entidad sin ánimo de lucro.
-              </p>
+                className="w-full border-2 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
+                style={{ borderColor: nifError ? "#f9b23b" : "#f3f4f6" }}
+                onFocus={e => e.target.style.borderColor = nifError ? "#f9b23b" : selectedColor}
+                onBlur={e => e.target.style.borderColor = nifError ? "#f9b23b" : "#f3f4f6"} />
+              {nifError ? (
+                <p className="text-[11px] font-medium mt-1.5" style={{ color: "#f9b23b" }}>⚠️ {nifError}</p>
+              ) : (
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  Necesario para verificar tu entidad sin ánimo de lucro.
+                </p>
+              )}
             </div>
           )}
 
