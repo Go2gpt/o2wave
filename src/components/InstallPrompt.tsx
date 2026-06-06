@@ -46,10 +46,22 @@ export default function InstallPrompt() {
 
     let timer: ReturnType<typeof setTimeout> | null = null;
 
+    // Muestra el banner tras el delay, pero solo si en ese momento sigue sin
+    // estar instalada ni rechazada recientemente (re-chequea por si cambió).
+    const mostrarTrasDelay = () => {
+      timer = setTimeout(() => {
+        if (estaInstalada() || rechazadoRecientemente()) return;
+        setVisible(true);
+      }, SHOW_DELAY_MS);
+    };
+
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
-      timer = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
+      // Chrome puede re-disparar este evento al navegar entre rutas del SPA;
+      // si el usuario ya lo rechazó (o la instaló), no reabrimos el banner.
+      if (estaInstalada() || rechazadoRecientemente()) return;
+      mostrarTrasDelay();
     };
 
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
@@ -57,7 +69,7 @@ export default function InstallPrompt() {
     // iOS Safari no dispara beforeinstallprompt → mostramos instrucciones
     if (ios) {
       setEsIOS(true);
-      timer = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
+      mostrarTrasDelay();
     }
 
     return () => {
