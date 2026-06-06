@@ -65,6 +65,13 @@ export default function WelcomePage() {
             Ya tengo cuenta
           </Link>
         </div>
+
+        <p className="text-[11px] text-gray-500 leading-relaxed max-w-xs mt-6">
+          Al continuar aceptas nuestros{" "}
+          <Link href="/terminos" className="underline" style={{ color: "#9ca3af" }}>Términos de uso</Link> y{" "}
+          <Link href="/privacidad" className="underline" style={{ color: "#9ca3af" }}>Política de privacidad</Link>. Más info en{" "}
+          <Link href="/cookies" className="underline" style={{ color: "#9ca3af" }}>Política de cookies</Link>.
+        </p>
       </div>
 
       {/* Footer */}

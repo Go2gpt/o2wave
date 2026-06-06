@@ -239,6 +239,12 @@ export default function RegisterPage() {
             </div>
           )}
 
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Al crear la cuenta aceptas nuestros{" "}
+            <Link href="/terminos" className="underline font-medium">Términos de uso</Link> y{" "}
+            <Link href="/privacidad" className="underline font-medium">Política de privacidad</Link>.
+          </p>
+
           <button type="submit" disabled={loading}
             className="w-full py-4 rounded-2xl font-bold text-white text-base mt-2 disabled:opacity-50 transition-all active:scale-[0.98]"
             style={{ backgroundColor: selectedColor }}>

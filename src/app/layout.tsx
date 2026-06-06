@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import CookieNotice from "@/components/CookieNotice";
 
 export const metadata: Metadata = {
   title: "o²Wave — Contenido para redes en segundos",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body className="min-h-screen" style={{ backgroundColor: "#0F0F0F", fontFamily: "Montserrat, sans-serif" }}>
         {children}
+        <CookieNotice />
       </body>
     </html>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Spinner from "@/components/ui/Spinner";
@@ -270,6 +271,14 @@ export default function ProfileForm({ initial }: { initial: ProfileData }) {
                 style={{ backgroundColor: verif.bg, color: verif.color }}>{verif.label}</span>
             </div>
           )}
+          <div className="pt-2 border-t border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Información legal</p>
+            <div className="flex flex-col gap-1.5 text-sm">
+              <Link href="/privacidad" className="text-gray-600 hover:text-gray-900">Política de privacidad →</Link>
+              <Link href="/terminos" className="text-gray-600 hover:text-gray-900">Términos y condiciones →</Link>
+              <Link href="/cookies" className="text-gray-600 hover:text-gray-900">Política de cookies →</Link>
+            </div>
+          </div>
         </section>
 
         {/* Sección 4 — Seguridad */}

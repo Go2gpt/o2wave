@@ -1,8 +1,9 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/auth", "/onboarding"];
+const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/auth", "/onboarding", "/privacidad", "/terminos", "/cookies"];
 const AUTH_ROUTES = ["/login", "/register", "/welcome"];
+const LEGAL_ROUTES = ["/privacidad", "/terminos", "/cookies"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
@@ -64,7 +65,8 @@ export async function middleware(request: NextRequest) {
     session &&
     !pathname.startsWith("/onboarding") &&
     !pathname.startsWith("/auth") &&
-    !pathname.startsWith("/api")
+    !pathname.startsWith("/api") &&
+    !LEGAL_ROUTES.some((r) => pathname.startsWith(r))
   ) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
