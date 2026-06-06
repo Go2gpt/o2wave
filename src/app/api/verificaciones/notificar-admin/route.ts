@@ -46,7 +46,7 @@ export async function POST() {
               <tr><td style="color:#6b7280;padding:2px 12px 2px 0">Tipo</td><td>${tipo}</td></tr>
             </table>
             <p style="margin-top:16px">
-              <a href="https://o2wave.app/admin/verificaciones"
+              <a href="https://o2wave.app/login?redirect=/admin/verificaciones"
                  style="display:inline-block;background:#f9b23b;color:#0F0F0F;font-weight:bold;text-decoration:none;padding:10px 18px;border-radius:10px">
                 Revisar verificaciones
               </a>

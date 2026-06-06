@@ -37,9 +37,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/welcome", request.url));
   }
 
-  // Authenticated users shouldn't access auth pages
+  // Authenticated users shouldn't access auth pages. Si traen un ?redirect=
+  // interno (p. ej. desde el email de aviso al admin), lo respetamos.
   if (session && AUTH_ROUTES.includes(pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const redirectParam = request.nextUrl.searchParams.get("redirect");
+    const dest = redirectParam && redirectParam.startsWith("/") ? redirectParam : "/dashboard";
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
   // Force onboarding completion for authenticated users.
