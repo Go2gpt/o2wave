@@ -1,7 +1,54 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { normalizarMarca } from "@/lib/formatText";
+
+export const maxDuration = 60;
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const MIN_TEXT = 500;        // umbral de "suficiente"
+const MAX_TEXT = 14000;      // tope de texto enviado al modelo
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function fetchHtml(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; o2wave-bot/1.0)" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return "";
+    return await res.text();
+  } catch {
+    return "";
+  }
+}
+
+function findInternalLinks(html: string, baseUrl: string): string[] {
+  let origin: string;
+  try { origin = new URL(baseUrl).origin; } catch { return []; }
+  const kw = ["about", "sobre", "nosotros", "mision", "misi", "quienes", "quiénes",
+    "servicios", "que-hacemos", "proyectos", "programa", "valores"];
+  const found = new Set<string>();
+  const matches = Array.from(html.matchAll(/href=["']([^"'#]+)["']/gi));
+  for (const m of matches) {
+    let abs: string;
+    try { abs = new URL(m[1], baseUrl).toString(); } catch { continue; }
+    if (!abs.startsWith(origin)) continue;
+    if (abs.replace(/\/$/, "") === baseUrl.replace(/\/$/, "")) continue;
+    if (kw.some((k) => abs.toLowerCase().includes(k))) found.add(abs);
+    if (found.size >= 3) break;
+  }
+  return Array.from(found);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,23 +57,52 @@ export async function POST(request: NextRequest) {
 
     const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
 
-    const prompt = `Analiza la identidad visual de esta web: ${normalizedUrl}
+    // 1) Home + hasta 3 páginas internas relevantes
+    const homeHtml = await fetchHtml(normalizedUrl);
+    const internalLinks = homeHtml ? findInternalLinks(homeHtml, normalizedUrl) : [];
+    const internalHtml = await Promise.all(internalLinks.map(fetchHtml));
 
-Basándote en la URL y el dominio, deduce la identidad visual probable de esta organización.
-Responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
+    let texto = [homeHtml, ...internalHtml].map(stripHtml).join("\n\n").trim();
+    if (texto.length > MAX_TEXT) texto = texto.slice(0, MAX_TEXT);
+
+    // 2) Texto insuficiente → el frontend preguntará a mano
+    if (texto.length < MIN_TEXT) {
+      return NextResponse.json({ suficiente: false, url: normalizedUrl });
+    }
+
+    // 3) Análisis exhaustivo con Claude
+    const prompt = `Eres un analista de marca. A partir del TEXTO extraído de la web de una organización, devuelve un análisis en JSON.
+
+REGLAS:
+- Responde ÚNICAMENTE con el objeto JSON, sin texto adicional ni markdown.
+- Si un campo NO se puede inferir del texto, devuelve null (o [] para arrays). NO inventes datos.
+- Sé conciso y fiel al contenido.
+
+Estructura EXACTA:
 {
-  "nombre": "nombre probable de la organización",
-  "tipo": "ong" o "pyme" o "autonomo",
-  "sector": "sector principal (ej: educacion, salud, medio_ambiente, comercio, tecnologia, cultura, social)",
-  "colores": ["#hexcolor1", "#hexcolor2", "#hexcolor3"],
-  "tipografia": "nombre de fuente probable (ej: Roboto, Open Sans, Montserrat)",
-  "estilo": "descripción del estilo visual en 10 palabras máximo",
-  "descripcion": "descripción de la organización en 20 palabras"
-}`;
+  "nombre": "nombre de la organización",
+  "tipo": "ong" | "empresa" | "autonomo",
+  "sector": "sector principal (educacion, salud, medio_ambiente, social, cultura, comercio, tecnologia, deporte, general)",
+  "mision_valores": "misión y valores en 2-3 frases",
+  "publico_objetivo": "a quién se dirige",
+  "servicios_programas": "servicios o programas principales",
+  "causas_o_productos": "causas (si ONG) o productos/servicios (si empresa)",
+  "colores_marca": ["#hex", "..."],
+  "idioma_principal": "es" | "ca" | "en" | "...",
+  "hashtags_sugeridos": ["#tag1", "#tag2"],
+  "geografia": "ámbito: local, nacional, internacional, países/regiones",
+  "estilo_visual": "minimalista, colorido, fotográfico, ilustrado, etc.",
+  "logros_numeros": "logros, números clave, años, premios"
+}
+
+TEXTO DE LA WEB (${normalizedUrl}):
+"""
+${texto}
+"""`;
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 512,
+      max_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -37,20 +113,19 @@ Responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
     try {
       analysis = JSON.parse(cleaned);
     } catch {
-      // Fallback if parsing fails
-      analysis = {
-        nombre: "",
-        tipo: "ong",
-        sector: "general",
-        colores: ["#93bf30", "#f9b23b", "#0F0F0F"],
-        tipografia: "Montserrat",
-        estilo: "moderno y profesional",
-        descripcion: "Organización analizada desde " + normalizedUrl,
-      };
+      return NextResponse.json({ suficiente: false, url: normalizedUrl });
     }
 
-    return NextResponse.json({ analysis, url: normalizedUrl });
+    // Regla de marca: "O2" → "o2" en el nombre
+    if (typeof analysis.nombre === "string") {
+      analysis.nombre = normalizarMarca(analysis.nombre);
+    }
+
+    return NextResponse.json({ suficiente: true, analysis, url: normalizedUrl });
   } catch (error) {
-    return NextResponse.json({ error: `Error: ${error instanceof Error ? error.message : "desconocido"}` }, { status: 500 });
+    return NextResponse.json(
+      { error: `Error: ${error instanceof Error ? error.message : "desconocido"}` },
+      { status: 500 }
+    );
   }
 }

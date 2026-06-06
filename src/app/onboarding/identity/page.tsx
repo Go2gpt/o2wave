@@ -7,45 +7,111 @@ import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
 
-interface BrandAnalysis {
-  nombre: string;
-  tipo: string;
-  sector: string;
-  colores: string[];
-  tipografia: string;
-  estilo: string;
-  descripcion: string;
+interface Analysis {
+  nombre?: string | null;
+  tipo?: string | null;
+  sector?: string | null;
+  mision_valores?: string | null;
+  publico_objetivo?: string | null;
+  servicios_programas?: string | null;
+  causas_o_productos?: string | null;
+  colores_marca?: string[] | null;
+  idioma_principal?: string | null;
+  hashtags_sugeridos?: string[] | null;
+  geografia?: string | null;
+  estilo_visual?: string | null;
+  logros_numeros?: string | null;
 }
 
-const SECTORES = ["general", "educacion", "salud", "medio_ambiente", "social", "cultura", "comercio", "tecnologia", "deporte"];
-const SECTOR_LABELS: Record<string, string> = {
-  general: "General", educacion: "Educación", salud: "Salud",
-  medio_ambiente: "Medio Ambiente", social: "Acción Social", cultura: "Cultura",
-  comercio: "Comercio", tecnologia: "Tecnología", deporte: "Deporte",
-};
+const TIPOS_PUBLICACION = [
+  "Informativas",
+  "Emotivas",
+  "Llamada a la acción",
+  "Motivacionales",
+  "Una mezcla de varias",
+];
+
+const inputCls =
+  "w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors";
+const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  (e.target.style.borderColor = "#f9b23b");
+const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  (e.target.style.borderColor = "#f3f4f6");
+
+function arrToText(a?: string[] | null): string {
+  return Array.isArray(a) ? a.join(", ") : "";
+}
+function textToArr(s: string): string[] {
+  return s.split(",").map((x) => x.trim()).filter(Boolean);
+}
+
+// Definido a nivel de módulo: si estuviera dentro del componente, React lo
+// recrearía en cada render y los inputs perderían el foco al escribir.
+function Campo({ label, value, set, area = false }: {
+  label: string; value: string; set: (v: string) => void; area?: boolean;
+}) {
+  return (
+    <div className="bg-gray-50 rounded-2xl p-4">
+      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{label}</label>
+      {area ? (
+        <textarea value={value} onChange={(e) => set(e.target.value)} rows={3}
+          className={`${inputCls} resize-none`} onFocus={onFocus} onBlur={onBlur} />
+      ) : (
+        <input value={value} onChange={(e) => set(e.target.value)} className={inputCls} onFocus={onFocus} onBlur={onBlur} />
+      )}
+    </div>
+  );
+}
 
 export default function OnboardingIdentityPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [analysis, setAnalysis] = useState<BrandAnalysis | null>(null);
-  const [editMode, setEditMode] = useState(false);
+
+  const [paso, setPaso] = useState<1 | 2>(1);
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [suficiente, setSuficiente] = useState(true);
+
+  // Campos editables (paso 1)
   const [nombre, setNombre] = useState("");
-  const [sector, setSector] = useState("general");
-  const [colores, setColores] = useState<string[]>([]);
-  const [tipografia, setTipografia] = useState("");
-  const [estilo, setEstilo] = useState("");
+  const [sector, setSector] = useState("");
+  const [misionValores, setMisionValores] = useState("");
+  const [publicoObjetivo, setPublicoObjetivo] = useState("");
+  const [serviciosProgramas, setServiciosProgramas] = useState("");
+  const [causasOProductos, setCausasOProductos] = useState("");
+  const [coloresMarca, setColoresMarca] = useState("");
+  const [idiomaPrincipal, setIdiomaPrincipal] = useState("");
+  const [hashtagsSugeridos, setHashtagsSugeridos] = useState("");
+  const [geografia, setGeografia] = useState("");
+  const [estiloVisual, setEstiloVisual] = useState("");
+  const [logrosNumeros, setLogrosNumeros] = useState("");
+
+  // Preguntas finales (paso 2)
+  const [tema1, setTema1] = useState("");
+  const [tema2, setTema2] = useState("");
+  const [tema3, setTema3] = useState("");
+  const [tipoPublicaciones, setTipoPublicaciones] = useState("");
+  const [infoExtra, setInfoExtra] = useState("");
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("brand_analysis");
+    const stored = sessionStorage.getItem("onb_data");
     if (!stored) { router.push("/onboarding/web"); return; }
-    const data: BrandAnalysis = JSON.parse(stored);
-    setAnalysis(data);
-    setNombre(data.nombre || "");
-    setSector(data.sector || "general");
-    setColores(data.colores || ["#93bf30", "#f9b23b", "#0F0F0F"]);
-    setTipografia(data.tipografia || "Montserrat");
-    setEstilo(data.estilo || "");
+    const payload: { suficiente: boolean; analysis?: Analysis } = JSON.parse(stored);
+    setSuficiente(payload.suficiente);
+    const a = payload.analysis || {};
+    setNombre(a.nombre || "");
+    setSector(a.sector || "");
+    setMisionValores(a.mision_valores || "");
+    setPublicoObjetivo(a.publico_objetivo || "");
+    setServiciosProgramas(a.servicios_programas || "");
+    setCausasOProductos(a.causas_o_productos || "");
+    setColoresMarca(arrToText(a.colores_marca));
+    setIdiomaPrincipal(a.idioma_principal || "");
+    setHashtagsSugeridos(arrToText(a.hashtags_sugeridos));
+    setGeografia(a.geografia || "");
+    setEstiloVisual(a.estilo_visual || "");
+    setLogrosNumeros(a.logros_numeros || "");
+    setLoaded(true);
   }, [router]);
 
   const handleSave = async () => {
@@ -55,155 +121,146 @@ export default function OnboardingIdentityPage() {
       if (!user) { router.push("/login"); return; }
 
       const webUrl = sessionStorage.getItem("web_url") || "";
+      const temas = [tema1, tema2, tema3].map((t) => t.trim()).filter(Boolean);
 
-      // Save brand identity
-      const { error: brandError } = await supabase.from("brand_identity").upsert({
-        user_id: user.id,
-        colores,
-        tipografia,
-        estilo,
-        web_url: webUrl,
-        raw_analysis: analysis as unknown as Record<string, unknown>,
-      }, { onConflict: "user_id" });
-      if (brandError) { console.error("brand_identity error:", brandError); setSaving(false); return; }
-
-      // Update profile (normaliza la marca: "O2" → "o2")
-      const { error: profileError } = await supabase.from("profiles").update({
+      const { error } = await supabase.from("profiles").update({
         nombre_entidad: normalizarMarca(nombre),
         sector,
         web_url: webUrl,
+        mision_valores: misionValores || null,
+        publico_objetivo: publicoObjetivo || null,
+        servicios_programas: serviciosProgramas || null,
+        causas_o_productos: causasOProductos || null,
+        colores_marca: textToArr(coloresMarca),
+        idioma_principal: idiomaPrincipal || null,
+        hashtags_sugeridos: textToArr(hashtagsSugeridos),
+        geografia: geografia || null,
+        estilo_visual: estiloVisual || null,
+        logros_numeros: logrosNumeros || null,
+        temas_prioritarios: temas,
+        tipo_publicaciones: tipoPublicaciones || null,
+        info_extra: infoExtra || null,
         onboarding_complete: true,
       }).eq("id", user.id);
-      if (profileError) { console.error("profiles error:", profileError); setSaving(false); return; }
 
-      sessionStorage.removeItem("brand_analysis");
+      if (error) { console.error("onboarding save error:", error); setSaving(false); return; }
+
+      sessionStorage.removeItem("onb_data");
       sessionStorage.removeItem("web_url");
       router.push("/dashboard");
     } catch (err) {
       console.error(err);
-    } finally {
       setSaving(false);
     }
   };
 
-  if (!analysis) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Spinner size={8} color="gray-400" />
-    </div>
+  if (!loaded) return (
+    <div className="min-h-screen flex items-center justify-center"><Spinner size={8} color="gray-400" /></div>
   );
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
       <div className="px-5 pt-8 pb-4">
         <Logo size="md" />
         <div className="flex items-center gap-2 mt-4">
           <div className="flex gap-1">
-            {[0, 1].map(i => (
-              <div key={i} className="h-1.5 rounded-full"
-                style={{ width: "24px", backgroundColor: "#f9b23b" }} />
+            {[0, 1].map((i) => (
+              <div key={i} className="h-1.5 rounded-full" style={{ width: "24px", backgroundColor: "#f9b23b" }} />
             ))}
           </div>
           <span className="text-xs text-gray-400">2 de 2</span>
         </div>
       </div>
 
-      <div className="flex-1 px-5 pb-8 space-y-5 overflow-y-auto">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Tu identidad visual</h1>
-          <p className="text-sm text-gray-500">Esto es lo que hemos detectado. Puedes editarlo.</p>
-        </div>
+      <div className="flex-1 px-5 pb-8 space-y-4 overflow-y-auto">
+        {paso === 1 ? (
+          <>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 mb-1">
+                {suficiente ? "Esto es lo que hemos detectado" : "Cuéntanos sobre tu organización"}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {suficiente
+                  ? "Revisa y edita lo que haga falta antes de continuar."
+                  : "No hemos podido analizar tu web a fondo. Rellena estos datos a mano."}
+              </p>
+            </div>
 
-        {/* Colors */}
-        <div className="bg-gray-50 rounded-2xl p-4">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Colores detectados</p>
-          <div className="flex gap-3 flex-wrap">
-            {colores.map((c, i) => (
-              <div key={i} className="flex flex-col items-center gap-1.5">
-                <div className="w-12 h-12 rounded-xl shadow-sm border border-white"
-                  style={{ backgroundColor: c }} />
-                {editMode ? (
-                  <input type="color" value={c} onChange={e => setColores(cols => cols.map((col, j) => j === i ? e.target.value : col))}
-                    className="w-12 h-6 rounded cursor-pointer border-0 p-0" />
-                ) : (
-                  <span className="text-[10px] font-mono text-gray-500">{c}</span>
-                )}
+            <Campo label="Nombre de la entidad" value={nombre} set={setNombre} />
+            <Campo label="Sector" value={sector} set={setSector} />
+            <Campo label="Misión y valores" value={misionValores} set={setMisionValores} area />
+            <Campo label="Público objetivo" value={publicoObjetivo} set={setPublicoObjetivo} area />
+            <Campo label="Servicios o programas" value={serviciosProgramas} set={setServiciosProgramas} area />
+            <Campo label="Causas o productos" value={causasOProductos} set={setCausasOProductos} area />
+            <Campo label="Colores de marca (hex, separados por comas)" value={coloresMarca} set={setColoresMarca} />
+            <Campo label="Idioma principal" value={idiomaPrincipal} set={setIdiomaPrincipal} />
+            <Campo label="Hashtags sugeridos (separados por comas)" value={hashtagsSugeridos} set={setHashtagsSugeridos} />
+            <Campo label="Geografía / ámbito" value={geografia} set={setGeografia} />
+            <Campo label="Estilo visual" value={estiloVisual} set={setEstiloVisual} />
+            <Campo label="Logros y números clave" value={logrosNumeros} set={setLogrosNumeros} area />
+
+            <button onClick={() => { setPaso(2); window.scrollTo(0, 0); }}
+              className="w-full py-4 rounded-2xl font-bold text-white text-base transition-all active:scale-[0.98]"
+              style={{ backgroundColor: "#f9b23b" }}>
+              Todo correcto, continuar →
+            </button>
+          </>
+        ) : (
+          <>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 mb-1">Unas últimas preguntas</h1>
+              <p className="text-sm text-gray-500">Nos ayudan a afinar tu contenido.</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                Los 3 temas que más quieres comunicar este año
+              </label>
+              <div className="space-y-2">
+                <input value={tema1} onChange={(e) => setTema1(e.target.value)} placeholder="Tema 1" className={inputCls} onFocus={onFocus} onBlur={onBlur} />
+                <input value={tema2} onChange={(e) => setTema2(e.target.value)} placeholder="Tema 2" className={inputCls} onFocus={onFocus} onBlur={onBlur} />
+                <input value={tema3} onChange={(e) => setTema3(e.target.value)} placeholder="Tema 3" className={inputCls} onFocus={onFocus} onBlur={onBlur} />
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Typography & Style */}
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipografía & Estilo</p>
-          {editMode ? (
-            <>
-              <input value={tipografia} onChange={e => setTipografia(e.target.value)}
-                className="w-full border-2 border-gray-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none"
-                onFocus={e => e.target.style.borderColor = "#f9b23b"}
-                onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
-              <input value={estilo} onChange={e => setEstilo(e.target.value)}
-                className="w-full border-2 border-gray-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none"
-                onFocus={e => e.target.style.borderColor = "#f9b23b"}
-                onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-bold text-gray-800">{tipografia}</p>
-              <p className="text-sm text-gray-500">{estilo}</p>
-            </>
-          )}
-        </div>
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                ¿Qué publicaciones funcionan mejor con tu audiencia?
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {TIPOS_PUBLICACION.map((t) => (
+                  <button key={t} type="button" onClick={() => setTipoPublicaciones(t)}
+                    className="px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all"
+                    style={tipoPublicaciones === t
+                      ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
+                      : { borderColor: "#e5e7eb", color: "#6b7280" }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* Nombre */}
-        <div className="bg-gray-50 rounded-2xl p-4">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Nombre de la entidad</p>
-          {editMode ? (
-            <input value={nombre} onChange={e => setNombre(e.target.value)}
-              className="w-full border-2 border-gray-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none"
-              onFocus={e => e.target.style.borderColor = "#f9b23b"}
-              onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
-          ) : (
-            <p className="text-sm font-bold text-gray-800">{nombre || "—"}</p>
-          )}
-        </div>
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                ¿Algo importante que NO aparezca en tu web? (opcional)
+              </label>
+              <textarea value={infoExtra} onChange={(e) => setInfoExtra(e.target.value)} rows={3}
+                placeholder="Cuéntanoslo aquí..." className={`${inputCls} resize-none`} onFocus={onFocus} onBlur={onBlur} />
+            </div>
 
-        {/* Sector */}
-        <div className="bg-gray-50 rounded-2xl p-4">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Sector</p>
-          <div className="flex flex-wrap gap-2">
-            {SECTORES.map(s => (
-              <button key={s} type="button"
-                onClick={() => editMode && setSector(s)}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all"
-                style={sector === s
-                  ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
-                  : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280", opacity: editMode ? 1 : 0.5 }}>
-                {SECTOR_LABELS[s]}
+            <div className="space-y-2">
+              <button onClick={handleSave} disabled={saving}
+                className="w-full py-4 rounded-2xl font-bold text-white text-base disabled:opacity-50 transition-all active:scale-[0.98]"
+                style={{ backgroundColor: "#f9b23b" }}>
+                {saving ? <span className="flex items-center justify-center gap-2"><Spinner /> Guardando...</span> : "Finalizar y entrar →"}
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Edit toggle */}
-        <button onClick={() => setEditMode(e => !e)}
-          className="w-full py-3 rounded-xl text-sm font-semibold border-2 transition-all"
-          style={editMode
-            ? { borderColor: "#93bf30", color: "#93bf30", backgroundColor: "#f0f7e6" }
-            : { borderColor: "#e5e7eb", color: "#6b7280" }}>
-          {editMode ? "✓ Guardar cambios" : "✏️ Editar identidad"}
-        </button>
-
-        {/* Confirm */}
-        <button onClick={handleSave} disabled={saving}
-          className="w-full py-4 rounded-2xl font-bold text-white text-base disabled:opacity-50 transition-all active:scale-[0.98]"
-          style={{ backgroundColor: "#f9b23b" }}>
-          {saving ? (
-            <span className="flex items-center justify-center gap-2">
-              <Spinner /> Guardando...
-            </span>
-          ) : "Confirmar y continuar →"}
-        </button>
+              <button onClick={() => { setPaso(1); window.scrollTo(0, 0); }} disabled={saving}
+                className="w-full py-3 text-sm text-gray-400 font-medium">
+                ← Volver a los datos
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
