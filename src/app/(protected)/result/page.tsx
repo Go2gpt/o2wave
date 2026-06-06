@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
+import BackLink from "@/components/BackLink";
 import { createClient } from "@/lib/supabase";
 import { pollForImage, aspectFor } from "@/lib/pollImage";
 import { limpiarMarkdown } from "@/lib/formatText";
@@ -302,9 +303,9 @@ function ResultContent() {
     <div className="max-w-lg mx-auto px-4 pt-5 pb-4">
       <Toast toast={toast} onClose={() => setToast(null)} />
       {/* Back */}
-      <Link href="/create" className="flex items-center gap-1.5 text-sm text-gray-500 font-semibold mb-4">
-        ← Generar otro
-      </Link>
+      <div className="mb-4">
+        <BackLink href="/create">Crear</BackLink>
+      </div>
 
       {/* Badges */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">

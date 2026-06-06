@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { getPermisos } from "@/lib/permissions";
+import BackLink from "@/components/BackLink";
 
 export default async function StatsPage() {
   const supabase = createClient();
@@ -38,7 +39,10 @@ export default async function StatsPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="px-5 pt-8 pb-4">
+      <div className="px-5 pt-8 pb-1">
+        <BackLink href="/dashboard">Inicio</BackLink>
+      </div>
+      <div className="px-5 pb-4">
         <h1 className="text-xl font-bold text-gray-900">Estadísticas</h1>
         <p className="text-sm text-gray-500 mt-0.5">Tu actividad y la comunidad o²Wave</p>
       </div>

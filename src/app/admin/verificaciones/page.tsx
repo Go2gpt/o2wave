@@ -61,7 +61,7 @@ export default async function AdminVerificacionesPage() {
     <main className="min-h-screen bg-[#0F0F0F] text-white px-5 py-10">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <BackLink href="/admin">Panel de administración</BackLink>
+          <BackLink href="/admin" dark>Administración</BackLink>
           <div className="mt-3"><Logo size="md" /></div>
           <h1 className="text-xl font-semibold mt-4">Verificaciones pendientes</h1>
           <p className="text-sm text-white/50 mt-1">

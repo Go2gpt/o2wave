@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Logo from "@/components/Logo";
+import BackLink from "@/components/BackLink";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
@@ -169,7 +169,7 @@ function CreateInner() {
     <div className="max-w-lg mx-auto">
       {/* Header */}
       <div className="px-5 pt-8 pb-2 flex items-center justify-between">
-        <Logo size="sm" />
+        <BackLink href="/dashboard">Inicio</BackLink>
         <span className="text-xs font-semibold text-gray-400 bg-white px-3 py-1.5 rounded-full border border-gray-200">
           ✨ Claude AI
         </span>

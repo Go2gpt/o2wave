@@ -1,4 +1,4 @@
-import Link from "next/link";
+import BackLink from "@/components/BackLink";
 
 const ULTIMA_ACTUALIZACION = "6 de junio de 2026";
 
@@ -6,9 +6,8 @@ export default function LegalPage({ title, children }: { title: string; children
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-3xl mx-auto px-5 py-8">
-        <Link href="/welcome" className="inline-flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-gray-700 transition-colors -ml-1">
-          <span aria-hidden>←</span> Volver
-        </Link>
+        {/* Origen variable (perfil, registro, footer…) → volvemos a la pantalla anterior. */}
+        <BackLink>Volver</BackLink>
         <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-6">{title}</h1>
         <div className="text-gray-700 text-[15px] leading-relaxed space-y-4
           [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mt-8 [&_h2]:mb-1

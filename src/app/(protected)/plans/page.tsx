@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
+import BackLink from "@/components/BackLink";
 
 const PLANES = [
   {
@@ -62,7 +63,11 @@ export default async function PlansPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="px-5 pt-8 pb-2">
+      {/* Se llega desde tarjetas bloqueadas del dashboard o desde el límite en /create → volver atrás. */}
+      <div className="px-5 pt-8 pb-1">
+        <BackLink>Atrás</BackLink>
+      </div>
+      <div className="px-5 pb-2">
         <h1 className="text-xl font-bold text-gray-900">Planes</h1>
         <p className="text-sm text-gray-500 mt-0.5">Elige el que mejor se adapta a tu organización</p>
       </div>
