@@ -72,7 +72,7 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="px-5 pt-8 pb-4 flex items-center justify-between">
         <Logo size="md" />
-        <Link href="/profile"
+        <Link href="/perfil"
           className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm"
           style={{ backgroundColor: "#f9b23b" }}>
           {nombre.charAt(0).toUpperCase()}

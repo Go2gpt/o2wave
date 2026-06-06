@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-// TODO (fase posterior): añadir un botón "Instalar app" en /profile para
-// usuarios que rechazaron este banner.
+// Nota: el botón manual "Instalar app" ya existe en /perfil (InstallButton)
+// para usuarios que rechazaron este banner.
 
 const DISMISS_KEY = "o2wave-install-dismissed-at";
 const DISMISS_DAYS = 7;

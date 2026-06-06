@@ -7,7 +7,7 @@ const NAV = [
   { href: "/create",    icon: "✨", label: "Crear" },
   { href: "/calendar",  icon: "📅", label: "Días" },
   { href: "/stats",     icon: "📊", label: "Stats" },
-  { href: "/profile",   icon: "👤", label: "Perfil" },
+  { href: "/perfil",    icon: "👤", label: "Perfil" },
 ];
 
 export default function NavBottom() {
