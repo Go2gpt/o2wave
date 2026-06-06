@@ -7,15 +7,16 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      // Cookies de sesión (sin Max-Age): mueren al cerrar el navegador.
-      cookieOptions: { maxAge: undefined },
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
           try {
-            cookieStore.set({ name, value, ...options });
+            // Cookie de sesión: eliminamos maxAge/expires (la librería fuerza
+            // 400 días por defecto, así que ignorar cookieOptions no basta).
+            const { maxAge: _m, expires: _e, ...rest } = options;
+            cookieStore.set({ name, value, ...rest });
           } catch {}
         },
         remove(name: string, options: CookieOptions) {
