@@ -30,6 +30,15 @@ const DURACIONES_TIKTOK = [
   { value: "30s", label: "30s — medio (recomendado)" },
   { value: "60s", label: "60s — desarrollado" },
 ];
+const ENTORNOS_TIKTOK = [
+  { value: "Casa", emoji: "🏠" },
+  { value: "Calle", emoji: "🌆" },
+  { value: "Oficina", emoji: "🏢" },
+  { value: "Montaña", emoji: "🏔️" },
+  { value: "Playa", emoji: "🏖️" },
+  { value: "Naturaleza", emoji: "🌳" },
+  { value: "Estudio", emoji: "🎬" },
+];
 const TONOS_TIKTOK = [
   { value: "Cercano", label: "Cercano — conversacional, como hablándole a un amigo" },
   { value: "Profesional", label: "Profesional — informativo, con autoridad" },
@@ -59,6 +68,7 @@ function CreateInner() {
     incluirHashtags: true,
     incluirEmojis: true,
   });
+  const [entornoLibre, setEntornoLibre] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [permisos, setPermisos] = useState<Permisos | null>(null);
@@ -234,11 +244,29 @@ function CreateInner() {
             <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
               <div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Entorno o ubicación</p>
-                <textarea value={form.entornoTikTok || ""} onChange={e => set("entornoTikTok", e.target.value)}
-                  rows={2} placeholder="Ej: Oficina moderna, exterior urbano..."
-                  className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none resize-none transition-colors"
-                  onFocus={e => e.target.style.borderColor = "#f9b23b"}
-                  onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+                <div className="flex flex-wrap gap-2">
+                  {ENTORNOS_TIKTOK.map(({ value, emoji }) => (
+                    <button key={value} type="button"
+                      onClick={() => { setEntornoLibre(false); set("entornoTikTok", value); }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                      style={pill(!entornoLibre && form.entornoTikTok === value)}>
+                      <span>{emoji}</span><span>{value}</span>
+                    </button>
+                  ))}
+                  <button type="button"
+                    onClick={() => { setEntornoLibre(true); set("entornoTikTok", ""); }}
+                    className="px-3.5 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                    style={pill(entornoLibre)}>
+                    ✏️ Otro
+                  </button>
+                </div>
+                {entornoLibre && (
+                  <input value={form.entornoTikTok || ""} onChange={e => set("entornoTikTok", e.target.value)}
+                    placeholder="Ej: cafetería, taller, mercado..."
+                    className="mt-2 w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors"
+                    onFocus={e => e.target.style.borderColor = "#f9b23b"}
+                    onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+                )}
               </div>
               <div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Duración</p>

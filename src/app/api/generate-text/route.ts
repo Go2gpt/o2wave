@@ -117,7 +117,7 @@ PARÁMETROS:
 ${contextoUsuario ? `\nCONTEXTO DE LA ORGANIZACIÓN:\n${contextoUsuario}\n` : ""}
 INSTRUCCIONES:
 - El guion debe caber en la duración indicada.
-- Los planos deben ser PRÁCTICOS para alguien sin equipo (smartphone + luz natural).
+- Los planos deben ser PRÁCTICOS para alguien sin equipo (smartphone + luz natural) y deben encajar con el entorno indicado (${entorno}): ambienta las tomas en ese lugar.
 - ${incluirHashtags ? "Incluye 10-15 hashtags" : "Incluye 8-12 hashtags"} específicos para TikTok: mezcla virales (#fyp, #parati) con otros relevantes al tema y al sector.
 - El audio sugerido NO debe ser una canción concreta (no sabes qué está en tendencia): describe el TIPO de audio que encaja (p. ej. "música instrumental suave tipo Lo-Fi", "audio viral de tendencia con ritmo enérgico", "solo voz, sin música").
 ${incluirEmojis ? "- Puedes usar emojis con moderación en la voz." : "- No uses emojis."}
