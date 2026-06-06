@@ -411,4 +411,56 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   return { pack_id: pack.id as string, dias: N, con_imagen: conImagen, fallos };
 }
 
+const PERFIL_SELECT = "nombre_entidad, tipo_entidad, mision_valores, publico_objetivo, servicios_programas, causas_o_productos, temas_prioritarios, logros_numeros, info_extra, sector";
+
+/**
+ * Regenera UN día del pack. modo:
+ *  - "completo" (def): texto + imagen (usa nuevoTema o uno propuesto por IA).
+ *  - "texto": solo texto/titular/hashtags (+guion si TikTok); conserva la imagen.
+ *  - "imagen": solo la imagen (re-hornea el titular actual); conserva el texto.
+ * Tolerante a fallos de imagen (queda imagen_url=null si Replicate falla).
+ */
+export async function regenerarDia(
+  admin: SupabaseClient, userId: string, dia: PackDia,
+  opts: { nuevoTema?: string; modo?: "completo" | "texto" | "imagen" } = {},
+): Promise<PackDia> {
+  const modo = opts.modo || "completo";
+  const { data: profile } = await admin.from("profiles").select(PERFIL_SELECT).eq("id", userId).single();
+  const perfil = (profile || {}) as unknown as PerfilPack;
+  const red = dia.tipo;
+  const label = RED_LABEL[red] || "Instagram";
+
+  // Tema: el nuevo si se da; si es "completo" sin tema, lo propone la IA; si no, el actual.
+  let tema = (opts.nuevoTema || "").trim();
+  if (!tema) {
+    if (modo === "completo") { const t = await temasIA(perfil, 1); tema = t[0] || dia.tema; }
+    else tema = dia.tema;
+  }
+
+  const out: PackDia = { ...dia, tema };
+
+  // --- Solo imagen ---
+  if (modo === "imagen") {
+    if (red === "tiktok") return { ...out, imagen_url: null };
+    await calentarFontconfig();
+    const img = await generarImagen(admin, userId, dia.prompt_imagen || promptImagenFallback(out.tema), dia.titular || out.tema, label, 110_000, `Regenerar imagen (${red})`);
+    return { ...out, imagen_url: img.url };
+  }
+
+  // --- Texto (y guion si TikTok) ---
+  if (red === "tiktok") {
+    const g = await generarGuionTikTok(perfil, tema);
+    return { ...out, titular: g.titular, texto: g.texto, hashtags: g.hashtags, guion_tiktok: g.guion, imagen_url: null, prompt_imagen: null };
+  }
+  const r = await generarTextoRed(perfil, tema, label);
+  const conTexto: PackDia = { ...out, titular: r.titular, texto: r.texto, hashtags: r.hashtags, prompt_imagen: r.prompt_imagen, guion_tiktok: null };
+
+  if (modo === "texto") return conTexto; // conserva imagen actual
+
+  // --- Completo: texto + imagen nueva ---
+  await calentarFontconfig();
+  const img = await generarImagen(admin, userId, r.prompt_imagen, r.titular, label, 110_000, `Regenerar completo (${red})`);
+  return { ...conTexto, imagen_url: img.url };
+}
+
 export { MESES_DIA };
