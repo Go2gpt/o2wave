@@ -11,6 +11,7 @@ import ChipsInput from "@/components/ChipsInput";
 import InstallButton from "@/components/InstallButton";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
+import { CATEGORIAS, CATEGORIA_LABEL } from "@/lib/categorias";
 
 export interface ProfileData {
   id: string;
@@ -92,7 +93,13 @@ function AreaField({ label, value, onChange, max }: {
   );
 }
 
-export default function ProfileForm({ initial }: { initial: ProfileData }) {
+export default function ProfileForm({
+  initial, categoriasIniciales, mostrarDiasEspana,
+}: {
+  initial: ProfileData;
+  categoriasIniciales: string[];
+  mostrarDiasEspana: boolean;
+}) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -114,13 +121,21 @@ export default function ProfileForm({ initial }: { initial: ProfileData }) {
   };
 
   const [form, setForm] = useState<Editable>(initEditable);
+  const [cats, setCats] = useState<string[]>(categoriasIniciales);
+  const [mostrarEspana, setMostrarEspana] = useState<boolean>(mostrarDiasEspana);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
   const [deleteText, setDeleteText] = useState("");
 
   const set = <K extends keyof Editable>(k: K, v: Editable[K]) => setForm((f) => ({ ...f, [k]: v }));
-  const dirty = JSON.stringify(form) !== JSON.stringify(initEditable);
+  const toggleCat = (c: string) => setCats((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]);
+
+  const catsDirty = JSON.stringify([...cats].sort()) !== JSON.stringify([...categoriasIniciales].sort());
+  const dirty =
+    JSON.stringify(form) !== JSON.stringify(initEditable) ||
+    catsDirty ||
+    mostrarEspana !== mostrarDiasEspana;
 
   const esEmpresa = initial.tipo_entidad === "empresa";
 
@@ -146,10 +161,23 @@ export default function ProfileForm({ initial }: { initial: ProfileData }) {
       logros_numeros: form.logros_numeros || null,
       info_extra: form.info_extra || null,
       colores_marca: form.colores_marca,
+      mostrar_dias_espana: mostrarEspana,
     };
     const { error } = await supabase.from("profiles").update(payload).eq("id", initial.id);
+    if (error) { setSaving(false); setToast({ message: `Error: ${error.message}`, type: "error" }); return; }
+
+    // Categorías de interés: reemplazar el conjunto (borrar + insertar).
+    if (catsDirty) {
+      await supabase.from("categorias_usuario").delete().eq("user_id", initial.id);
+      if (cats.length) {
+        const { error: cErr } = await supabase
+          .from("categorias_usuario")
+          .insert(cats.map((c) => ({ user_id: initial.id, categoria: c })));
+        if (cErr) { setSaving(false); setToast({ message: `Error al guardar categorías: ${cErr.message}`, type: "error" }); return; }
+      }
+    }
+
     setSaving(false);
-    if (error) { setToast({ message: `Error: ${error.message}`, type: "error" }); return; }
     setToast({ message: "Cambios guardados", type: "success" });
     router.refresh();
   };
@@ -249,6 +277,39 @@ export default function ProfileForm({ initial }: { initial: ProfileData }) {
               </button>
             )}
           </div>
+        </section>
+
+        {/* Sección — Mis categorías de interés */}
+        <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-sm font-bold text-gray-800">Mis categorías de interés</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Elige qué temas quieres que aparezcan en tu calendario de días clave.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIAS.map((c) => {
+              const sel = cats.includes(c);
+              return (
+                <button key={c} type="button" onClick={() => toggleCat(c)}
+                  className="px-3 py-1.5 rounded-full border-2 text-xs font-semibold transition-all"
+                  style={sel
+                    ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
+                    : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280" }}>
+                  {CATEGORIA_LABEL[c]}
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" onClick={() => setMostrarEspana((v) => !v)} className="w-full flex items-center justify-between">
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-700">Mostrar también días específicos de España</p>
+              <p className="text-xs text-gray-400">Además de los internacionales</p>
+            </div>
+            <div className="w-11 h-6 rounded-full relative transition-all flex-shrink-0"
+              style={{ backgroundColor: mostrarEspana ? "#f9b23b" : "#e5e7eb" }}>
+              <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-all"
+                style={{ left: mostrarEspana ? "calc(100% - 22px)" : "2px" }} />
+            </div>
+          </button>
         </section>
 
         {/* Sección 3 — Solo lectura */}

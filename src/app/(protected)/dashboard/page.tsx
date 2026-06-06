@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { limpiarMarkdown } from "@/lib/formatText";
 import { getPermisos } from "@/lib/permissions";
+import { calcularProximos, type DiaClave } from "@/lib/categorias";
 import Logo from "@/components/Logo";
 
 async function deletePost(formData: FormData) {
@@ -53,6 +54,22 @@ export default async function DashboardPage() {
     pendientesAdmin = count ?? 0;
   }
 
+  // Días clave de esta semana (próximos 7 días) para las categorías del usuario
+  let eventosSemana = 0;
+  const { data: catRows } = await supabase
+    .from("categorias_usuario").select("categoria").eq("user_id", session.user.id);
+  const catList = (catRows || []).map((c) => c.categoria);
+  if (catList.length) {
+    const ambitos = profile?.mostrar_dias_espana === false ? ["internacional"] : ["internacional", "espana"];
+    const { data: dias } = await supabase
+      .from("dias_clave").select("*").in("categoria", catList).in("ambito", ambitos);
+    eventosSemana = calcularProximos((dias || []) as DiaClave[]).filter((d) => d.diffDays <= 7).length;
+  }
+  const subtituloCalendario =
+    eventosSemana === 0 ? "No hay eventos esta semana."
+    : eventosSemana === 1 ? "1 evento esta semana."
+    : `${eventosSemana} eventos esta semana.`;
+
   const nextDate = keyDates?.[0];
   const daysUntil = nextDate
     ? Math.ceil((new Date(nextDate.fecha).getTime() - Date.now()) / 86400000)
@@ -60,7 +77,7 @@ export default async function DashboardPage() {
 
   const QUICK_ACTIONS = [
     { href: "/create",   icon: "✨", title: "Crear contenido",          subtitle: "Instagram, Facebook o TikTok.", color: "#f9b23b", bg: "#fff8ef", locked: false },
-    { href: "/calendar", icon: "📅", title: "Calendario de días clave", subtitle: "3 eventos esta semana.",        color: "#93bf30", bg: "#f0f7e6", locked: !permisos.calendario },
+    { href: "/dias",     icon: "📅", title: "Calendario de días clave", subtitle: subtituloCalendario,             color: "#93bf30", bg: "#f0f7e6", locked: !permisos.calendario },
     { href: "/send",     icon: "📤", title: "Envío automático",         subtitle: "Pack semanal en PDF listo.",    color: "#6366f1", bg: "#eef2ff", locked: !permisos.envioPdf },
     { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8", locked: !permisos.estadisticas },
   ];

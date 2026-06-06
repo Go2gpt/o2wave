@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
@@ -30,8 +30,9 @@ const pill = (active: boolean) => active
   ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" }
   : { borderColor: "#e5e7eb", backgroundColor: "#fff", color: "#6b7280" };
 
-export default function CreatePage() {
+function CreateInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [form, setForm] = useState<ContentFormData>({
@@ -58,7 +59,15 @@ export default function CreatePage() {
       setPermisos(getPermisos(profile?.tipo_entidad, profile?.es_admin));
       setPostsMes(await contarPostsMes(supabase, user.id));
     })();
-  }, [supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Prefill del tema desde el calendario de días clave (?tema=...)
+  useEffect(() => {
+    const tema = searchParams.get("tema");
+    if (tema) setForm((f) => ({ ...f, tema }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const limiteAlcanzado = !!permisos?.postsMaxMes && postsMes >= permisos.postsMaxMes;
 
@@ -294,5 +303,13 @@ export default function CreatePage() {
         )}
       </form>
     </div>
+  );
+}
+
+export default function CreatePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Spinner /></div>}>
+      <CreateInner />
+    </Suspense>
   );
 }

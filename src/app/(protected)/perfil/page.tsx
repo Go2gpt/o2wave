@@ -12,5 +12,15 @@ export default async function PerfilPage() {
   const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (!data) redirect("/login");
 
-  return <ProfileForm initial={data as ProfileData} />;
+  const { data: catRows } = await supabase
+    .from("categorias_usuario").select("categoria").eq("user_id", user.id);
+  const categorias = (catRows || []).map((c) => c.categoria);
+
+  return (
+    <ProfileForm
+      initial={data as ProfileData}
+      categoriasIniciales={categorias}
+      mostrarDiasEspana={data.mostrar_dias_espana !== false}
+    />
+  );
 }
