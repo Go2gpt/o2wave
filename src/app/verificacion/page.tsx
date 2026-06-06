@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
+import Logo from '@/components/Logo'
 import UploadDocument from './upload-document'
 
 export const dynamic = 'force-dynamic'
@@ -29,11 +30,8 @@ export default async function VerificacionPage() {
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center justify-center px-6 py-16">
       <div className="w-full max-w-md">
-        <div className="mb-10 text-center">
-          <span className="text-3xl font-bold tracking-tight">
-            <span className="text-[#93bf30]">o²</span>
-            <span className="text-[#f9b23b]">Wave</span>
-          </span>
+        <div className="mb-10 flex justify-center">
+          <Logo size="lg" />
         </div>
 
         {estado === 'pendiente' && !yaSubio && (

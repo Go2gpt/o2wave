@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import Logo from "@/components/Logo";
 import VerificacionActions from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -59,10 +60,7 @@ export default async function AdminVerificacionesPage() {
     <main className="min-h-screen bg-[#0F0F0F] text-white px-5 py-10">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <span className="text-2xl font-bold tracking-tight">
-            <span className="text-[#93bf30]">o²</span>
-            <span className="text-[#f9b23b]">Wave</span>
-          </span>
+          <Logo size="md" />
           <h1 className="text-xl font-semibold mt-4">Verificaciones pendientes</h1>
           <p className="text-sm text-white/50 mt-1">
             {filas.length} {filas.length === 1 ? "organización espera" : "organizaciones esperan"} revisión.
