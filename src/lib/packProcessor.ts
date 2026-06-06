@@ -73,10 +73,13 @@ Responde SOLO con JSON: {"temas": ["tema 1", "tema 2", ...]} con exactamente ${n
   }
 }
 
-const REL = { titular: "", texto: "", hashtags: [] as string[] };
+interface TextoRed { titular: string; texto: string; hashtags: string[]; prompt_imagen: string; }
 
-/** Genera titular + texto + hashtags (Instagram/Facebook). */
-async function generarTextoRed(p: PerfilPack, tema: string, red: string): Promise<typeof REL> {
+const promptImagenFallback = (tema: string) =>
+  `Fotografía realista de alta calidad relacionada con "${tema}". Composición limpia, luminosa y profesional, ambiente positivo.`;
+
+/** Genera titular + texto + hashtags + descripción visual de la imagen (Instagram/Facebook). */
+async function generarTextoRed(p: PerfilPack, tema: string, red: string): Promise<TextoRed> {
   try {
     const limite = red === "Instagram" ? "máximo 150 palabras" : "máximo 200 palabras";
     const prompt = `Genera un post para ${red} de "${p.nombre_entidad || "la organización"}" (${p.tipo_entidad || "ong"}).
@@ -84,18 +87,27 @@ Tema: ${tema}
 ${contextoDe(p)}
 
 Responde SOLO con JSON válido:
-{"titular":"6-8 palabras impactantes para superponer sobre la imagen","texto":"texto listo para publicar (${limite}), con emojis","hashtags":["#hashtag1","#hashtag2"]}
-Incluye 8-12 hashtags relevantes al tema y al sector.`;
-    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 900, messages: [{ role: "user", content: prompt }] });
+{
+  "titular": "6-8 palabras impactantes para superponer sobre la imagen",
+  "texto": "texto listo para publicar (${limite}), con emojis",
+  "hashtags": ["#hashtag1", "#hashtag2"],
+  "prompt_imagen": "DESCRIPCIÓN VISUAL de la imagen ideal para acompañar el post"
+}
+- Incluye 8-12 hashtags relevantes al tema y al sector.
+- "prompt_imagen" debe ser una descripción VISUAL concreta de qué pintar (escena, sujetos, lugar, luz, ambiente, estilo fotográfico). NO un eslogan ni una frase del texto. Ejemplo: "Vista aérea de un océano azul cristalino al amanecer, una ola suave acercándose a una playa de arena clara, luz dorada cálida, fotografía realista de alta calidad". No menciones texto ni logos.`;
+    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const o = (parseJSON(raw) || {}) as Record<string, unknown>;
+    const promptImg = typeof o.prompt_imagen === "string" && o.prompt_imagen.trim().length > 10
+      ? o.prompt_imagen.trim() : promptImagenFallback(tema);
     return {
       titular: typeof o.titular === "string" ? o.titular.replace(/^["'«»]|["'«»]$/g, "") : tema,
       texto: typeof o.texto === "string" ? o.texto : "",
       hashtags: (Array.isArray(o.hashtags) ? o.hashtags : []).filter((h): h is string => typeof h === "string").map((h) => h.startsWith("#") ? h : `#${h}`),
+      prompt_imagen: promptImg,
     };
   } catch {
-    return { titular: tema, texto: "", hashtags: [] };
+    return { titular: tema, texto: "", hashtags: [], prompt_imagen: promptImagenFallback(tema) };
   }
 }
 
@@ -137,19 +149,21 @@ Usa 3-4 segmentos. 10-12 hashtags.`;
 
 const aspectPara = (red: string) => (red === "Facebook" ? "16:9" : "1:1");
 
-/** Genera imagen FLUX + compone titular + sube a post-images. Devuelve URL o null. */
+/** Genera imagen FLUX (con prompt visual) + hornea titular con sharp + sube a post-images. Devuelve URL o null. */
 async function generarImagen(
-  admin: SupabaseClient, userId: string, tema: string, titular: string, red: string, presupuestoMs: number,
+  admin: SupabaseClient, userId: string, promptImagen: string, titular: string, red: string, presupuestoMs: number,
 ): Promise<string | null> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token || presupuestoMs < MIN_MS_PARA_IMAGEN) return null;
   try {
     const aspect = aspectPara(red);
-    const orgPrompt = `Professional photographic illustration for social media about "${tema}". Modern, vibrant, high quality, clean and uncluttered. No text, no letters, no words, no logos, no watermarks. Pure visual content only.`;
+    // Usamos la descripción VISUAL de Claude y forzamos SIEMPRE el "sin texto"
+    // para que FLUX no pinte letras inventadas (el titular lo horneamos nosotros).
+    const fluxPrompt = `${promptImagen} Sin texto, sin letras, sin palabras, sin logos. High quality, clean composition.`;
     const startRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { prompt: orgPrompt, aspect_ratio: aspect, num_outputs: 1, guidance: 3.5, num_inference_steps: 28, output_format: "webp", output_quality: 90 } }),
+      body: JSON.stringify({ input: { prompt: fluxPrompt, aspect_ratio: aspect, num_outputs: 1, guidance: 3.5, num_inference_steps: 28, output_format: "webp", output_quality: 90 } }),
     });
     if (!startRes.ok) return null;
     const pred = await startRes.json();
@@ -287,19 +301,23 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
       contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, titular: g.titular, texto: g.texto, hashtags: g.hashtags, guion_tiktok: g.guion, fuente: plan.fuente });
     } else {
       const r = await generarTextoRed(perfil, plan.tema, RED_LABEL[red] || "Instagram");
-      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, titular: r.titular, texto: r.texto, hashtags: r.hashtags, guion_tiktok: null, fuente: plan.fuente });
+      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, titular: r.titular, texto: r.texto, hashtags: r.hashtags, prompt_imagen: r.prompt_imagen, guion_tiktok: null, fuente: plan.fuente });
     }
   }
 
-  // Pase 2: imágenes mientras quede presupuesto (no para TikTok).
+  // Pase 2: imágenes EN PARALELO (no TikTok), tolerante a fallos individuales.
   let conImagen = 0;
-  for (let i = 0; i < N; i++) {
-    const restante = TIEMPO_TOTAL_MS - (Date.now() - t0);
-    if (restante < MIN_MS_PARA_IMAGEN) break;
-    const dia = contenido[i];
-    if (dia.tipo === "tiktok") continue;
-    const url = await generarImagen(admin, userId, dia.tema, dia.titular || dia.tema, RED_LABEL[dia.tipo] || "Instagram", restante);
-    if (url) { dia.imagen_url = url; conImagen++; }
+  const restante = TIEMPO_TOTAL_MS - (Date.now() - t0);
+  if (restante >= MIN_MS_PARA_IMAGEN) {
+    const objetivos = contenido.map((d, i) => ({ d, i })).filter((x) => x.d.tipo !== "tiktok");
+    const resultados = await Promise.allSettled(
+      objetivos.map(({ d }) =>
+        generarImagen(admin, userId, d.prompt_imagen || promptImagenFallback(d.tema), d.titular || d.tema, RED_LABEL[d.tipo] || "Instagram", restante)
+      )
+    );
+    resultados.forEach((res, k) => {
+      if (res.status === "fulfilled" && res.value) { objetivos[k].d.imagen_url = res.value; conImagen++; }
+    });
   }
 
   // Guardar el pack y cerrar el job.

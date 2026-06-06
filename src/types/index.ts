@@ -90,6 +90,7 @@ export interface PackDia {
   titular?: string;
   texto: string;
   hashtags?: string[];
+  prompt_imagen?: string | null;
   guion_tiktok?: GuionTikTok | null;
   fuente: PackFuente;
 }
