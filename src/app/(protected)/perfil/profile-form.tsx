@@ -350,7 +350,7 @@ export default function ProfileForm({
         </section>
 
         {/* Sección — Pack semanal automático */}
-        <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+        <section id="pack-semanal" className="bg-white rounded-2xl p-4 shadow-sm space-y-4 scroll-mt-20">
           <button type="button" onClick={() => setPackActivo((v) => !v)} className="w-full flex items-center justify-between">
             <div className="text-left">
               <h2 className="text-sm font-bold text-gray-800">Pack semanal automático</h2>

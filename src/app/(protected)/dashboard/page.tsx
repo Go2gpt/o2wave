@@ -75,36 +75,30 @@ export default async function DashboardPage() {
     ? Math.ceil((new Date(nextDate.fecha).getTime() - Date.now()) / 86400000)
     : null;
 
-  // Tarjeta unificada del pack semanal: según esté activo o no.
+  // Panel del pack semanal automático (estado + accesos rápidos).
   const packActivo = !!profile?.pack_semanal_activo;
-  let packCard: { href: string; icon: string; title: string; subtitle: string; color: string; bg: string; locked: boolean };
+  const packDias = profile?.pack_dias_semana ?? 5;
+  const REDES_PACK_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+  const redesActivas = (profile?.redes_activas?.length ? profile.redes_activas : ["instagram"])
+    .map((r: string) => REDES_PACK_LABEL[r] || r).join(", ");
+  const hoyPack = new Date();
+  const basePack = new Date(hoyPack.getFullYear(), hoyPack.getMonth(), hoyPack.getDate());
+  const diffDom = (7 - basePack.getDay()) % 7 || 7; // próximo domingo (si hoy es domingo, el siguiente)
+  const domPack = new Date(basePack); domPack.setDate(basePack.getDate() + diffDom);
+  const proximoDomingo = domPack.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+  let ultimoPackFecha: string | null = null;
   if (packActivo) {
     const { data: ultimoPack } = await supabase
       .from("packs_semanales").select("created_at").eq("user_id", session.user.id)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
-    let subtitle: string;
     if (ultimoPack?.created_at) {
-      subtitle = `Última generación: ${new Date(ultimoPack.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`;
-    } else {
-      const hoy = new Date();
-      const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-      const diff = (7 - base.getDay()) % 7 || 7; // próximo domingo (si hoy es domingo, el siguiente)
-      const dom = new Date(base); dom.setDate(base.getDate() + diff);
-      subtitle = `Tu próximo pack llegará el ${dom.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`;
+      ultimoPackFecha = new Date(ultimoPack.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
     }
-    packCard = { href: "/pack", icon: "📦", title: "Mi pack semanal", subtitle, color: "#0ea5e9", bg: "#e0f2fe", locked: false };
-  } else {
-    packCard = {
-      href: "/perfil", icon: "📤", title: "Envío automático semanal",
-      subtitle: "Recibe tu plan de contenido completo cada lunes. Actívalo en Mi perfil.",
-      color: "#6366f1", bg: "#eef2ff", locked: false,
-    };
   }
 
   const QUICK_ACTIONS = [
     { href: "/create",   icon: "✨", title: "Crear contenido",          subtitle: "Instagram, Facebook o TikTok.", color: "#f9b23b", bg: "#fff8ef", locked: false },
     { href: "/dias",     icon: "📅", title: "Calendario de días clave", subtitle: subtituloCalendario,             color: "#93bf30", bg: "#f0f7e6", locked: !permisos.calendario },
-    packCard,
     { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8", locked: !permisos.estadisticas },
   ];
 
@@ -151,6 +145,44 @@ export default async function DashboardPage() {
           </Link>
         </div>
       )}
+
+      {/* Panel del pack semanal automático */}
+      <div className="px-5 mb-5">
+        {packActivo ? (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ backgroundColor: "#e0f2fe" }}>✉️</div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-800">Pack semanal automático</p>
+                <p className="text-xs font-semibold" style={{ color: "#0ea5e9" }}>Activo</p>
+              </div>
+            </div>
+            <div className="space-y-1.5 text-sm text-gray-600 mb-4">
+              <p>📅 Próximo envío: domingo {proximoDomingo}</p>
+              <p>🗂️ {packDias} días · {redesActivas}</p>
+              {ultimoPackFecha && <p>📦 Último pack: {ultimoPackFecha}</p>}
+            </div>
+            <div className="flex gap-2">
+              <Link href="/pack" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
+                style={{ borderColor: "#e5e7eb", color: "#374151" }}>📚 Ver historial</Link>
+              <Link href="/perfil#pack-semanal" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
+                style={{ borderColor: "#e5e7eb", color: "#374151" }}>⚙️ Editar configuración</Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ backgroundColor: "#eef2ff" }}>✉️</div>
+              <p className="text-sm font-bold text-gray-800">Pack semanal automático</p>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed mb-4">
+              Recibe tu plan de contenido completo cada domingo. 5-7 publicaciones automáticas con imagen, texto y hashtags listos para tu semana.
+            </p>
+            <Link href="/perfil#pack-semanal" className="block w-full py-3 rounded-xl font-bold text-white text-sm text-center transition-all active:scale-[0.98]"
+              style={{ backgroundColor: "#f9b23b" }}>✨ Activar</Link>
+          </div>
+        )}
+      </div>
 
       {/* Quick actions */}
       <div className="px-5 mb-5">
