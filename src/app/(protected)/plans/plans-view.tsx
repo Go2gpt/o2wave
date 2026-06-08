@@ -52,7 +52,6 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
               className="flex-1 py-2 rounded-full text-sm font-bold transition-all"
               style={ciclo === c ? { backgroundColor: "#fff", color: "#f9b23b", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" } : { color: "#9ca3af" }}>
               {c === "mensual" ? "Mensual" : "Anual"}
-              {c === "anual" && <span className="ml-1 text-[10px] font-bold" style={{ color: "#93bf30" }}>−2 meses</span>}
             </button>
           ))}
         </div>
@@ -64,6 +63,11 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
           const precio = ciclo === "mensual" ? plan.precioMensual : plan.precioAnual;
           const esGratis = plan.id === "ong_pequena";
           const color = plan.destacado ? "#f9b23b" : "#374151";
+          // Descuento anual: comparamos el anual real con 12× el mensual (derivado de PLANES).
+          const anualSinDescuento = plan.precioMensual != null ? plan.precioMensual * 12 : null;
+          const ahorro = ciclo === "anual" && anualSinDescuento != null && plan.precioAnual != null
+            ? anualSinDescuento - plan.precioAnual : 0;
+          const mostrarAhorro = !esGratis && ciclo === "anual" && ahorro > 0;
           return (
             <div key={plan.id} className="bg-white rounded-2xl overflow-hidden shadow-sm"
               style={{ border: `2px solid ${esActual ? "#f9b23b" : plan.destacado ? "#f9b23b" : "#e5e7eb"}` }}>
@@ -77,9 +81,23 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
                 <div className="flex items-start justify-between mb-3">
                   <p className="font-black text-gray-900">{plan.nombre}</p>
                   <div className="text-right">
-                    {esGratis
-                      ? <p className="text-2xl font-black" style={{ color }}>Gratis</p>
-                      : <><p className="text-2xl font-black" style={{ color }}>{precio}€</p><p className="text-[10px] text-gray-400">{ciclo === "mensual" ? "/mes" : "/año"}</p></>}
+                    {esGratis ? (
+                      <p className="text-2xl font-black" style={{ color }}>Gratis</p>
+                    ) : (
+                      <>
+                        {mostrarAhorro && (
+                          <p className="text-xs text-gray-400 line-through leading-none mb-0.5">{anualSinDescuento}€</p>
+                        )}
+                        <p className="text-2xl font-black leading-none" style={{ color }}>{precio}€</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">{ciclo === "mensual" ? "/mes" : "/año"}</p>
+                        {mostrarAhorro && (
+                          <span className="inline-block mt-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: "#f0f7e6", color: "#93bf30" }}>
+                            Ahorras {ahorro}€
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
 
