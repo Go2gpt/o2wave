@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getResend, FROM_EMAIL } from "@/lib/resend";
+import { SITE_URL } from "@/lib/siteUrl";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
               <strong>Motivo:</strong><br/>${motivoLimpio}
             </div>
             <p>Puedes subir un documento nuevo entrando en
-            <a href="https://o2wave.app/verificacion" style="color:#93bf30;font-weight:bold">o2wave.app/verificacion</a>.</p>
+            <a href="${SITE_URL}/verificacion" style="color:#93bf30;font-weight:bold">www.o2wave.app/verificacion</a>.</p>
             <p style="color:#6b7280;font-size:13px;margin-top:24px">El equipo de o2Wave</p>
           </div>`,
       });

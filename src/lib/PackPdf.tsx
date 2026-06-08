@@ -98,7 +98,7 @@ function DiaPage({ dia, idx }: { dia: PackDia; idx: number }) {
         </View>
       )}
 
-      <Text style={s.footer} fixed>Generado con o2Wave · o2wave.app</Text>
+      <Text style={s.footer} fixed>Generado con o2Wave · www.o2wave.app</Text>
     </Page>
   );
 }

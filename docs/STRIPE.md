@@ -79,7 +79,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS posts_gratis_usados int NOT
 ## 6. Webhook (Fase 3) — configurar en Stripe Dashboard
 
 Crear un endpoint en **Developers → Webhooks** apuntando a
-`https://o2wave.app/api/stripe/webhook` y copiar su **signing secret**
+`https://www.o2wave.app/api/stripe/webhook` y copiar su **signing secret**
 (`whsec_...`) a la env var `STRIPE_WEBHOOK_SECRET`.
 
 Eventos a suscribir:

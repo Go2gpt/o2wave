@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getStripe } from "@/lib/stripe";
 import { priceId } from "@/lib/plans";
+import { SITE_URL } from "@/lib/siteUrl";
 import type { PlanActual, PlanCiclo } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,6 @@ export async function POST(request: NextRequest) {
       await createAdminClient().from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id);
     }
 
-    const origin = request.nextUrl.origin;
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
       client_reference_id: user.id,
       metadata: { user_id: user.id, plan, ciclo },
       subscription_data: { metadata: { user_id: user.id, plan, ciclo } },
-      success_url: `${origin}/plans?success=1`,
-      cancel_url: `${origin}/plans?cancelled=1`,
+      success_url: `${SITE_URL}/plans?success=1`,
+      cancel_url: `${SITE_URL}/plans?cancelled=1`,
     });
 
     return NextResponse.json({ url: session.url });
