@@ -27,7 +27,10 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
   const [texto, setTexto] = useState(dia.texto || "");
   const [hashtags, setHashtags] = useState<string[]>(dia.hashtags || []);
   const [imagenUrl, setImagenUrl] = useState<string | null>(dia.imagen_url ?? null);
+  const [imagenLimpiaUrl, setImagenLimpiaUrl] = useState<string | null>(dia.imagen_limpia_url ?? null);
   const [guion, setGuion] = useState(dia.guion_tiktok || null);
+  // Solo se puede "Guardar titular" (recomponer) si existe la imagen limpia.
+  const puedeGuardarTitular = !!imagenLimpiaUrl;
 
   const [saving, setSaving] = useState(false);
   const [regenT, setRegenT] = useState(false);
@@ -60,6 +63,7 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
       await postJSON("/api/pack/actualizar-dia", { pack_id: packId, dia_index: diaIndex, cambios: { titular } });
       const { dia: nuevo, sin_imagen } = await postJSON("/api/pack/regenerar-dia", { pack_id: packId, dia_index: diaIndex, modo: "imagen" });
       setImagenUrl((nuevo as PackDia).imagen_url ?? null);
+      setImagenLimpiaUrl((nuevo as PackDia).imagen_limpia_url ?? null); // ya habilita "Guardar titular"
       setToast(sin_imagen
         ? { message: "No se pudo generar la imagen (límite temporal). Reinténtalo en un momento.", type: "info" }
         : { message: "Imagen regenerada", type: "success" });
@@ -69,17 +73,21 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
 
   // Cambiar SOLO el titular: recompone sobre la imagen limpia, sin regenerar.
   const guardarTitular = async () => {
+    if (!puedeGuardarTitular) {
+      setToast({ message: "Este pack se generó antes del editor de titular. Pulsa 'Regenerar imagen' primero para poder editar solo el texto.", type: "info" });
+      return;
+    }
     setSavingTitular(true);
     try {
       const { dia: nuevo } = await postJSON("/api/pack/actualizar-titular", { pack_id: packId, dia_index: diaIndex, titular });
       setImagenUrl((nuevo as PackDia).imagen_url ?? null);
-      setToast({ message: "✅ Titular actualizado", type: "success" });
+      setToast({ message: "✅ Titular guardado", type: "success" });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "fallo";
+      const msg = e instanceof Error ? e.message : "";
       if (msg.toLowerCase().includes("imagen limpia")) {
-        setToast({ message: "Para cambiar solo el titular, regenera la imagen una vez. A partir de entonces podrás cambiar el titular sin regenerar.", type: "info" });
+        setToast({ message: "Este pack se generó antes del editor de titular. Pulsa 'Regenerar imagen' primero para poder editar solo el texto.", type: "info" });
       } else {
-        setToast({ message: `Error: ${msg}`, type: "error" });
+        setToast({ message: "Error al guardar el titular. Vuelve a intentarlo.", type: "error" });
       }
     } finally { setSavingTitular(false); }
   };
@@ -98,6 +106,7 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Error");
       setImagenUrl((data.dia as PackDia).imagen_url ?? null);
+      setImagenLimpiaUrl((data.dia as PackDia).imagen_limpia_url ?? null); // ya habilita "Guardar titular"
       setToast({ message: "✅ Imagen actualizada", type: "success" });
     } catch (err) {
       setToast({ message: `Error: ${err instanceof Error ? err.message : "fallo"}`, type: "error" });
@@ -147,8 +156,17 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
               <input value={titular} maxLength={100} onChange={(e) => setTitular(e.target.value)}
                 className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none"
                 onFocus={(e) => (e.target.style.borderColor = "#f9b23b")} onBlur={(e) => (e.target.style.borderColor = "#f3f4f6")} />
-              <button onClick={guardarTitular} disabled={ocupadoImg}
-                className={`${btn} mt-2`} style={btnStyle}>{savingTitular ? "Guardando…" : "💾 Guardar titular"}</button>
+              <button onClick={guardarTitular} disabled={ocupadoImg || !puedeGuardarTitular}
+                title={puedeGuardarTitular ? undefined : "Regenera la imagen primero para poder editar solo el titular"}
+                className={`${btn} mt-2`}
+                style={{ ...btnStyle, ...(puedeGuardarTitular ? {} : { cursor: "not-allowed" }) }}>
+                {savingTitular ? "Guardando…" : "💾 Guardar titular"}
+              </button>
+              {!puedeGuardarTitular && (
+                <p className="text-[11px] text-gray-400 mt-1 leading-snug">
+                  Este día se generó antes del editor de titular. Pulsa <strong>↻ Regenerar imagen</strong> una vez para poder editar solo el texto.
+                </p>
+              )}
             </div>
             <div className="flex gap-2 flex-wrap">
               <button onClick={regenerarImagen} disabled={ocupadoImg} className={btn} style={btnStyle}>{regenI ? "Generando…" : "↻ Regenerar imagen"}</button>
