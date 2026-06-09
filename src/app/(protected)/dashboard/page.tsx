@@ -7,6 +7,7 @@ import { limpiarMarkdown } from "@/lib/formatText";
 import { getPermisos } from "@/lib/permissions";
 import { calcularProximos, type DiaClave } from "@/lib/categorias";
 import Logo from "@/components/Logo";
+import GenerarPackButton from "./GenerarPackButton";
 
 async function deletePost(formData: FormData) {
   "use server";
@@ -159,14 +160,18 @@ export default async function DashboardPage() {
             </div>
             <div className="space-y-1.5 text-sm text-gray-600 mb-4">
               <p>📅 Próximo envío: domingo {proximoDomingo}</p>
+              <p className="text-[11px] text-gray-400 -mt-1">(generación manual; cron automático próximamente)</p>
               <p>🗂️ {packDias} días · {redesActivas}</p>
               {ultimoPackFecha && <p>📦 Último pack: {ultimoPackFecha}</p>}
             </div>
-            <div className="flex gap-2">
-              <Link href="/pack" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
-                style={{ borderColor: "#e5e7eb", color: "#374151" }}>📚 Ver historial</Link>
-              <Link href="/perfil#pack-semanal" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
-                style={{ borderColor: "#e5e7eb", color: "#374151" }}>⚙️ Editar configuración</Link>
+            <div className="space-y-2">
+              <GenerarPackButton />
+              <div className="flex gap-2">
+                <Link href="/pack" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
+                  style={{ borderColor: "#e5e7eb", color: "#374151" }}>📚 Ver historial</Link>
+                <Link href="/perfil#pack-semanal" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
+                  style={{ borderColor: "#e5e7eb", color: "#374151" }}>⚙️ Editar configuración</Link>
+              </div>
             </div>
           </div>
         ) : (

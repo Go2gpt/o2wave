@@ -7,15 +7,14 @@ import type { PackDia, PackFuente, GuionTikTok } from "@/types";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-4-6";
 
-// Presupuesto de tiempo: margen bajo el maxDuration=300 del endpoint (Vercel Pro).
-// Con ~30s por imagen (FLUX + sharp), 290s permiten generar las 5-7 imágenes
-// del pack con holgura. Abandonamos imagen si quedan <40s de seguridad.
-const TIEMPO_TOTAL_MS = 290_000;
+// Presupuesto de tiempo: con flux-1.1-pro y concurrencia 5, las 5-7 imágenes se
+// resuelven en ~1 tanda (~10-30s). Bajamos a 180s para dejar ~120s de margen
+// bajo el maxDuration=300 y nunca morir a mitad de escritura en BD.
+const TIEMPO_TOTAL_MS = 180_000;
 const MIN_MS_PARA_IMAGEN = 40_000;
 
-// DIAGNÓSTICO: concurrencia temporalmente a 1 (secuencial) para aislar si el
-// problema es de concurrencia o de otra cosa. Se subirá a 3 tras confirmar.
-const CONCURRENCIA_IMAGENES = 1;
+// Imágenes en paralelo (flux-1.1-pro aguanta bien la concurrencia).
+const CONCURRENCIA_IMAGENES = 5;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -207,11 +206,11 @@ async function generarImagen(
     const aspect = aspectPara(red);
     const fluxPrompt = `${promptImagen} Sin texto, sin letras, sin palabras, sin logos. High quality, clean composition.`;
 
-    console.log(`${label}: pidiendo a FLUX (aspect ${aspect})...`);
-    const startRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions", {
+    console.log(`${label}: pidiendo a FLUX 1.1 Pro (aspect ${aspect})...`);
+    const startRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { prompt: fluxPrompt, aspect_ratio: aspect, num_outputs: 1, guidance: 3.5, num_inference_steps: 28, output_format: "webp", output_quality: 90 } }),
+      body: JSON.stringify({ input: { prompt: fluxPrompt, aspect_ratio: aspect, output_format: "webp", output_quality: 90, safety_tolerance: 2, prompt_upsampling: false } }),
     });
     if (!startRes.ok) {
       const body = await startRes.text();

@@ -5,7 +5,7 @@ import PackList from "./pack-list";
 
 export const dynamic = "force-dynamic";
 
-export default async function PackPage() {
+export default async function PackPage({ searchParams }: { searchParams: { abrir?: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -17,5 +17,5 @@ export default async function PackPage() {
     .order("fecha_inicio", { ascending: false })
     .limit(8);
 
-  return <PackList packs={(data || []) as PackSemanal[]} />;
+  return <PackList packs={(data || []) as PackSemanal[]} abrirInicial={searchParams?.abrir} />;
 }

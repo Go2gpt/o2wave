@@ -51,9 +51,9 @@ function DiaCard({ packId, dia, idx, onSustituir, onEliminar }: {
   );
 }
 
-export default function PackList({ packs }: { packs: PackSemanal[] }) {
+export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]; abrirInicial?: string }) {
   const router = useRouter();
-  const [abierto, setAbierto] = useState<string | null>(null);
+  const [abierto, setAbierto] = useState<string | null>(abrirInicial ?? null);
   const [toast, setToast] = useState<ToastState>(null);
   const [sust, setSust] = useState<{ packId: string; idx: number; tema: string } | null>(null);
   const [busy, setBusy] = useState(false);
