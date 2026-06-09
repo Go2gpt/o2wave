@@ -1,12 +1,16 @@
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
+import * as opentype from "opentype.js";
 
-// Cargamos la fuente UNA vez (module scope) y la embebemos en los SVG como
-// data URL. Así librsvg (el motor SVG de sharp) NO necesita Pango ni fontconfig,
-// que no están disponibles en Vercel Lambda.
+// Cargamos la fuente UNA vez (module scope) con opentype.js. Renderizamos el
+// texto como PATHS vectoriales (geometrías), así NO dependemos de que librsvg
+// cargue fuentes (ni Pango/fontconfig ni @font-face vía data URL, que fallan en
+// Vercel Lambda y producían "tofu" □□□).
 const FONT_PATH = path.join(process.cwd(), "public", "fonts", "Montserrat-Bold.ttf");
-const FONT_BASE64 = fs.readFileSync(FONT_PATH).toString("base64");
+const _fontBuf = fs.readFileSync(FONT_PATH);
+// parse() en vez de loadSync() (deprecado en v2 y devuelve undefined).
+const FONT = opentype.parse(_fontBuf.buffer.slice(_fontBuf.byteOffset, _fontBuf.byteOffset + _fontBuf.byteLength) as ArrayBuffer);
 
 // Todas las dimensiones de referencia son de 1080px de ancho, así que el
 // fontSize (referenciado a 1080) se aplica directo en ambos formatos.
@@ -15,10 +19,6 @@ const DIMS: Record<string, { w: number; h: number }> = {
   "9:16": { w: 1080, h: 1920 },
   "16:9": { w: 1920, h: 1080 },
 };
-
-function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 
 /** Parte el texto en líneas que caben en maxWidth (estimación por ancho de glifo). */
 function wrap(text: string, size: number, maxWidth: number): string[] {
@@ -40,34 +40,39 @@ function wrap(text: string, size: number, maxWidth: number): string[] {
   return lineas.length ? lineas : [text];
 }
 
+/** Ancho de una línea sumando el avance de cada glifo (escalado a `size`). */
+function anchoLinea(linea: string, size: number): number {
+  const scale = size / FONT.unitsPerEm;
+  let w = 0;
+  for (const ch of linea) w += (FONT.charToGlyph(ch).advanceWidth ?? 0) * scale;
+  return w;
+}
+
 /**
- * Renderiza el texto como PNG vía SVG con la fuente embebida (@font-face base64).
- * El SVG mide maxWidth de ancho y el texto va centrado, con saltos de línea a
- * múltiples <tspan> si el titular es largo. Devuelve un PNG (renderizado por sharp).
+ * Renderiza el texto como PNG vía SVG, maquetando GLIFO A GLIFO con opentype.js
+ * (charToGlyph + glyph.getPath). Evitamos font.getPath() porque dispara el motor
+ * de features GSUB (ccmp) que esta Montserrat usa con un formato no soportado
+ * por opentype.js 2.x. Los acentos/ñ vienen como glifos precompuestos del cmap.
  */
 async function renderText(text: string, color: string, size: number, maxWidth: number): Promise<Buffer> {
   const lineas = wrap(text, size, maxWidth);
   const lineHeight = Math.round(size * 1.25);
   const svgWidth = maxWidth;
   const svgHeight = Math.round((lineas.length - 1) * lineHeight + size * 1.3);
-  const cx = Math.round(svgWidth / 2);
+  const scale = size / FONT.unitsPerEm;
 
-  const tspans = lineas
-    .map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(l)}</tspan>`)
-    .join("");
+  const full = new opentype.Path();
+  lineas.forEach((linea, i) => {
+    let penX = Math.max(0, (svgWidth - anchoLinea(linea, size)) / 2); // centrado horizontal
+    const y = size + i * lineHeight;                                  // baseline de cada línea
+    for (const ch of linea) {
+      const g = FONT.charToGlyph(ch);
+      full.extend(g.getPath(penX, y, size));
+      penX += (g.advanceWidth ?? 0) * scale;
+    }
+  });
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}">
-    <defs><style>
-      @font-face {
-        font-family: 'MontserratEmbed';
-        src: url('data:font/ttf;base64,${FONT_BASE64}') format('truetype');
-        font-weight: 700;
-      }
-    </style></defs>
-    <text x="${cx}" y="${size}" fill="${color}" text-anchor="middle"
-      font-family="MontserratEmbed" font-weight="700" font-size="${size}">${tspans}</text>
-  </svg>`;
-
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}"><g fill="${color}">${full.toSVG(2)}</g></svg>`;
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
