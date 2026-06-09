@@ -247,14 +247,17 @@ export default async function DashboardPage() {
           <div className="space-y-2">
             {recentPosts.map(post => (
               <div key={post.id} className="bg-white rounded-2xl p-3.5 flex items-center gap-3 shadow-sm">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                  style={{ backgroundColor: "#f3f4f6" }}>
-                  {RED_ICONS[post.red_social] || "📄"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-gray-700 truncate">{post.tema}</p>
-                  <p className="text-[10px] text-gray-400 truncate">{limpiarMarkdown(post.texto || "").slice(0, 60)}...</p>
-                </div>
+                <Link href={`/result?id=${post.id}`}
+                  className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer transition-transform active:scale-[0.98]">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                    style={{ backgroundColor: "#f3f4f6" }}>
+                    {RED_ICONS[post.red_social] || "📄"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-gray-700 truncate">{post.tema}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{limpiarMarkdown(post.texto || "").slice(0, 60)}...</p>
+                  </div>
+                </Link>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-[10px] text-gray-300">
                     {new Date(post.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
