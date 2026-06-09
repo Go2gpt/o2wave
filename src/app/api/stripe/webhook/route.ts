@@ -3,7 +3,24 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { planDesdePrice, priceId, earlyBirdDuration } from "@/lib/plans";
+import {
+  enviarBienvenida, enviarCancelacionUsuario, enviarFalloCobroUsuario,
+  enviarAdminNueva, enviarAdminBaja, enviarAdminFallo,
+} from "@/lib/emails";
 import type { PlanActual, PlanCiclo, PlanEstado } from "@/types";
+
+/** Intenta resolver el motivo del fallo de cobro desde el PaymentIntent de la factura. */
+async function motivoFallo(stripe: Stripe, inv: Stripe.Invoice): Promise<string> {
+  const piRef = (inv as unknown as { payment_intent?: string | { id: string } }).payment_intent;
+  const piId = typeof piRef === "string" ? piRef : piRef?.id;
+  if (piId) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(piId);
+      if (pi.last_payment_error?.message) return pi.last_payment_error.message;
+    } catch { /* noop */ }
+  }
+  return "No especificado por Stripe";
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -74,6 +91,13 @@ export async function POST(request: NextRequest) {
         const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
         const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
 
+        // Estado previo (para idempotencia de emails: solo si es una alta nueva).
+        const { data: prev } = userId
+          ? await createAdminClient().from("profiles")
+              .select("nombre_entidad, email, tipo_entidad, stripe_subscription_id").eq("id", userId).single()
+          : { data: null };
+        const esAltaNueva = !!userId && !prev?.stripe_subscription_id;
+
         if (userId) {
           await createAdminClient().from("profiles").update({
             stripe_customer_id: customerId ?? null,
@@ -86,6 +110,14 @@ export async function POST(request: NextRequest) {
 
         // Early Bird → programar el salto a Standard en la renovación.
         if (plan === "earlybird" && subId) await convertirEarlyBird(stripe, subId, ciclo);
+
+        // Emails #1 (usuario) y #4 (admin), solo en alta nueva.
+        if (esAltaNueva && prev) {
+          let fechaRenovacionISO: string | null = null;
+          if (subId) { try { fechaRenovacionISO = periodoFin(await stripe.subscriptions.retrieve(subId)); } catch { /* noop */ } }
+          await enviarBienvenida({ to: prev.email || "", nombre: prev.nombre_entidad || "", plan, ciclo, fechaRenovacionISO });
+          await enviarAdminNueva({ nombre: prev.nombre_entidad || "", email: prev.email || "", plan, ciclo, tipoEntidad: prev.tipo_entidad || "", stripeCustomerId: customerId || "", fechaISO: new Date().toISOString() });
+        }
         break;
       }
 
@@ -109,14 +141,45 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+        const { data: prev } = await createAdminClient().from("profiles")
+          .select("nombre_entidad, email, tipo_entidad, plan_actual, plan_ciclo, plan_estado").eq("stripe_customer_id", customerId).single();
+
         await patchPorCustomer(customerId, { plan_estado: "cancelada" as PlanEstado, plan_actual: "ong_pequena" as PlanActual });
+
+        // Emails #2 (usuario) y #5 (admin), solo si no estaba ya cancelada.
+        if (prev && prev.plan_estado !== "cancelada") {
+          const planHad = (prev.plan_actual || "ong_pequena") as PlanActual;
+          const ciclo = (prev.plan_ciclo || "mensual") as PlanCiclo;
+          const esOng = (prev.tipo_entidad || "").startsWith("ong");
+          const startTs = sub.start_date ?? sub.created;
+          const fechaInicioISO = startTs ? new Date(startTs * 1000).toISOString() : null;
+          await enviarCancelacionUsuario({ to: prev.email || "", nombre: prev.nombre_entidad || "", plan: planHad, esOng });
+          await enviarAdminBaja({ nombre: prev.nombre_entidad || "", email: prev.email || "", plan: planHad, ciclo, fechaInicioISO, stripeCustomerId: customerId });
+        }
         break;
       }
 
       case "invoice.payment_failed": {
         const inv = event.data.object as Stripe.Invoice;
         const customerId = typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
-        if (customerId) await patchPorCustomer(customerId, { plan_estado: "suspendida" as PlanEstado });
+        if (customerId) {
+          const { data: prev } = await createAdminClient().from("profiles")
+            .select("nombre_entidad, email, plan_actual, plan_ciclo, plan_estado").eq("stripe_customer_id", customerId).single();
+
+          await patchPorCustomer(customerId, { plan_estado: "suspendida" as PlanEstado });
+
+          // Emails #3 (usuario) y #6 (admin), solo si no estaba ya suspendida.
+          if (prev && prev.plan_estado !== "suspendida") {
+            const plan = (prev.plan_actual || "ong_pequena") as PlanActual;
+            const ciclo = (prev.plan_ciclo || "mensual") as PlanCiclo;
+            const motivo = await motivoFallo(stripe, inv);
+            const reintentoTs = (inv as unknown as { next_payment_attempt?: number | null }).next_payment_attempt;
+            const fechaReintentoISO = reintentoTs ? new Date(reintentoTs * 1000).toISOString() : null;
+            await enviarFalloCobroUsuario({ to: prev.email || "", nombre: prev.nombre_entidad || "", plan, ciclo });
+            await enviarAdminFallo({ nombre: prev.nombre_entidad || "", email: prev.email || "", plan, ciclo, motivo, fechaReintentoISO, stripeCustomerId: customerId });
+          }
+        }
         break;
       }
 
