@@ -167,7 +167,7 @@ Usa 3-4 segmentos. 10-12 hashtags.`;
 
 const aspectPara = (red: string) => (red === "Facebook" ? "16:9" : "1:1");
 
-interface ImagenResultado { url: string | null; error: string | null; }
+interface ImagenResultado { url: string | null; url_limpia?: string | null; error: string | null; }
 
 /** Genera imagen FLUX (con prompt visual) + hornea titular con sharp + sube a post-images. */
 async function generarImagen(
@@ -233,19 +233,59 @@ async function generarImagen(
     }
     console.log(`${label}: composición OK en ${ms()}ms (${composed.length}B), subiendo a Storage...`);
 
-    const filePath = `${userId}/pack-${Date.now()}-${Math.round(presupuestoMs)}.png`;
+    const ts = Date.now();
+    const filePath = `${userId}/pack-${ts}-${Math.round(presupuestoMs)}.png`;
     const { error } = await admin.storage.from("post-images").upload(filePath, composed, { contentType: "image/png", upsert: false });
     if (error) {
       console.error(`${label}: Storage upload FALLÓ:`, error.message);
       return { url: null, error: `storage: ${error.message}`.slice(0, 150) };
     }
     const url = admin.storage.from("post-images").getPublicUrl(filePath).data.publicUrl;
+
+    // Subir TAMBIÉN la imagen limpia (webp original) para poder recomponer el
+    // titular después sin regenerar. Si falla, no rompe (url_limpia queda null).
+    let url_limpia: string | null = null;
+    const cleanPath = `${userId}/pack-${ts}-clean.webp`;
+    const { error: cleanErr } = await admin.storage.from("post-images").upload(cleanPath, clean, { contentType: "image/webp", upsert: false });
+    if (cleanErr) console.error(`${label}: subida limpia FALLÓ:`, cleanErr.message);
+    else url_limpia = admin.storage.from("post-images").getPublicUrl(cleanPath).data.publicUrl;
+
     console.log(`${label}: OK total ${ms()}ms → ${url}`);
-    return { url, error: null };
+    return { url, url_limpia, error: null };
   } catch (e) {
     console.error(`${label}: excepción tras ${ms()}ms:`, e);
     return { url: null, error: `excepción: ${e instanceof Error ? e.message : String(e)}`.slice(0, 150) };
   }
+}
+
+/** Aspect ratio del formato según el tipo de red del día del pack. */
+export const aspectDeTipo = (tipo: string): string => (tipo === "facebook" ? "16:9" : "1:1");
+
+/** Hornea un titular sobre una imagen limpia y sube la compuesta. Devuelve la URL o null. */
+export async function componerYSubir(
+  admin: SupabaseClient, userId: string, cleanBuffer: Buffer, titular: string, aspect: string,
+): Promise<string | null> {
+  try {
+    const composed = await composeImage({ imageBuffer: cleanBuffer, headline: titular, positionX: 50, positionY: 85, fontSize: 52, aspectRatio: aspect });
+    const filePath = `${userId}/pack-${Date.now()}-recomp.png`;
+    const { error } = await admin.storage.from("post-images").upload(filePath, composed, { contentType: "image/png", upsert: false });
+    if (error) { console.error("componerYSubir: storage", error.message); return null; }
+    return admin.storage.from("post-images").getPublicUrl(filePath).data.publicUrl;
+  } catch (e) {
+    console.error("componerYSubir:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/** Sube una imagen "limpia" (original del usuario o de FLUX) a post-images. Devuelve la URL o null. */
+export async function subirImagenLimpia(
+  admin: SupabaseClient, userId: string, buffer: Buffer, contentType: string,
+): Promise<string | null> {
+  const ext = contentType.includes("png") ? "png" : contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "webp";
+  const filePath = `${userId}/pack-${Date.now()}-user.${ext}`;
+  const { error } = await admin.storage.from("post-images").upload(filePath, buffer, { contentType, upsert: false });
+  if (error) { console.error("subirImagenLimpia: storage", error.message); return null; }
+  return admin.storage.from("post-images").getPublicUrl(filePath).data.publicUrl;
 }
 
 /* --------------------------- distribución de redes --------------------------- */
@@ -351,10 +391,10 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
     const tipo = red;
     if (red === "tiktok") {
       const g = await generarGuionTikTok(perfil, plan.tema);
-      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, titular: g.titular, texto: g.texto, hashtags: g.hashtags, guion_tiktok: g.guion, fuente: plan.fuente });
+      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, imagen_limpia_url: null, titular: g.titular, texto: g.texto, hashtags: g.hashtags, guion_tiktok: g.guion, fuente: plan.fuente });
     } else {
       const r = await generarTextoRed(perfil, plan.tema, RED_LABEL[red] || "Instagram");
-      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, titular: r.titular, texto: r.texto, hashtags: r.hashtags, prompt_imagen: r.prompt_imagen, guion_tiktok: null, fuente: plan.fuente });
+      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, imagen_limpia_url: null, titular: r.titular, texto: r.texto, hashtags: r.hashtags, prompt_imagen: r.prompt_imagen, guion_tiktok: null, fuente: plan.fuente });
     }
   }
 
@@ -371,7 +411,7 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
     });
     resultados.forEach((res, k) => {
       const { d, i } = objetivos[k];
-      if (res && res.url) { d.imagen_url = res.url; conImagen++; }
+      if (res && res.url) { d.imagen_url = res.url; d.imagen_limpia_url = res.url_limpia ?? null; conImagen++; }
       else fallos.push(`Día ${i + 1} (${d.tipo}): ${res?.error || "desconocido"}`);
     });
   }
@@ -419,9 +459,9 @@ export async function regenerarDia(
 
   // --- Solo imagen ---
   if (modo === "imagen") {
-    if (red === "tiktok") return { ...out, imagen_url: null };
+    if (red === "tiktok") return { ...out, imagen_url: null, imagen_limpia_url: null };
     const img = await generarImagen(admin, userId, dia.prompt_imagen || promptImagenFallback(out.tema), dia.titular || out.tema, label, 110_000, `Regenerar imagen (${red})`);
-    return { ...out, imagen_url: img.url };
+    return { ...out, imagen_url: img.url, imagen_limpia_url: img.url_limpia ?? null };
   }
 
   // --- Texto (y guion si TikTok) ---
@@ -436,7 +476,7 @@ export async function regenerarDia(
 
   // --- Completo: texto + imagen nueva ---
   const img = await generarImagen(admin, userId, r.prompt_imagen, r.titular, label, 110_000, `Regenerar completo (${red})`);
-  return { ...conTexto, imagen_url: img.url };
+  return { ...conTexto, imagen_url: img.url, imagen_limpia_url: img.url_limpia ?? null };
 }
 
 export { MESES_DIA };

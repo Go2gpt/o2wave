@@ -100,6 +100,7 @@ export interface PackDia {
   tipo: string;            // "instagram" | "facebook" | "tiktok"
   tema: string;
   imagen_url?: string | null;
+  imagen_limpia_url?: string | null; // imagen sin titular horneado (para recomponer)
   titular?: string;
   texto: string;
   hashtags?: string[];

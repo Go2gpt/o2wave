@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
@@ -32,7 +32,11 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
   const [saving, setSaving] = useState(false);
   const [regenT, setRegenT] = useState(false);
   const [regenI, setRegenI] = useState(false);
+  const [savingTitular, setSavingTitular] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const ocupadoImg = regenI || uploading || savingTitular; // alguna operación de imagen en curso
 
   const btn = "px-3.5 py-2.5 rounded-xl border-2 text-xs font-bold transition-all active:scale-95 disabled:opacity-40";
   const btnStyle = { borderColor: "#e5e7eb", color: "#374151" };
@@ -61,6 +65,46 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
         : { message: "Imagen regenerada", type: "success" });
     } catch (e) { setToast({ message: `Error: ${e instanceof Error ? e.message : "fallo"}`, type: "error" }); }
     finally { setRegenI(false); }
+  };
+
+  // Cambiar SOLO el titular: recompone sobre la imagen limpia, sin regenerar.
+  const guardarTitular = async () => {
+    setSavingTitular(true);
+    try {
+      const { dia: nuevo } = await postJSON("/api/pack/actualizar-titular", { pack_id: packId, dia_index: diaIndex, titular });
+      setImagenUrl((nuevo as PackDia).imagen_url ?? null);
+      setToast({ message: "✅ Titular actualizado", type: "success" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "fallo";
+      if (msg.toLowerCase().includes("imagen limpia")) {
+        setToast({ message: "Para cambiar solo el titular, regenera la imagen una vez. A partir de entonces podrás cambiar el titular sin regenerar.", type: "info" });
+      } else {
+        setToast({ message: `Error: ${msg}`, type: "error" });
+      }
+    } finally { setSavingTitular(false); }
+  };
+
+  // Subir imagen propia: pasa a ser la nueva limpia + recompone el titular actual.
+  const subirImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("pack_id", packId);
+      fd.append("dia_index", String(diaIndex));
+      fd.append("file", file);
+      const res = await fetch("/api/pack/subir-imagen", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Error");
+      setImagenUrl((data.dia as PackDia).imagen_url ?? null);
+      setToast({ message: "✅ Imagen actualizada", type: "success" });
+    } catch (err) {
+      setToast({ message: `Error: ${err instanceof Error ? err.message : "fallo"}`, type: "error" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   const guardar = async () => {
@@ -95,17 +139,21 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
                 <span className="text-3xl">🖼️</span><span className="text-xs font-medium">Sin imagen</span>
               </div>
             )}
-            {regenI && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Spinner /></div>}
+            {ocupadoImg && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Spinner /></div>}
           </div>
           <div className="p-4 space-y-3">
             <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Titular (se hornea al regenerar la imagen)</label>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Titular (se hornea sobre la imagen)</label>
               <input value={titular} maxLength={100} onChange={(e) => setTitular(e.target.value)}
                 className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none"
                 onFocus={(e) => (e.target.style.borderColor = "#f9b23b")} onBlur={(e) => (e.target.style.borderColor = "#f3f4f6")} />
+              <button onClick={guardarTitular} disabled={ocupadoImg}
+                className={`${btn} mt-2`} style={btnStyle}>{savingTitular ? "Guardando…" : "💾 Guardar titular"}</button>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <button onClick={regenerarImagen} disabled={regenI} className={btn} style={btnStyle}>{regenI ? "Generando…" : "↻ Regenerar imagen"}</button>
+              <button onClick={regenerarImagen} disabled={ocupadoImg} className={btn} style={btnStyle}>{regenI ? "Generando…" : "↻ Regenerar imagen"}</button>
+              <button onClick={() => fileRef.current?.click()} disabled={ocupadoImg} className={btn} style={btnStyle}>{uploading ? "Subiendo…" : "⬆ Subir imagen"}</button>
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={subirImagen} className="hidden" />
             </div>
           </div>
         </div>
