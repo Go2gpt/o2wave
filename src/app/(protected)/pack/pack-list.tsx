@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
-import { limpiarMarkdown } from "@/lib/formatText";
+import { limpiarMarkdown, quitarHashtags } from "@/lib/formatText";
 import type { PackSemanal, PackDia } from "@/types";
 
 const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", tiktok: "🎵 TikTok" };
@@ -39,7 +39,7 @@ function DiaCard({ packId, dia, idx, onSustituir, onEliminar }: {
       <div className="p-3">
         <p className="text-xs font-bold" style={{ color: "#f9b23b" }}>{dia.tema}</p>
         {dia.titular && <p className="text-sm font-bold text-gray-900 mt-1">{dia.titular}</p>}
-        <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-wrap">{limpiarMarkdown(dia.texto || "")}</p>
+        <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-wrap">{quitarHashtags(limpiarMarkdown(dia.texto || ""))}</p>
         {dia.hashtags && dia.hashtags.length > 0 && <p className="text-xs mt-2" style={{ color: "#1e40af" }}>{dia.hashtags.join(" ")}</p>}
         <div className="flex gap-2 mt-3 flex-wrap">
           <Link href={`/pack/${packId}/dia/${idx}`} className="px-3 py-1.5 rounded-lg border-2 text-xs font-bold transition-all active:scale-95" style={{ borderColor: "#e5e7eb", color: "#374151" }}>✏️ Editar</Link>

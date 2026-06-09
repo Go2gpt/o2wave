@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { composeImage } from "@/lib/composeImage";
+import { quitarHashtags } from "@/lib/formatText";
 import type { PackDia, PackFuente, GuionTikTok } from "@/types";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -96,15 +97,6 @@ interface TextoRed { titular: string; texto: string; hashtags: string[]; prompt_
 const promptImagenFallback = (tema: string) =>
   `Fotografía realista de alta calidad relacionada con "${tema}". Composición limpia, luminosa y profesional, ambiente positivo.`;
 
-/** Quita hashtags (#palabra) del cuerpo del post: van solo en el bloque inferior. */
-function quitarHashtags(texto: string): string {
-  return texto
-    .replace(/#[0-9A-Za-zÀ-ÿ_]+/g, "")  // elimina #hashtags (incluye acentos)
-    .replace(/[ \t]{2,}/g, " ")          // espacios dobles que quedan
-    .replace(/[ \t]+\n/g, "\n")          // espacios al final de línea
-    .replace(/\n{3,}/g, "\n\n")          // colapsa líneas en blanco de más
-    .trim();
-}
 
 /** Genera titular + texto + hashtags + descripción visual de la imagen (Instagram/Facebook). */
 async function generarTextoRed(p: PerfilPack, tema: string, red: string): Promise<TextoRed> {
