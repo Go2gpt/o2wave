@@ -207,7 +207,11 @@ async function generarImagen(
       if (!st.ok) { console.warn(`${label}: poll ${st.status} (reintentando)`); continue; }
       const d = await st.json();
       ultimoEstado = d.status;
-      if (d.status === "succeeded") { rawUrl = d.output?.[0] ?? null; break; }
+      if (d.status === "succeeded") {
+        const out = d.output;
+        rawUrl = Array.isArray(out) ? (out[0] ?? null) : (typeof out === "string" ? out : null);
+        break;
+      }
       if (d.status === "failed" || d.status === "canceled") {
         console.error(`${label}: Replicate ${d.status}: ${JSON.stringify(d.error)?.slice(0, 200)}`);
         return { url: null, error: `replicate ${d.status}: ${String(d.error).slice(0, 120)}` };

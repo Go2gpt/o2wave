@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ status: data.status, imagenUrl: null });
     }
 
-    const rawUrl: string | undefined = data.output?.[0];
+    const out = data.output;
+    const rawUrl: string | undefined = Array.isArray(out) ? out[0] : (typeof out === "string" ? out : undefined);
     if (!rawUrl) return NextResponse.json({ status: "failed", imagenUrl: null });
 
     // Descargar la imagen LIMPIA (sin texto) y subirla tal cual a Storage.
