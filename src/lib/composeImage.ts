@@ -1,7 +1,12 @@
 import sharp from "sharp";
 import path from "path";
+import fs from "fs";
 
-const FONT = path.join(process.cwd(), "public", "fonts", "Montserrat-Bold.ttf");
+// Cargamos la fuente UNA vez (module scope) y la embebemos en los SVG como
+// data URL. Así librsvg (el motor SVG de sharp) NO necesita Pango ni fontconfig,
+// que no están disponibles en Vercel Lambda.
+const FONT_PATH = path.join(process.cwd(), "public", "fonts", "Montserrat-Bold.ttf");
+const FONT_BASE64 = fs.readFileSync(FONT_PATH).toString("base64");
 
 // Todas las dimensiones de referencia son de 1080px de ancho, así que el
 // fontSize (referenciado a 1080) se aplica directo en ambos formatos.
@@ -11,21 +16,59 @@ const DIMS: Record<string, { w: number; h: number }> = {
   "16:9": { w: 1920, h: 1080 },
 };
 
-function escapePango(s: string): string {
+function escapeXml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/** Parte el texto en líneas que caben en maxWidth (estimación por ancho de glifo). */
+function wrap(text: string, size: number, maxWidth: number): string[] {
+  const anchoMedio = size * 0.55; // aprox. para Montserrat Bold
+  const maxChars = Math.max(1, Math.floor(maxWidth / anchoMedio));
+  const palabras = text.trim().split(/\s+/);
+  const lineas: string[] = [];
+  let actual = "";
+  for (const p of palabras) {
+    const tentativa = actual ? `${actual} ${p}` : p;
+    if (tentativa.length > maxChars && actual) {
+      lineas.push(actual);
+      actual = p;
+    } else {
+      actual = tentativa;
+    }
+  }
+  if (actual) lineas.push(actual);
+  return lineas.length ? lineas : [text];
+}
+
+/**
+ * Renderiza el texto como PNG vía SVG con la fuente embebida (@font-face base64).
+ * El SVG mide maxWidth de ancho y el texto va centrado, con saltos de línea a
+ * múltiples <tspan> si el titular es largo. Devuelve un PNG (renderizado por sharp).
+ */
 async function renderText(text: string, color: string, size: number, maxWidth: number): Promise<Buffer> {
-  return sharp({
-    text: {
-      text: `<span foreground="${color}">${escapePango(text)}</span>`,
-      fontfile: FONT,
-      font: `Montserrat Bold ${size}`,
-      width: maxWidth,
-      rgba: true,
-      align: "centre",
-    },
-  }).png().toBuffer();
+  const lineas = wrap(text, size, maxWidth);
+  const lineHeight = Math.round(size * 1.25);
+  const svgWidth = maxWidth;
+  const svgHeight = Math.round((lineas.length - 1) * lineHeight + size * 1.3);
+  const cx = Math.round(svgWidth / 2);
+
+  const tspans = lineas
+    .map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(l)}</tspan>`)
+    .join("");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}">
+    <defs><style>
+      @font-face {
+        font-family: 'MontserratEmbed';
+        src: url('data:font/ttf;base64,${FONT_BASE64}') format('truetype');
+        font-weight: 700;
+      }
+    </style></defs>
+    <text x="${cx}" y="${size}" fill="${color}" text-anchor="middle"
+      font-family="MontserratEmbed" font-weight="700" font-size="${size}">${tspans}</text>
+  </svg>`;
+
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 export interface ComposeOptions {

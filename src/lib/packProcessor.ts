@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { composeImage } from "@/lib/composeImage";
 import type { PackDia, PackFuente, GuionTikTok } from "@/types";
@@ -17,29 +16,6 @@ const MIN_MS_PARA_IMAGEN = 40_000;
 const CONCURRENCIA_IMAGENES = 5;
 
 const pad = (n: number) => String(n).padStart(2, "0");
-
-/**
- * Pre-calienta fontconfig/Pango ejecutando UNA composición de texto.
- * Singleton a nivel de módulo: la init costosa de fontconfig ocurre una sola
- * vez por instancia (no por request), evitando el error
- * "Fontconfig error: Cannot load default config file" en las concurrentes.
- */
-let _warmup: Promise<void> | null = null;
-function calentarFontconfig(): Promise<void> {
-  if (!_warmup) {
-    _warmup = (async () => {
-      const w = Date.now();
-      try {
-        const dummy = await sharp({ create: { width: 16, height: 16, channels: 3, background: "#000000" } }).png().toBuffer();
-        await composeImage({ imageBuffer: dummy, headline: "·", positionX: 50, positionY: 50, fontSize: 24, aspectRatio: "1:1" });
-        console.log(`warmup fontconfig OK en ${Date.now() - w}ms`);
-      } catch (e) {
-        console.error("warmup fontconfig FALLÓ:", e);
-      }
-    })();
-  }
-  return _warmup;
-}
 
 /** Ejecuta `fn` sobre `items` con un máximo de `limit` en paralelo (tolerante a fallos). */
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<R>): Promise<(R | null)[]> {
@@ -382,7 +358,6 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   let conImagen = 0;
   const fallos: string[] = [];
   if (TIEMPO_TOTAL_MS - (Date.now() - t0) >= MIN_MS_PARA_IMAGEN) {
-    await calentarFontconfig(); // init fontconfig una vez antes de paralelizar
     const objetivos = contenido.map((d, i) => ({ d, i })).filter((x) => x.d.tipo !== "tiktok");
     const resultados = await mapLimit(objetivos, CONCURRENCIA_IMAGENES, ({ d, i }) => {
       const presupuesto = TIEMPO_TOTAL_MS - (Date.now() - t0); // recalculado por llamada
@@ -441,7 +416,6 @@ export async function regenerarDia(
   // --- Solo imagen ---
   if (modo === "imagen") {
     if (red === "tiktok") return { ...out, imagen_url: null };
-    await calentarFontconfig();
     const img = await generarImagen(admin, userId, dia.prompt_imagen || promptImagenFallback(out.tema), dia.titular || out.tema, label, 110_000, `Regenerar imagen (${red})`);
     return { ...out, imagen_url: img.url };
   }
@@ -457,7 +431,6 @@ export async function regenerarDia(
   if (modo === "texto") return conTexto; // conserva imagen actual
 
   // --- Completo: texto + imagen nueva ---
-  await calentarFontconfig();
   const img = await generarImagen(admin, userId, r.prompt_imagen, r.titular, label, 110_000, `Regenerar completo (${red})`);
   return { ...conTexto, imagen_url: img.url };
 }
