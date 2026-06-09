@@ -393,7 +393,7 @@ export default function ProfileForm({
           )}
 
           <p className="text-xs text-gray-400 leading-relaxed">
-            Cada domingo por la noche generamos automáticamente tu plan de contenido. Lo recibirás por email y podrás verlo dentro de la app.
+            Cada lunes a las 9:00 generamos automáticamente tu plan de contenido. Lo recibirás por email y podrás verlo dentro de la app.
           </p>
         </section>
 

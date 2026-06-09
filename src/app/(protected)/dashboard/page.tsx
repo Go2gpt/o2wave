@@ -9,6 +9,17 @@ import { calcularProximos, type DiaClave } from "@/lib/categorias";
 import Logo from "@/components/Logo";
 import GenerarPackButton from "./GenerarPackButton";
 
+// El pack se envía LUNES 09:00 (Europa/Madrid). Devuelve el próximo lunes desde
+// `desde`; si hoy es lunes, devuelve el de la semana siguiente.
+function proximoLunes(desde: Date = new Date()): Date {
+  const dia = desde.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
+  const diasHastaLunes = dia === 1 ? 7 : (8 - dia) % 7;
+  const next = new Date(desde);
+  next.setDate(desde.getDate() + diasHastaLunes);
+  next.setHours(9, 0, 0, 0);
+  return next;
+}
+
 async function deletePost(formData: FormData) {
   "use server";
   const id = formData.get("id") as string;
@@ -82,11 +93,7 @@ export default async function DashboardPage() {
   const REDES_PACK_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
   const redesActivas = (profile?.redes_activas?.length ? profile.redes_activas : ["instagram"])
     .map((r: string) => REDES_PACK_LABEL[r] || r).join(", ");
-  const hoyPack = new Date();
-  const basePack = new Date(hoyPack.getFullYear(), hoyPack.getMonth(), hoyPack.getDate());
-  const diffDom = (7 - basePack.getDay()) % 7 || 7; // próximo domingo (si hoy es domingo, el siguiente)
-  const domPack = new Date(basePack); domPack.setDate(basePack.getDate() + diffDom);
-  const proximoDomingo = domPack.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+  const proximoLunesStr = proximoLunes().toLocaleDateString("es-ES", { day: "numeric", month: "long" });
   let ultimoPackFecha: string | null = null;
   if (packActivo) {
     const { data: ultimoPack } = await supabase
@@ -159,7 +166,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className="space-y-1.5 text-sm text-gray-600 mb-4">
-              <p>📅 Próximo envío: domingo {proximoDomingo}</p>
+              <p>📅 Próximo envío: lunes {proximoLunesStr}</p>
               <p className="text-[11px] text-gray-400 -mt-1">(generación manual; cron automático próximamente)</p>
               <p>🗂️ {packDias} días · {redesActivas}</p>
               {ultimoPackFecha && <p>📦 Último pack: {ultimoPackFecha}</p>}
@@ -181,7 +188,7 @@ export default async function DashboardPage() {
               <p className="text-sm font-bold text-gray-800">Pack semanal automático</p>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed mb-4">
-              Recibe tu plan de contenido completo cada domingo. 5-7 publicaciones automáticas con imagen, texto y hashtags listos para tu semana.
+              Recibe tu plan de contenido completo cada lunes. 5-7 publicaciones automáticas con imagen, texto y hashtags listos para tu semana.
             </p>
             <Link href="/perfil#pack-semanal" className="block w-full py-3 rounded-xl font-bold text-white text-sm text-center transition-all active:scale-[0.98]"
               style={{ backgroundColor: "#f9b23b" }}>✨ Activar</Link>
