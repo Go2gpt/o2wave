@@ -96,6 +96,16 @@ interface TextoRed { titular: string; texto: string; hashtags: string[]; prompt_
 const promptImagenFallback = (tema: string) =>
   `Fotografía realista de alta calidad relacionada con "${tema}". Composición limpia, luminosa y profesional, ambiente positivo.`;
 
+/** Quita hashtags (#palabra) del cuerpo del post: van solo en el bloque inferior. */
+function quitarHashtags(texto: string): string {
+  return texto
+    .replace(/#[\p{L}\p{N}_]+/gu, "")   // elimina #hashtags (con acentos/números)
+    .replace(/[ \t]{2,}/g, " ")          // espacios dobles que quedan
+    .replace(/[ \t]+\n/g, "\n")          // espacios al final de línea
+    .replace(/\n{3,}/g, "\n\n")          // colapsa líneas en blanco de más
+    .trim();
+}
+
 /** Genera titular + texto + hashtags + descripción visual de la imagen (Instagram/Facebook). */
 async function generarTextoRed(p: PerfilPack, tema: string, red: string): Promise<TextoRed> {
   try {
@@ -107,10 +117,11 @@ ${contextoDe(p)}
 Responde SOLO con JSON válido:
 {
   "titular": "6-8 palabras impactantes para superponer sobre la imagen",
-  "texto": "texto listo para publicar (${limite}), con emojis",
+  "texto": "texto listo para publicar (${limite}), con emojis y SIN hashtags",
   "hashtags": ["#hashtag1", "#hashtag2"],
   "prompt_imagen": "DESCRIPCIÓN VISUAL de la imagen ideal para acompañar el post"
 }
+- IMPORTANTE: el campo "texto" NO debe contener hashtags ni el símbolo #. Los hashtags van EXCLUSIVAMENTE en el array "hashtags" (se muestran aparte en la app).
 - Incluye 8-12 hashtags relevantes al tema y al sector.
 - "prompt_imagen" debe ser una descripción VISUAL concreta de qué pintar (escena, sujetos, lugar, luz, ambiente, estilo fotográfico). NO un eslogan ni una frase del texto. Ejemplo: "Vista aérea de un océano azul cristalino al amanecer, una ola suave acercándose a una playa de arena clara, luz dorada cálida, fotografía realista de alta calidad". No menciones texto ni logos.`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
@@ -120,7 +131,7 @@ Responde SOLO con JSON válido:
       ? o.prompt_imagen.trim() : promptImagenFallback(tema);
     return {
       titular: typeof o.titular === "string" ? o.titular.replace(/^["'«»]|["'«»]$/g, "") : tema,
-      texto: typeof o.texto === "string" ? o.texto : "",
+      texto: typeof o.texto === "string" ? quitarHashtags(o.texto) : "",
       hashtags: (Array.isArray(o.hashtags) ? o.hashtags : []).filter((h): h is string => typeof h === "string").map((h) => h.startsWith("#") ? h : `#${h}`),
       prompt_imagen: promptImg,
     };
