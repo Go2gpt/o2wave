@@ -99,7 +99,7 @@ const promptImagenFallback = (tema: string) =>
 /** Quita hashtags (#palabra) del cuerpo del post: van solo en el bloque inferior. */
 function quitarHashtags(texto: string): string {
   return texto
-    .replace(/#[\p{L}\p{N}_]+/gu, "")   // elimina #hashtags (con acentos/números)
+    .replace(/#[0-9A-Za-zÀ-ÿ_]+/g, "")  // elimina #hashtags (incluye acentos)
     .replace(/[ \t]{2,}/g, " ")          // espacios dobles que quedan
     .replace(/[ \t]+\n/g, "\n")          // espacios al final de línea
     .replace(/\n{3,}/g, "\n\n")          // colapsa líneas en blanco de más
