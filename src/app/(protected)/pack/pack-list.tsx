@@ -57,6 +57,7 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
   const [toast, setToast] = useState<ToastState>(null);
   const [sust, setSust] = useState<{ packId: string; idx: number; tema: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [borrandoId, setBorrandoId] = useState<string | null>(null);
 
   const descargarPdf = (pack: PackSemanal) => window.open(`/api/pack/${pack.id}/pdf`, "_blank");
 
@@ -68,6 +69,22 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
       setToast({ message: "Día eliminado", type: "success" });
       router.refresh();
     } catch (e) { setToast({ message: `Error: ${e instanceof Error ? e.message : "fallo"}`, type: "error" }); }
+  };
+
+  const borrarPack = async (packId: string) => {
+    if (!confirm("¿Borrar este pack? Se eliminarán todos los días y la imagen. No se puede deshacer.")) return;
+    setBorrandoId(packId);
+    try {
+      const res = await fetch(`/api/pack/${packId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Error");
+      setAbierto((a) => (a === packId ? null : a));
+      setToast({ message: "Pack eliminado", type: "success" });
+      router.refresh();
+    } catch (e) {
+      setToast({ message: `Error: ${e instanceof Error ? e.message : "fallo"}`, type: "error" });
+    } finally {
+      setBorrandoId(null);
+    }
   };
 
   const confirmarSustituir = async () => {
@@ -121,9 +138,14 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
                     <p className="text-sm font-bold text-gray-900 truncate">{rango(p.fecha_inicio)}</p>
                     <p className="text-xs text-gray-400">{dias.length} {dias.length === 1 ? "día" : "días"} de contenido</p>
                   </div>
-                  <button onClick={() => setAbierto(open ? null : p.id)}
-                    className="px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all active:scale-95 flex-shrink-0"
-                    style={{ borderColor: "#e5e7eb", color: "#374151" }}>{open ? "Ocultar" : "Ver pack"}</button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => setAbierto(open ? null : p.id)}
+                      className="px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all active:scale-95"
+                      style={{ borderColor: "#e5e7eb", color: "#374151" }}>{open ? "Ocultar" : "Ver pack"}</button>
+                    <button onClick={() => borrarPack(p.id)} disabled={borrandoId === p.id} aria-label="Borrar pack"
+                      className="px-2.5 py-2 rounded-xl text-sm transition-all active:scale-95 hover:bg-red-50 disabled:opacity-50"
+                      style={{ color: "#ef4444" }}>{borrandoId === p.id ? "…" : "🗑️"}</button>
+                  </div>
                 </div>
                 {open && (
                   <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">
@@ -133,6 +155,11 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
                     {dias.length === 0
                       ? <p className="text-xs text-gray-400 pt-1">Este pack no tiene contenido.</p>
                       : dias.map((d, i) => <DiaCard key={i} packId={p.id} dia={d} idx={i} onSustituir={(idx) => setSust({ packId: p.id, idx, tema: "" })} onEliminar={(idx) => eliminarDia(p.id, idx)} />)}
+                    <div className="text-right pt-1">
+                      <button onClick={() => borrarPack(p.id)} disabled={borrandoId === p.id}
+                        className="text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                        style={{ color: "#ef4444" }}>{borrandoId === p.id ? "Borrando…" : "🗑️ Borrar pack"}</button>
+                    </div>
                   </div>
                 )}
               </div>
