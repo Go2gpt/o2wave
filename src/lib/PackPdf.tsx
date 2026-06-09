@@ -1,6 +1,7 @@
 import React from "react";
 import path from "path";
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
+import { quitarHashtags } from "@/lib/formatText";
 import type { PackSemanal, PackDia } from "@/types";
 
 // Noto Sans: cobertura Unicode completa (ñ/á/é, subíndices como ₂, etc.).
@@ -77,7 +78,7 @@ function DiaPage({ dia, idx }: { dia: PackDia; idx: number }) {
                 </View>
               ))}
             </View>
-          ) : <Text style={s.texto}>{dia.texto}</Text>}
+          ) : <Text style={s.texto}>{quitarHashtags(dia.texto || "")}</Text>}
           {!!guion?.planos?.length && (
             <View>
               <Text style={s.seccion}>Planos a grabar</Text>
@@ -93,7 +94,7 @@ function DiaPage({ dia, idx }: { dia: PackDia; idx: number }) {
             ? <View style={s.imgWrap}><Image style={s.img} src={dia.imagen_url} /></View>
             : <View style={s.imgWrap}><View style={s.placeholder}><Text style={s.placeholderTxt}>Sin imagen — genérala desde la app</Text></View></View>}
           <Text style={s.tema}>{dia.tema}</Text>
-          <Text style={s.texto}>{dia.texto}</Text>
+          <Text style={s.texto}>{quitarHashtags(dia.texto || "")}</Text>
           {!!(dia.hashtags && dia.hashtags.length) && <Text style={s.hashtags}>{dia.hashtags.join(" ")}</Text>}
         </View>
       )}
