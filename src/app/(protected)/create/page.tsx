@@ -7,8 +7,7 @@ import BackLink from "@/components/BackLink";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
-import { getPermisos, contarPostsMes, type Permisos } from "@/lib/permissions";
-import { canUseFeature, type PerfilGating } from "@/lib/plans";
+import { canUseFeature, puedeGenerarPostGratis, limitePostsMes, type PerfilGating } from "@/lib/plans";
 import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
 
 const TONOS: Tono[] = ["Motivador", "Informativo", "Cercano", "Urgente"];
@@ -72,8 +71,6 @@ function CreateInner() {
   const [entornoLibre, setEntornoLibre] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [permisos, setPermisos] = useState<Permisos | null>(null);
-  const [postsMes, setPostsMes] = useState(0);
   const [gating, setGating] = useState<PerfilGating | null>(null);
   const [showUpsell, setShowUpsell] = useState<string | null>(null); // red social bloqueada
   const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
@@ -82,12 +79,10 @@ function CreateInner() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("nombre_entidad, tipo_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
-      setPermisos(getPermisos(profile?.tipo_entidad, profile?.es_admin));
+      const { data: profile } = await supabase.from("profiles").select("nombre_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
       setGating({ plan_actual: profile?.plan_actual, plan_estado: profile?.plan_estado, es_admin: profile?.es_admin, posts_gratis_usados: profile?.posts_gratis_usados });
       // Pre-rellena el nombre de la organización (editable) si el campo está vacío.
       if (profile?.nombre_entidad) setForm((f) => f.nombreOrganizacion ? f : { ...f, nombreOrganizacion: profile.nombre_entidad! });
-      setPostsMes(await contarPostsMes(supabase, user.id));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -99,7 +94,11 @@ function CreateInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const limiteAlcanzado = !!permisos?.postsMaxMes && postsMes >= permisos.postsMaxMes;
+  // Límite de posts: fuente única de verdad = posts_gratis_usados (lo que el servidor
+  // incrementa/resetea). limitePostsMes() devuelve Infinity para planes ilimitados/admin.
+  const limitePosts = gating ? limitePostsMes(gating) : Infinity;
+  const postsUsados = gating?.posts_gratis_usados ?? 0;
+  const limiteAlcanzado = gating ? !puedeGenerarPostGratis(gating) : false;
 
   const set = <K extends keyof ContentFormData>(k: K, v: ContentFormData[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -366,9 +365,9 @@ function CreateInner() {
           </div>
         )}
 
-        {permisos?.postsMaxMes != null && (
+        {Number.isFinite(limitePosts) && (
           <div className="flex items-center justify-between text-xs font-semibold px-1">
-            <span className="text-gray-500">{postsMes} de {permisos.postsMaxMes} posts este mes</span>
+            <span className="text-gray-500">{postsUsados} de {limitePosts} posts este mes</span>
             {limiteAlcanzado && (
               <Link href="/plans" className="font-bold" style={{ color: "#f9b23b" }}>Mejora tu plan →</Link>
             )}

@@ -52,6 +52,15 @@ export function puedeGenerarPostGratis(profile: PerfilGating | null): boolean {
   return (profile.posts_gratis_usados ?? 0) < LIMITE_POSTS_GRATIS;
 }
 
+/** Límite de posts/mes según plan. Infinity = ilimitado (admin o posts_ilimitados). */
+export function limitePostsMes(profile: PerfilGating | null): number {
+  if (!profile) return LIMITE_POSTS_GRATIS;
+  if (profile.es_admin) return Infinity;
+  const plan = profile.plan_actual ?? "ong_pequena";
+  if (FEATURES[plan]?.includes("posts_ilimitados")) return Infinity;
+  return LIMITE_POSTS_GRATIS;
+}
+
 /**
  * Catálogo de planes de o2Wave. Los price IDs reales viven en variables de
  * entorno (se resuelven en servidor con priceId()). ong_pequena es gratis y NO
