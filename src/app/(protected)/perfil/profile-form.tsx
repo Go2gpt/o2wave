@@ -35,7 +35,21 @@ export interface ProfileData {
   pack_semanal_activo: boolean | null;
   pack_dias_semana: number | null;
   redes_activas: string[] | null;
+  es_admin: boolean | null;
+  stripe_customer_id: string | null;
+  plan_actual: string | null;
+  plan_estado: string | null;
 }
+
+const NOMBRE_PLAN: Record<string, string> = {
+  ong_pequena: "ONG pequeña", ong_mediana: "ONG mediana", earlybird: "Early Bird", standard: "Estándar", pro: "Pro",
+};
+const ESTADO_PLAN: Record<string, { label: string; bg: string; color: string }> = {
+  activa: { label: "Activa", bg: "#f0f7e6", color: "#3f6212" },
+  trial: { label: "En prueba", bg: "#eff6ff", color: "#1e40af" },
+  suspendida: { label: "Pago pendiente", bg: "#fef2f2", color: "#b91c1c" },
+  cancelada: { label: "Cancelada (válida hasta fin de periodo)", bg: "#f3f4f6", color: "#4b5563" },
+};
 
 const REDES_PACK = [
   { value: "instagram", label: "Instagram", emoji: "📸" },
@@ -143,6 +157,22 @@ export default function ProfileForm({
   const toggleRed = (r: string) => setRedes((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
+  const [cargandoPortal, setCargandoPortal] = useState(false);
+
+  // Abre el Stripe Billing Portal (gestionar pago, facturas, cancelar).
+  const gestionarSuscripcion = async () => {
+    setCargandoPortal(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) { window.location.href = data.url; return; }
+      setToast({ message: data.mensaje || "No se pudo abrir el portal.", type: "error" });
+    } catch {
+      setToast({ message: "Error al abrir el portal de suscripción.", type: "error" });
+    } finally {
+      setCargandoPortal(false);
+    }
+  };
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
   const [deleteText, setDeleteText] = useState("");
 
@@ -259,6 +289,41 @@ export default function ProfileForm({
             <p className="text-[11px] text-gray-400 mt-1">Para cambiar el email, contacta con soporte.</p>
           </div>
         </section>
+
+        {/* Sección — Mi suscripción (Stripe Billing Portal). No se muestra a admins. */}
+        {!initial.es_admin && (
+          <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+            <h2 className="text-sm font-bold text-gray-800">Mi suscripción</h2>
+            {initial.stripe_customer_id ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Plan</span>
+                  <strong className="text-gray-800">{NOMBRE_PLAN[initial.plan_actual || ""] || initial.plan_actual || "—"}</strong>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Estado</span>
+                  {(() => {
+                    const e = ESTADO_PLAN[initial.plan_estado || ""] || { label: initial.plan_estado || "—", bg: "#f3f4f6", color: "#4b5563" };
+                    return <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: e.bg, color: e.color }}>{e.label}</span>;
+                  })()}
+                </div>
+                <button type="button" onClick={gestionarSuscripcion} disabled={cargandoPortal}
+                  className="w-full py-3 rounded-2xl font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                  style={{ backgroundColor: "#f9b23b" }}>
+                  {cargandoPortal ? "Abriendo portal…" : "Gestionar suscripción"}
+                </button>
+                <p className="text-[11px] text-gray-400">Cambia el método de pago, descarga facturas o cancela tu suscripción.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600">No tienes una suscripción activa.</p>
+                <Link href="/plans" className="block w-full py-3 rounded-2xl font-bold text-white text-sm text-center transition-all active:scale-[0.98]" style={{ backgroundColor: "#f9b23b" }}>
+                  Ver planes
+                </Link>
+              </>
+            )}
+          </section>
+        )}
 
         {/* Sección 2 — Datos de la marca */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
