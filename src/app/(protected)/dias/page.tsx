@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { preseleccionarCategorias } from "@/lib/preseleccionarCategorias";
 import { calcularProximos, type DiaClave } from "@/lib/categorias";
-import { getPermisos } from "@/lib/permissions";
+import { canUseFeature } from "@/lib/plans";
 import DiasList from "./dias-list";
 
 export const dynamic = "force-dynamic";
@@ -12,12 +12,10 @@ export default async function DiasPage({ searchParams }: { searchParams: { repre
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Gate de permisos: lectura mínima y robusta (solo columnas estables).
-  // No se acopla a columnas nuevas para que el bypass de admin nunca se rompa
-  // si una migración aún no se ha aplicado.
+  // Gate de feature: el calendario de días clave (dias_clave) por plan_actual.
   const { data: perfilBase } = await supabase
-    .from("profiles").select("tipo_entidad, es_admin").eq("id", user.id).single();
-  if (!getPermisos(perfilBase?.tipo_entidad, perfilBase?.es_admin).calendario) redirect("/plans");
+    .from("profiles").select("tipo_entidad, es_admin, plan_actual").eq("id", user.id).single();
+  if (!canUseFeature(perfilBase, "dias_clave")) redirect("/plans");
 
   // Re-disparar la preselección IA (solo admins): ?represeleccionar=true resetea
   // la marca para que la lógica de abajo vuelva a ejecutarse. Útil para diagnóstico.

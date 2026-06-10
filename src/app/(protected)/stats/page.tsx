@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
-import { getPermisos } from "@/lib/permissions";
+import { canUseFeature } from "@/lib/plans";
 import BackLink from "@/components/BackLink";
 
 export default async function StatsPage() {
@@ -8,8 +8,8 @@ export default async function StatsPage() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/welcome");
 
-  const { data: permProfile } = await supabase.from("profiles").select("tipo_entidad, es_admin").eq("id", session.user.id).single();
-  if (!getPermisos(permProfile?.tipo_entidad, permProfile?.es_admin).estadisticas) redirect("/plans");
+  const { data: permProfile } = await supabase.from("profiles").select("tipo_entidad, es_admin, plan_actual").eq("id", session.user.id).single();
+  if (!canUseFeature(permProfile, "stats_basic")) redirect("/plans");
 
   const TIPO_RED: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
 

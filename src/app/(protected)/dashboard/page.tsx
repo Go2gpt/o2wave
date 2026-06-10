@@ -4,7 +4,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { limpiarMarkdown } from "@/lib/formatText";
-import { getPermisos } from "@/lib/permissions";
 import { canUseFeature } from "@/lib/plans";
 import { calcularProximos, type DiaClave } from "@/lib/categorias";
 import Logo from "@/components/Logo";
@@ -54,7 +53,6 @@ export default async function DashboardPage() {
     .limit(3);
 
   const nombre = profile?.nombre_entidad || session.user.email?.split("@")[0] || "Usuario";
-  const permisos = getPermisos(profile?.tipo_entidad, profile?.es_admin);
 
   // Logo de la entidad (de brand_identity) para el avatar; si no hay, mostrará iniciales.
   const { data: brand } = await supabase
@@ -117,8 +115,8 @@ export default async function DashboardPage() {
 
   const QUICK_ACTIONS = [
     { href: "/create",   icon: "✨", title: "Crear contenido",          subtitle: "Instagram, Facebook o TikTok.", color: "#f9b23b", bg: "#fff8ef", locked: false },
-    { href: "/dias",     icon: "📅", title: "Calendario de días clave", subtitle: subtituloCalendario,             color: "#93bf30", bg: "#f0f7e6", locked: !permisos.calendario },
-    { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8", locked: !permisos.estadisticas },
+    { href: "/dias",     icon: "📅", title: "Calendario de días clave", subtitle: subtituloCalendario,             color: "#93bf30", bg: "#f0f7e6", locked: !canUseFeature(profile, "dias_clave") },
+    { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8", locked: !canUseFeature(profile, "stats_basic") },
   ];
 
   const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵" };
