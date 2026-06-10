@@ -46,6 +46,9 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
   const btnNaranja = "w-full py-3 rounded-xl font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50";
 
   return (
+    // Fondo claro propio: /plans vive fuera del layout (protected), cuyo <body> es
+    // negro. Sin esto, el título quedaría gris sobre negro (ilegible).
+    <div className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
     <div className="max-w-lg mx-auto pb-10">
       <Toast toast={toast} onClose={() => setToast(null)} />
 
@@ -159,6 +162,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
       <p className="px-5 pt-4 text-center text-xs text-gray-400">
         Precios con IVA incluido · Cancela cuando quieras · Pago seguro con Stripe
       </p>
+    </div>
     </div>
   );
 }

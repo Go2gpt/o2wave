@@ -3,9 +3,9 @@ export interface LogoProps {
 }
 
 const HEIGHTS: Record<NonNullable<LogoProps["size"]>, number> = {
-  sm: 32,
-  md: 48,
-  lg: 72,
+  sm: 48,
+  md: 72,
+  lg: 100,
   xl: 120,
 };
 

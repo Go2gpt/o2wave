@@ -8,6 +8,7 @@ import { getPermisos } from "@/lib/permissions";
 import { canUseFeature } from "@/lib/plans";
 import { calcularProximos, type DiaClave } from "@/lib/categorias";
 import Logo from "@/components/Logo";
+import Avatar from "@/components/Avatar";
 import GenerarPackButton from "./GenerarPackButton";
 
 // El pack se envía LUNES 09:00 (Europa/Madrid). Devuelve el próximo lunes desde
@@ -118,10 +119,8 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="px-5 pt-8 pb-4 flex items-center justify-between">
         <Logo size="md" />
-        <Link href="/perfil"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm"
-          style={{ backgroundColor: "#f9b23b" }}>
-          {nombre.charAt(0).toUpperCase()}
+        <Link href="/perfil" aria-label="Mi perfil">
+          <Avatar profile={profile} />
         </Link>
       </div>
 

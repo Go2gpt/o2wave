@@ -6,6 +6,11 @@ const AUTH_ROUTES = ["/login", "/register", "/welcome"];
 const LEGAL_ROUTES = ["/privacidad", "/terminos", "/cookies"];
 
 export async function middleware(request: NextRequest) {
+  // Alias en español: /crear → /create (308, conserva método).
+  if (request.nextUrl.pathname === "/crear") {
+    return NextResponse.redirect(new URL("/create", request.url), 308);
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(

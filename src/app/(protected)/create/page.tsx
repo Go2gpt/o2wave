@@ -82,9 +82,11 @@ function CreateInner() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("tipo_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("nombre_entidad, tipo_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
       setPermisos(getPermisos(profile?.tipo_entidad, profile?.es_admin));
       setGating({ plan_actual: profile?.plan_actual, plan_estado: profile?.plan_estado, es_admin: profile?.es_admin, posts_gratis_usados: profile?.posts_gratis_usados });
+      // Pre-rellena el nombre de la organización (editable) si el campo está vacío.
+      if (profile?.nombre_entidad) setForm((f) => f.nombreOrganizacion ? f : { ...f, nombreOrganizacion: profile.nombre_entidad! });
       setPostsMes(await contarPostsMes(supabase, user.id));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
