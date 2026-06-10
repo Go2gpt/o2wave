@@ -84,12 +84,6 @@ const inputCls = "w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-
 const onF = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => (e.target.style.borderColor = "#f9b23b");
 const onB = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => (e.target.style.borderColor = "#f3f4f6");
 
-function maskNif(nif: string | null): string {
-  if (!nif) return "—";
-  if (nif.length <= 6) return nif;
-  return `${nif.slice(0, 3)}***${nif.slice(-3)}`;
-}
-
 // Definidos a nivel de módulo para no perder el foco de los inputs en cada render.
 function TextField({ label, value, onChange, max, hint }: {
   label: string; value: string; onChange: (v: string) => void; max?: number; hint?: string;
@@ -472,7 +466,7 @@ export default function ProfileForm({
           </div>
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">NIF / CIF</p>
-            <p className="text-sm font-semibold text-gray-800 font-mono">{maskNif(initial.nif)}</p>
+            <p className="text-sm font-semibold text-gray-800 font-mono">{initial.nif || "—"}</p>
             <p className="text-[11px] text-gray-400 mt-1">Si tu NIF es incorrecto, contacta con soporte.</p>
           </div>
           {!esEmpresa && (
