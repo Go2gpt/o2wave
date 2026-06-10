@@ -83,9 +83,24 @@ export default function DiasList({ proximos, hasCats, tieneFechas }: { proximos:
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
 
+  // Clasificación por SEMANA ISO (lunes-domingo), no por ventana móvil de 7 días.
+  // Comparamos por fecha de calendario (YYYY-MM-DD) para evitar líos de zona horaria.
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const hoy = new Date();
+  const diaSemana = (hoy.getDay() + 6) % 7; // 0 = lunes … 6 = domingo
+  const lunesEsta = new Date(hoy); lunesEsta.setDate(hoy.getDate() - diaSemana);
+  const domingoEsta = new Date(lunesEsta); domingoEsta.setDate(lunesEsta.getDate() + 6);
+  const lunesProx = new Date(lunesEsta); lunesProx.setDate(lunesEsta.getDate() + 7);
+  const domingoProx = new Date(lunesEsta); domingoProx.setDate(lunesEsta.getDate() + 13);
+  const finEsta = ymd(domingoEsta);
+  const iniProx = ymd(lunesProx);
+  const finProx = ymd(domingoProx);
+
+  const fechaDe = (d: DiaProximo) => d.fechaISO.slice(0, 10);
   const hoyManana = proximos.filter((d) => d.diffDays <= 1);
-  const semana = proximos.filter((d) => d.diffDays >= 2 && d.diffDays <= 7);
-  const resto = proximos.filter((d) => d.diffDays >= 8);
+  const semana = proximos.filter((d) => d.diffDays >= 2 && fechaDe(d) <= finEsta);
+  const proxima = proximos.filter((d) => { const f = fechaDe(d); return f >= iniProx && f <= finProx; });
+  const resto = proximos.filter((d) => fechaDe(d) > finProx);
 
   const abrirNueva = () => { setForm(FORM_VACIO); setModal(true); };
   const abrirEdicion = (d: DiaProximo) => {
@@ -199,9 +214,15 @@ export default function DiasList({ proximos, hasCats, tieneFechas }: { proximos:
               <div className="space-y-3">{semana.map((d) => <Tarjeta key={d.id} d={d} onEdit={abrirEdicion} onDelete={eliminar} />)}</div>
             </section>
           )}
+          {proxima.length > 0 && (
+            <section>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Próxima semana</p>
+              <div className="space-y-3">{proxima.map((d) => <Tarjeta key={d.id} d={d} onEdit={abrirEdicion} onDelete={eliminar} />)}</div>
+            </section>
+          )}
           {resto.length > 0 && (
             <section>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Próximas semanas</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Más adelante</p>
               <div className="space-y-2">{resto.map((d) => <Tarjeta key={d.id} d={d} compacta onEdit={abrirEdicion} onDelete={eliminar} />)}</div>
             </section>
           )}
