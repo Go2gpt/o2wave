@@ -175,7 +175,6 @@ export default async function DashboardPage() {
             </div>
             <div className="space-y-1.5 text-sm text-gray-600 mb-4">
               <p>📅 Próximo envío: lunes {proximoLunesStr}</p>
-              <p className="text-[11px] text-gray-400 -mt-1">(generación manual; cron automático próximamente)</p>
               <p>🗂️ {packDias} días · {redesActivas}</p>
               {ultimoPackFecha && <p>📦 Último pack: {ultimoPackFecha}</p>}
             </div>
