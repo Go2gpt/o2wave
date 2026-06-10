@@ -56,6 +56,15 @@ export default async function DashboardPage() {
   const nombre = profile?.nombre_entidad || session.user.email?.split("@")[0] || "Usuario";
   const permisos = getPermisos(profile?.tipo_entidad, profile?.es_admin);
 
+  // Logo de la entidad (de brand_identity) para el avatar; si no hay, mostrará iniciales.
+  const { data: brand } = await supabase
+    .from("brand_identity").select("logo_url").eq("user_id", session.user.id).maybeSingle();
+  const avatarProfile = {
+    nombre_entidad: profile?.nombre_entidad,
+    email: session.user.email,
+    logo_url: brand?.logo_url ?? null,
+  };
+
   // Contador de verificaciones pendientes — solo para admins (service role)
   let pendientesAdmin = 0;
   if (profile?.es_admin) {
@@ -120,7 +129,7 @@ export default async function DashboardPage() {
       <div className="px-5 pt-8 pb-4 flex items-center justify-between">
         <Logo size="md" />
         <Link href="/perfil" aria-label="Mi perfil">
-          <Avatar profile={profile} />
+          <Avatar profile={avatarProfile} />
         </Link>
       </div>
 
