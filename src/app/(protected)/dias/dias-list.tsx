@@ -42,7 +42,13 @@ function Tarjeta({ d, destacada, compacta, onEdit, onDelete }: {
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">
               {d.ambito === "espana" ? "🇪🇸 España" : "🌍 Internacional"}
             </span>
-            {d.relevancia === "alto" && <span title="Relevancia alta">⭐</span>}
+            {d.relevancia === "alto" && (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: "#fef3e2", color: "#b86e00" }}
+                title="Día con alta relevancia editorial">
+                🔥 Destacado
+              </span>
+            )}
           </>
         )}
       </div>
