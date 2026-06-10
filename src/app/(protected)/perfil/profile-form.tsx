@@ -91,7 +91,7 @@ function TextField({ label, value, onChange, max, hint }: {
   return (
     <div>
       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">{label}</label>
-      <input value={value} maxLength={max} onChange={(e) => onChange(e.target.value)} className={inputCls} onFocus={onF} onBlur={onB} />
+      <input value={value} maxLength={max} onChange={(e) => onChange(e.target.value)} className={`${inputCls} truncate`} onFocus={onF} onBlur={onB} />
       {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
     </div>
   );
