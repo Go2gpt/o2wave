@@ -11,8 +11,10 @@ export default async function StatsPage() {
   const { data: permProfile } = await supabase.from("profiles").select("tipo_entidad, es_admin").eq("id", session.user.id).single();
   if (!getPermisos(permProfile?.tipo_entidad, permProfile?.es_admin).estadisticas) redirect("/plans");
 
-  // User's own stats
-  const { count: totalPosts } = await supabase
+  const TIPO_RED: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+
+  // Posts manuales del usuario.
+  const { count: postsManuales } = await supabase
     .from("generated_posts").select("*", { count: "exact", head: true }).eq("user_id", session.user.id);
 
   const { data: byRed } = await supabase
@@ -21,6 +23,21 @@ export default async function StatsPage() {
   const redCounts: Record<string, number> = {};
   (byRed || []).forEach(p => { redCounts[p.red_social] = (redCounts[p.red_social] || 0) + 1; });
 
+  // Días de los packs semanales del usuario (viven en packs_semanales.contenido.dias, JSON).
+  const { data: packsUser } = await supabase
+    .from("packs_semanales").select("contenido").eq("user_id", session.user.id);
+  let diasPackUser = 0;
+  (packsUser || []).forEach((p) => {
+    const dias = ((p.contenido as { dias?: { tipo?: string }[] } | null)?.dias) ?? [];
+    diasPackUser += dias.length;
+    dias.forEach((d) => {
+      const red = TIPO_RED[d.tipo || ""] || (d.tipo ? d.tipo : "Otros");
+      redCounts[red] = (redCounts[red] || 0) + 1;
+    });
+  });
+
+  const postsTotal = (postsManuales || 0) + diasPackUser; // posts manuales + días de pack
+
   // Community stats (approximate — counts without user filter)
   const { count: communityPosts } = await supabase
     .from("generated_posts").select("*", { count: "exact", head: true });
@@ -28,13 +45,17 @@ export default async function StatsPage() {
   const { count: communityUsers } = await supabase
     .from("profiles").select("*", { count: "exact", head: true });
 
+  // Días de pack a nivel comunidad vía RPC (NULL → total). Tolerante si la RPC aún no existe.
+  const { data: diasPackComunidad } = await supabase.rpc("contar_dias_pack", { p_user_id: null });
+  const communityTotal = (communityPosts || 0) + (typeof diasPackComunidad === "number" ? diasPackComunidad : 0);
+
   const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵" };
   const RED_COLORS: Record<string, string> = { Instagram: "#e1306c", Facebook: "#1877f2", TikTok: "#0F0F0F" };
 
   const COMMUNITY = [
-    { label: "Posts generados", value: communityPosts?.toLocaleString() || "—", icon: "✨", color: "#f9b23b" },
+    { label: "Posts generados", value: communityTotal.toLocaleString(), icon: "✨", color: "#f9b23b" },
     { label: "Organizaciones", value: communityUsers?.toLocaleString() || "—", icon: "🌍", color: "#93bf30" },
-    { label: "Horas ahorradas", value: ((communityPosts || 0) * 0.5).toFixed(0) + "h", icon: "⏱️", color: "#6366f1" },
+    { label: "Horas ahorradas", value: (communityTotal * 0.5).toFixed(1) + "h", icon: "⏱️", color: "#6366f1" },
   ];
 
   return (
@@ -52,12 +73,12 @@ export default async function StatsPage() {
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Tu actividad</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
-            <p className="text-3xl font-black mb-1" style={{ color: "#f9b23b" }}>{totalPosts || 0}</p>
+            <p className="text-3xl font-black mb-1" style={{ color: "#f9b23b" }}>{postsTotal}</p>
             <p className="text-xs font-semibold text-gray-500">Posts generados</p>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
             <p className="text-3xl font-black mb-1" style={{ color: "#93bf30" }}>
-              {((totalPosts || 0) * 0.5).toFixed(1)}h
+              {(postsTotal * 0.5).toFixed(1)}h
             </p>
             <p className="text-xs font-semibold text-gray-500">Tiempo ahorrado</p>
           </div>
@@ -70,7 +91,7 @@ export default async function StatsPage() {
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Por red social</p>
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
             {Object.entries(redCounts).sort((a, b) => b[1] - a[1]).map(([red, count]) => {
-              const pct = Math.round((count / (totalPosts || 1)) * 100);
+              const pct = Math.round((count / (postsTotal || 1)) * 100);
               return (
                 <div key={red}>
                   <div className="flex items-center justify-between mb-1">
