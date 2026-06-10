@@ -9,6 +9,12 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const INSTRUCCION_TILDES = `IMPORTANTE: respeta SIEMPRE las tildes y diacríticos del nombre de la entidad y del idioma español. No escribas 'GeneracionO2', escribe 'GeneraciónO2'. No escribas 'Educacion', escribe 'Educación'. La acentuación es parte de la identidad correcta.`;
 
+const NOMBRE_IDIOMA: Record<string, string> = { es: "español castellano", ca: "catalán", en: "inglés" };
+function instruccionIdioma(idioma: string | null | undefined): string {
+  const nombre = NOMBRE_IDIOMA[idioma || ""] ?? "español castellano";
+  return `IMPORTANTE: el idioma del contenido (texto, hashtags, guion, titular) debe ser ESTRICTAMENTE ${nombre}. NO mezcles palabras de otros idiomas (catalán/español/inglés). Si el nombre de la entidad o un término técnico es inalterable, déjalo, pero el resto del texto y los hashtags deben ser ${nombre} puro.`;
+}
+
 /** Tras una generación correcta, cuenta el post si el usuario está en plan gratuito. */
 async function contarUsoGratis(supabase: SupabaseClient, p: (PerfilGating & { id: string }) | null) {
   if (!p || p.es_admin) return;
@@ -97,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, plan_actual, plan_estado, es_admin, posts_gratis_usados, sector, mision_valores, publico_objetivo")
+      .select("id, plan_actual, plan_estado, es_admin, posts_gratis_usados, sector, mision_valores, publico_objetivo, idioma_principal")
       .eq("id", user.id)
       .single();
 
@@ -134,7 +140,8 @@ export async function POST(request: NextRequest) {
       const system = `Eres un guionista experto en vídeos cortos para TikTok orientados al tercer sector y PYMEs.
 Creas guiones prácticos y grabables con un smartphone y luz natural, sin equipo profesional.
 Respondes SIEMPRE y ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin markdown.
-${INSTRUCCION_TILDES}`;
+${INSTRUCCION_TILDES}
+${instruccionIdioma(profile?.idioma_principal)}`;
 
       const prompt = `Crea un guion de TikTok para "${nombreOrganizacion}" (${tipoOrganizacion}).
 
@@ -191,7 +198,8 @@ Devuelve EXACTAMENTE esta estructura JSON:
 Genera contenido auténtico, directo y efectivo para redes sociales.
 Adapta el tono y formato exactamente a la red social indicada.
 Responde SOLO con el contenido generado, sin explicaciones adicionales.
-${INSTRUCCION_TILDES}`;
+${INSTRUCCION_TILDES}
+${instruccionIdioma(profile?.idioma_principal)}`;
 
     const prompt = `Contenido para ${redSocial}${formatoInstagram ? ` (${formatoInstagram})` : ""}:
 Organización: ${nombreOrganizacion} (${tipoOrganizacion})
