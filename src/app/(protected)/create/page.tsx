@@ -8,6 +8,7 @@ import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
 import { getPermisos, contarPostsMes, type Permisos } from "@/lib/permissions";
+import { canUseFeature, type PerfilGating } from "@/lib/plans";
 import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
 
 const TONOS: Tono[] = ["Motivador", "Informativo", "Cercano", "Urgente"];
@@ -73,13 +74,17 @@ function CreateInner() {
   const [error, setError] = useState("");
   const [permisos, setPermisos] = useState<Permisos | null>(null);
   const [postsMes, setPostsMes] = useState(0);
+  const [gating, setGating] = useState<PerfilGating | null>(null);
+  const [showUpsell, setShowUpsell] = useState<string | null>(null); // red social bloqueada
+  const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("tipo_entidad, es_admin").eq("id", user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("tipo_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
       setPermisos(getPermisos(profile?.tipo_entidad, profile?.es_admin));
+      setGating({ plan_actual: profile?.plan_actual, plan_estado: profile?.plan_estado, es_admin: profile?.es_admin, posts_gratis_usados: profile?.posts_gratis_usados });
       setPostsMes(await contarPostsMes(supabase, user.id));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,6 +119,16 @@ function CreateInner() {
       ]);
 
       const textData = await textRes.json();
+      // Gating del servidor: plan suspendido (402), feature no disponible (403), límite gratis (429).
+      if (!textRes.ok) {
+        const codigosGating = ["plan_suspendido", "feature_no_disponible", "limite_gratis_alcanzado"];
+        if (codigosGating.includes(textData?.error)) {
+          setBloqueoMsg(textData.mensaje || "Esta función no está disponible en tu plan.");
+          setLoading(false);
+          return;
+        }
+        throw new Error(textData?.mensaje || textData?.error || "Error generando contenido");
+      }
       if (textData.error) throw new Error(textData.error);
 
       // El endpoint de imagen devuelve un predictionId; al terminar, el servidor
@@ -211,15 +226,20 @@ function CreateInner() {
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Red social</label>
           <div className="flex gap-2">
-            {RED_OPTIONS
-              .filter(o => !permisos || (permisos.redesSociales as readonly string[]).includes(o.value))
-              .map(({ value, label, emoji }) => (
-                <button key={value} type="button" onClick={() => set("redSocial", value)}
+            {RED_OPTIONS.map(({ value, label, emoji }) => {
+              // Solo bloqueamos lo que el plan no incluye (p. ej. TikTok en ong_pequena).
+              // Mientras carga el perfil (gating null) no bloqueamos nada (el server valida igualmente).
+              const bloqueada = gating ? !canUseFeature(gating, value.toLowerCase()) : false;
+              return (
+                <button key={value} type="button"
+                  onClick={() => bloqueada ? setShowUpsell(label) : set("redSocial", value)}
+                  aria-disabled={bloqueada}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
-                  style={pill(form.redSocial === value)}>
-                  <span>{emoji}</span><span>{label}</span>
+                  style={{ ...pill(form.redSocial === value && !bloqueada), ...(bloqueada ? { opacity: 0.6 } : {}) }}>
+                  <span>{emoji}</span><span>{label}</span>{bloqueada && <span>🔒</span>}
                 </button>
-              ))}
+              );
+            })}
           </div>
 
           {form.redSocial === "Instagram" && (
@@ -367,6 +387,32 @@ function CreateInner() {
           </button>
         )}
       </form>
+
+      {/* Modal upsell: red social bloqueada por plan */}
+      {showUpsell && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4" onClick={() => setShowUpsell(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-4xl mb-2">🔒</div>
+            <h3 className="font-bold text-gray-900 mb-1">{showUpsell} está en los planes de pago</h3>
+            <p className="text-sm text-gray-500 mb-4">Mejora a ONG mediana o superior para crear contenido para {showUpsell}.</p>
+            <Link href="/plans" className="block w-full py-3 rounded-2xl font-bold text-white text-sm" style={{ backgroundColor: "#f9b23b" }}>Ver planes</Link>
+            <button onClick={() => setShowUpsell(null)} className="w-full py-2.5 text-sm text-gray-500 font-medium">Ahora no</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal bloqueo del servidor: plan suspendido / límite gratis alcanzado */}
+      {bloqueoMsg && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4" onClick={() => setBloqueoMsg(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-4xl mb-2">✨</div>
+            <h3 className="font-bold text-gray-900 mb-1">Mejora tu plan</h3>
+            <p className="text-sm text-gray-500 mb-4">{bloqueoMsg}</p>
+            <Link href="/plans" className="block w-full py-3 rounded-2xl font-bold text-white text-sm" style={{ backgroundColor: "#f9b23b" }}>Ver planes</Link>
+            <button onClick={() => setBloqueoMsg(null)} className="w-full py-2.5 text-sm text-gray-500 font-medium">Cerrar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

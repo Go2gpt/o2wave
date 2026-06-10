@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { limpiarMarkdown } from "@/lib/formatText";
 import { getPermisos } from "@/lib/permissions";
+import { canUseFeature } from "@/lib/plans";
 import { calcularProximos, type DiaClave } from "@/lib/categorias";
 import Logo from "@/components/Logo";
 import GenerarPackButton from "./GenerarPackButton";
@@ -154,7 +155,8 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Panel del pack semanal automático */}
+      {/* Panel del pack semanal automático — solo si el plan incluye la feature */}
+      {canUseFeature(profile, "pack_semanal") && (
       <div className="px-5 mb-5">
         {packActivo ? (
           <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -195,6 +197,7 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Quick actions */}
       <div className="px-5 mb-5">

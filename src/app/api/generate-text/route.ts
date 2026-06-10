@@ -1,9 +1,19 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { FEATURES, LIMITE_POSTS_GRATIS, canUseFeature, isPlanActivo, puedeGenerarPostGratis, type PerfilGating } from "@/lib/plans";
 import type { ContentFormData, GuionTikTok } from "@/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+/** Tras una generación correcta, cuenta el post si el usuario está en plan gratuito. */
+async function contarUsoGratis(supabase: SupabaseClient, p: (PerfilGating & { id: string }) | null) {
+  if (!p || p.es_admin) return;
+  const plan = p.plan_actual ?? "ong_pequena";
+  if (FEATURES[plan]?.includes("posts_ilimitados")) return;
+  await supabase.rpc("increment_posts_gratis", { p_user_id: p.id });
+}
 
 /** Nº de segmentos sugeridos según la duración elegida. */
 function segmentosPara(duracion: string): string {
@@ -78,24 +88,40 @@ export async function POST(request: NextRequest) {
             entornoTikTok, duracionTikTok, tonoTikTok, tema, tono,
             incluirHashtags, incluirEmojis } = formData;
 
+    // --- Auth + feature gating + límite de posts gratis ---
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "no_autenticado", mensaje: "Inicia sesión para generar contenido." }, { status: 401 });
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, plan_actual, plan_estado, es_admin, posts_gratis_usados, sector, mision_valores, publico_objetivo")
+      .eq("id", user.id)
+      .single();
+
+    if (!isPlanActivo(profile)) {
+      return NextResponse.json({ error: "plan_suspendido", mensaje: "Tu suscripción tiene un pago pendiente. Actualiza tu método de pago para seguir generando contenido." }, { status: 402 });
+    }
+    const featRed = (redSocial || "").toLowerCase(); // "Instagram"→"instagram", etc.
+    if (!canUseFeature(profile, featRed)) {
+      return NextResponse.json({ error: "feature_no_disponible", mensaje: `${redSocial} no está disponible en tu plan. Mejora tu plan para usarlo.`, feature: featRed }, { status: 403 });
+    }
+    // Reset del contador si toca (día 1 de mes) y relectura del valor fresco.
+    await supabase.rpc("reset_posts_gratis_if_due", { p_user_id: user.id });
+    const { data: pFresh } = await supabase
+      .from("profiles").select("plan_actual, es_admin, posts_gratis_usados").eq("id", user.id).single();
+    const pUso = pFresh ?? profile; // respaldo si la relectura falla
+    if (!puedeGenerarPostGratis(pUso)) {
+      return NextResponse.json({ error: "limite_gratis_alcanzado", mensaje: `Has usado tus ${LIMITE_POSTS_GRATIS} posts gratuitos de este mes. Mejora tu plan para seguir generando.` }, { status: 429 });
+    }
+    const perfilGating = { id: user.id, plan_actual: pUso?.plan_actual ?? null, es_admin: pUso?.es_admin ?? null };
+
     // Contexto del usuario (sector/misión/público) para enriquecer la generación.
-    let contextoUsuario = "";
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("sector, mision_valores, publico_objetivo")
-          .eq("id", user.id)
-          .single();
-        contextoUsuario = [
-          profile?.sector && `Sector: ${profile.sector}`,
-          profile?.mision_valores && `Misión: ${profile.mision_valores}`,
-          profile?.publico_objetivo && `Público objetivo: ${profile.publico_objetivo}`,
-        ].filter(Boolean).join("\n");
-      }
-    } catch { /* tolerante: sin contexto extra si falla */ }
+    const contextoUsuario = [
+      profile?.sector && `Sector: ${profile.sector}`,
+      profile?.mision_valores && `Misión: ${profile.mision_valores}`,
+      profile?.publico_objetivo && `Público objetivo: ${profile.publico_objetivo}`,
+    ].filter(Boolean).join("\n");
 
     // ---------- TikTok: guion estructurado en JSON ----------
     if (redSocial === "TikTok") {
@@ -145,6 +171,7 @@ Devuelve EXACTAMENTE esta estructura JSON:
       const guion = normalizarGuion(parseJSON(raw));
 
       if (guion) {
+        await contarUsoGratis(supabase, perfilGating);
         return NextResponse.json({
           guion: { ...guion, params: { duracion, tono: tonoTk, entorno } },
           texto: guionToText(guion),
@@ -152,6 +179,7 @@ Devuelve EXACTAMENTE esta estructura JSON:
         });
       }
       // Fallback: el JSON no se pudo estructurar → devolvemos el texto bruto.
+      await contarUsoGratis(supabase, perfilGating);
       return NextResponse.json({ guion: null, texto: raw.trim(), titular: "" });
     }
 
@@ -188,6 +216,7 @@ Texto listo para publicar, sin explicaciones:`;
     });
     const titular = (tRes.content[0].type === "text" ? tRes.content[0].text : "").trim().replace(/^["'«»]|["'«»]$/g, "");
 
+    await contarUsoGratis(supabase, perfilGating);
     return NextResponse.json({ texto, titular });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Error desconocido";

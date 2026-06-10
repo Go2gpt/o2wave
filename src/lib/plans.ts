@@ -1,5 +1,57 @@
 import type { PlanActual, PlanCiclo } from "@/types";
 
+/* ------------------------------ Feature gating ------------------------------ */
+
+/** Qué features incluye cada plan. Las redes usan slug en minúscula (instagram/facebook/tiktok). */
+export const FEATURES: Record<string, string[]> = {
+  ong_pequena: ["instagram", "facebook", "text_image", "dias_clave", "stats_basic"],
+  ong_mediana: ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
+  earlybird:   ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
+  standard:    ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
+  pro:         ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados", "multi_marca", "api_access"],
+};
+
+/** Posts gratuitos al mes para ong_pequena (reset el día 1 de cada mes). */
+export const LIMITE_POSTS_GRATIS = 10;
+
+/** Perfil mínimo para el gating. El plan vive en `plan_actual` (null → ong_pequena). */
+export interface PerfilGating {
+  plan_actual?: string | null;
+  plan_estado?: string | null;
+  es_admin?: boolean | null;
+  posts_gratis_usados?: number | null;
+}
+
+/** ¿El plan del usuario incluye esta feature? Admin → siempre true. */
+export function canUseFeature(profile: PerfilGating | null, feature: string): boolean {
+  if (!profile) return false;
+  if (profile.es_admin) return true;
+  const plan = profile.plan_actual ?? "ong_pequena";
+  return (FEATURES[plan] ?? FEATURES.ong_pequena).includes(feature);
+}
+
+/**
+ * ¿La suscripción está al corriente? Bloquea solo estados de PAGO PENDIENTE
+ * (suspendida / past_due / unpaid). NO bloquea "cancelada": ese usuario vuelve
+ * al plan gratuito ong_pequena y se rige por el límite de posts gratis.
+ * Admin y estado vacío (free nuevo) → activo.
+ */
+export function isPlanActivo(profile: PerfilGating | null): boolean {
+  if (!profile) return false;
+  if (profile.es_admin) return true;
+  const estado = profile.plan_estado ?? "activa";
+  return !["suspendida", "past_due", "unpaid"].includes(estado);
+}
+
+/** ¿Puede generar otro post? Planes con posts_ilimitados o admin → sí; ong_pequena → bajo el límite mensual. */
+export function puedeGenerarPostGratis(profile: PerfilGating | null): boolean {
+  if (!profile) return false;
+  if (profile.es_admin) return true;
+  const plan = profile.plan_actual ?? "ong_pequena";
+  if (FEATURES[plan]?.includes("posts_ilimitados")) return true;
+  return (profile.posts_gratis_usados ?? 0) < LIMITE_POSTS_GRATIS;
+}
+
 /**
  * Catálogo de planes de o2Wave. Los price IDs reales viven en variables de
  * entorno (se resuelven en servidor con priceId()). ong_pequena es gratis y NO
