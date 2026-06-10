@@ -7,6 +7,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const INSTRUCCION_TILDES = `IMPORTANTE: respeta SIEMPRE las tildes y diacríticos del nombre de la entidad y del idioma español. No escribas 'GeneracionO2', escribe 'GeneraciónO2'. No escribas 'Educacion', escribe 'Educación'. La acentuación es parte de la identidad correcta.`;
+
 /** Tras una generación correcta, cuenta el post si el usuario está en plan gratuito. */
 async function contarUsoGratis(supabase: SupabaseClient, p: (PerfilGating & { id: string }) | null) {
   if (!p || p.es_admin) return;
@@ -131,7 +133,8 @@ export async function POST(request: NextRequest) {
 
       const system = `Eres un guionista experto en vídeos cortos para TikTok orientados al tercer sector y PYMEs.
 Creas guiones prácticos y grabables con un smartphone y luz natural, sin equipo profesional.
-Respondes SIEMPRE y ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin markdown.`;
+Respondes SIEMPRE y ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin markdown.
+${INSTRUCCION_TILDES}`;
 
       const prompt = `Crea un guion de TikTok para "${nombreOrganizacion}" (${tipoOrganizacion}).
 
@@ -187,7 +190,8 @@ Devuelve EXACTAMENTE esta estructura JSON:
     const system = `Eres un experto en comunicación para el tercer sector y PYMEs.
 Genera contenido auténtico, directo y efectivo para redes sociales.
 Adapta el tono y formato exactamente a la red social indicada.
-Responde SOLO con el contenido generado, sin explicaciones adicionales.`;
+Responde SOLO con el contenido generado, sin explicaciones adicionales.
+${INSTRUCCION_TILDES}`;
 
     const prompt = `Contenido para ${redSocial}${formatoInstagram ? ` (${formatoInstagram})` : ""}:
 Organización: ${nombreOrganizacion} (${tipoOrganizacion})

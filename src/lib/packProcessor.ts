@@ -7,6 +7,8 @@ import type { PackDia, PackFuente, GuionTikTok } from "@/types";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-4-6";
 
+const INSTRUCCION_TILDES = `IMPORTANTE: respeta SIEMPRE las tildes y diacríticos del nombre de la entidad y del idioma español. No escribas 'GeneracionO2', escribe 'GeneraciónO2'. No escribas 'Educacion', escribe 'Educación'. La acentuación es parte de la identidad correcta.`;
+
 // Presupuesto de tiempo: con flux-1.1-pro y concurrencia 5, las 5-7 imágenes se
 // resuelven en ~1 tanda (~10-30s). Bajamos a 180s para dejar ~120s de margen
 // bajo el maxDuration=300 y nunca morir a mitad de escritura en BD.
@@ -79,7 +81,8 @@ async function temasIA(p: PerfilPack, n: number): Promise<string[]> {
 ${contextoDe(p)}
 
 Propón ${n} temas de publicación variados y CONCRETOS, basados en la actividad real de esta organización (sus servicios, causas, público y logros). NO uses efemérides genéricas ni días internacionales. Cada tema en una frase corta y accionable.
-Responde SOLO con JSON: {"temas": ["tema 1", "tema 2", ...]} con exactamente ${n} elementos.`;
+Responde SOLO con JSON: {"temas": ["tema 1", "tema 2", ...]} con exactamente ${n} elementos.
+${INSTRUCCION_TILDES}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 400, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const parsed = parseJSON(raw) as { temas?: unknown };
@@ -115,7 +118,8 @@ Responde SOLO con JSON válido:
 }
 - IMPORTANTE: el campo "texto" NO debe contener hashtags ni el símbolo #. Los hashtags van EXCLUSIVAMENTE en el array "hashtags" (se muestran aparte en la app).
 - Incluye 8-12 hashtags relevantes al tema y al sector.
-- "prompt_imagen" debe ser una descripción VISUAL concreta de qué pintar (escena, sujetos, lugar, luz, ambiente, estilo fotográfico). NO un eslogan ni una frase del texto. Ejemplo: "Vista aérea de un océano azul cristalino al amanecer, una ola suave acercándose a una playa de arena clara, luz dorada cálida, fotografía realista de alta calidad". No menciones texto ni logos.`;
+- "prompt_imagen" debe ser una descripción VISUAL concreta de qué pintar (escena, sujetos, lugar, luz, ambiente, estilo fotográfico). NO un eslogan ni una frase del texto. Ejemplo: "Vista aérea de un océano azul cristalino al amanecer, una ola suave acercándose a una playa de arena clara, luz dorada cálida, fotografía realista de alta calidad". No menciones texto ni logos.
+${INSTRUCCION_TILDES}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const o = (parseJSON(raw) || {}) as Record<string, unknown>;
@@ -141,7 +145,8 @@ ${contextoDe(p)}
 
 Responde SOLO con JSON válido:
 {"titular":"6-10 palabras","guion":[{"tiempo":"0-3s","voz":"...","accion":"..."}],"planos":[{"numero":1,"descripcion":"plano práctico con smartphone"}],"hashtags":["#fyp","#parati"],"audio_sugerido":"tipo de audio genérico, no una canción concreta"}
-Usa 3-4 segmentos. 10-12 hashtags.`;
+Usa 3-4 segmentos. 10-12 hashtags.
+${INSTRUCCION_TILDES}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1400, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const o = (parseJSON(raw) || {}) as Record<string, unknown>;
