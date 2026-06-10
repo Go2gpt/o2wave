@@ -64,6 +64,9 @@ export default function WelcomePage() {
             style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }}>
             Ya tengo cuenta
           </Link>
+          <Link href="/plans" className="block w-full pt-1 text-center text-sm font-semibold" style={{ color: "#93bf30" }}>
+            Ver planes y precios →
+          </Link>
         </div>
 
         <p className="text-[11px] text-gray-500 leading-relaxed max-w-xs mt-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
@@ -38,6 +38,15 @@ const TIPO_COLOR: Record<string, string> = {
   empresa: "#f9b23b",
 };
 
+// Mapea el plan elegido en /plans al tipo de entidad del registro.
+const PLAN_A_TIPO: Record<string, string> = {
+  ong_pequena: "ong_pequena",
+  ong_mediana: "ong_mediana",
+  earlybird: "empresa",
+  standard: "empresa",
+  pro: "empresa",
+};
+
 export default function RegisterPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -49,6 +58,13 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+
+  // Preselecciona el tipo según ?plan= (viene de /plans). Fallback: ong_pequena.
+  useEffect(() => {
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    const tipoMapeado = plan ? PLAN_A_TIPO[plan] : undefined;
+    if (tipoMapeado) setTipo(tipoMapeado);
+  }, []);
 
   const pideNif = tipo === "ong_pequena" || tipo === "ong_mediana";
   const DUP_MSG = "Este NIF ya está registrado en o2Wave. Si crees que es un error, contacta con nosotros.";

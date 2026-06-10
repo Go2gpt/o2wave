@@ -1,14 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
 import { PLANES } from "@/lib/plans";
 import type { PlanActual, PlanCiclo } from "@/types";
 
-export default function PlansView({ grupo, planActual, success, cancelled }: {
-  grupo: "ong" | "empresa"; planActual: PlanActual; success: boolean; cancelled: boolean;
+export default function PlansView({ autenticado, esAdmin, grupo, planActual, success, cancelled }: {
+  autenticado: boolean;
+  esAdmin: boolean;
+  grupo: "ong" | "empresa";
+  planActual: PlanActual | null;
+  success: boolean;
+  cancelled: boolean;
 }) {
+  const router = useRouter();
   const [ciclo, setCiclo] = useState<PlanCiclo>("mensual");
   const [loading, setLoading] = useState<PlanActual | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
@@ -18,7 +27,8 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
     else if (cancelled) setToast({ message: "Has cancelado el proceso de pago.", type: "info" });
   }, [success, cancelled]);
 
-  const planes = PLANES.filter((p) => p.para === grupo);
+  // Visitante: ve todos los planes. Logueado: solo los de su grupo (ong/empresa).
+  const planes = autenticado ? PLANES.filter((p) => p.para === grupo) : PLANES;
 
   const suscribir = async (plan: PlanActual) => {
     setLoading(plan);
@@ -33,15 +43,28 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
     }
   };
 
+  const btnNaranja = "w-full py-3 rounded-xl font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50";
+
   return (
-    <div className="max-w-lg mx-auto pb-8">
+    <div className="max-w-lg mx-auto pb-10">
       <Toast toast={toast} onClose={() => setToast(null)} />
-      <div className="px-5 pt-8 pb-1">
-        <BackLink>Atrás</BackLink>
-      </div>
-      <div className="px-5 pb-3">
-        <h1 className="text-xl font-bold text-gray-900">Planes</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Elige el que mejor se adapta a tu organización</p>
+
+      {/* Cabecera: pública (visitante) o BackLink (logueado) */}
+      {autenticado ? (
+        <div className="px-5 pt-8 pb-1"><BackLink>Atrás</BackLink></div>
+      ) : (
+        <header className="px-5 pt-6 pb-2 flex items-center justify-between">
+          <Link href="/welcome" aria-label="o2Wave"><Logo size="sm" /></Link>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-sm font-semibold text-gray-600">Iniciar sesión</Link>
+            <Link href="/register" className="text-sm font-bold text-white px-4 py-2 rounded-full" style={{ backgroundColor: "#f9b23b" }}>Empezar gratis</Link>
+          </div>
+        </header>
+      )}
+
+      <div className="px-5 pb-3 pt-2">
+        <h1 className="text-xl font-bold text-gray-900">{autenticado ? "Planes" : "Elige tu plan"}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">El que mejor se adapta a tu organización.</p>
       </div>
 
       {/* Toggle mensual / anual */}
@@ -59,14 +82,12 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
 
       <div className="px-5 space-y-3">
         {planes.map((plan) => {
-          const esActual = plan.id === planActual;
+          const esActual = autenticado && !esAdmin && plan.id === planActual;
           const precio = ciclo === "mensual" ? plan.precioMensual : plan.precioAnual;
           const esGratis = plan.id === "ong_pequena";
           const color = plan.destacado ? "#f9b23b" : "#374151";
-          // Descuento anual: comparamos el anual real con 12× el mensual (derivado de PLANES).
           const anualSinDescuento = plan.precioMensual != null ? plan.precioMensual * 12 : null;
-          const ahorro = ciclo === "anual" && anualSinDescuento != null && plan.precioAnual != null
-            ? anualSinDescuento - plan.precioAnual : 0;
+          const ahorro = ciclo === "anual" && anualSinDescuento != null && plan.precioAnual != null ? anualSinDescuento - plan.precioAnual : 0;
           const mostrarAhorro = !esGratis && ciclo === "anual" && ahorro > 0;
           return (
             <div key={plan.id} className="bg-white rounded-2xl overflow-hidden shadow-sm"
@@ -85,14 +106,11 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
                       <p className="text-2xl font-black" style={{ color }}>Gratis</p>
                     ) : (
                       <>
-                        {mostrarAhorro && (
-                          <p className="text-xs text-gray-400 line-through leading-none mb-0.5">{anualSinDescuento}€</p>
-                        )}
+                        {mostrarAhorro && <p className="text-xs text-gray-400 line-through leading-none mb-0.5">{anualSinDescuento}€</p>}
                         <p className="text-2xl font-black leading-none" style={{ color }}>{precio}€</p>
                         <p className="text-[10px] text-gray-400 mt-0.5">{ciclo === "mensual" ? "/mes" : "/año"}</p>
                         {mostrarAhorro && (
-                          <span className="inline-block mt-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: "#f0f7e6", color: "#93bf30" }}>
+                          <span className="inline-block mt-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0f7e6", color: "#93bf30" }}>
                             Ahorras {ahorro}€
                           </span>
                         )}
@@ -116,18 +134,19 @@ export default function PlansView({ grupo, planActual, success, cancelled }: {
                   ))}
                 </div>
 
-                {esActual ? (
-                  <div className="w-full py-3 rounded-xl text-center text-sm font-semibold" style={{ backgroundColor: "#fff8ef", color: "#f9b23b" }}>
-                    Plan activo
-                  </div>
+                {/* CTA según modo: visitante / admin / logueado-actual / logueado-otro */}
+                {!autenticado ? (
+                  <button onClick={() => router.push(`/register?plan=${plan.id}`)} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
+                    {esGratis ? "Empezar gratis" : "Suscribirme"}
+                  </button>
+                ) : esAdmin ? (
+                  <div className="w-full py-3 rounded-xl text-center text-sm font-medium text-gray-400">Acceso completo (admin)</div>
+                ) : esActual ? (
+                  <div className="w-full py-3 rounded-xl text-center text-sm font-semibold" style={{ backgroundColor: "#fff8ef", color: "#f9b23b" }}>Plan activo</div>
                 ) : esGratis ? (
-                  <div className="w-full py-3 rounded-xl text-center text-sm font-medium text-gray-400">
-                    Plan básico gratuito
-                  </div>
+                  <div className="w-full py-3 rounded-xl text-center text-sm font-medium text-gray-400">Plan básico gratuito</div>
                 ) : (
-                  <button onClick={() => suscribir(plan.id)} disabled={loading !== null}
-                    className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                    style={{ backgroundColor: "#f9b23b" }}>
+                  <button onClick={() => suscribir(plan.id)} disabled={loading !== null} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
                     {loading === plan.id ? "Redirigiendo…" : planActual === "ong_pequena" ? "Suscribirse" : "Cambiar a este plan"}
                   </button>
                 )}
