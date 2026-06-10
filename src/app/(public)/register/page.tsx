@@ -7,6 +7,8 @@ import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { validarNIF, normalizarNIF } from "@/lib/nif";
+import PasswordInput from "@/components/PasswordInput";
+import PasswordRequisitos, { passwordValido } from "@/components/PasswordRequisitos";
 
 const BLOQUES = [
   {
@@ -214,11 +216,12 @@ export default function RegisterPage() {
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
               Contraseña
             </label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="Mínimo 8 caracteres" minLength={8} required
+            <PasswordInput value={password} onChange={setPassword}
+              placeholder="Mínimo 8 caracteres" minLength={8} required autoComplete="new-password"
               className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
               onFocus={e => e.target.style.borderColor = selectedColor}
               onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+            <PasswordRequisitos value={password} />
           </div>
 
           {pideNif && (
@@ -261,7 +264,7 @@ export default function RegisterPage() {
             <Link href="/privacidad" className="underline font-medium">Política de privacidad</Link>.
           </p>
 
-          <button type="submit" disabled={loading}
+          <button type="submit" disabled={loading || !passwordValido(password)}
             className="w-full py-4 rounded-2xl font-bold text-white text-base mt-2 disabled:opacity-50 transition-all active:scale-[0.98]"
             style={{ backgroundColor: selectedColor }}>
             {loading ? (

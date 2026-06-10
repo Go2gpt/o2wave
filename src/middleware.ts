@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/auth", "/onboarding", "/privacidad", "/terminos", "/cookies", "/plans"];
+const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/reset-password", "/auth", "/onboarding", "/privacidad", "/terminos", "/cookies", "/plans"];
 const AUTH_ROUTES = ["/login", "/register", "/welcome"];
 const LEGAL_ROUTES = ["/privacidad", "/terminos", "/cookies"];
 

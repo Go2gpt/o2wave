@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
+import PasswordInput from "@/components/PasswordInput";
 import { createClient } from "@/lib/supabase";
 
 function LoginForm() {
@@ -79,11 +80,16 @@ function LoginForm() {
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
               Contraseña
             </label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="Tu contraseña" required
+            <PasswordInput value={password} onChange={setPassword}
+              placeholder="Tu contraseña" required autoComplete="current-password"
               className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
               onFocus={e => e.target.style.borderColor = "#f9b23b"}
               onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+            <div className="text-right mt-1.5">
+              <Link href="/reset-password" className="text-xs font-semibold" style={{ color: "#93bf30" }}>
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
           </div>
 
           {error && (

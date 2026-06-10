@@ -6,6 +6,8 @@ import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Spinner from "@/components/ui/Spinner";
 import Toast, { type ToastState } from "@/components/Toast";
+import PasswordInput from "@/components/PasswordInput";
+import PasswordRequisitos, { passwordValido } from "@/components/PasswordRequisitos";
 import { createClient } from "@/lib/supabase";
 
 const inputCls = "w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors";
@@ -61,17 +63,18 @@ export default function CambiarPasswordPage() {
       <form onSubmit={submit} className="px-5 space-y-3">
         <div>
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Contraseña actual</label>
-          <input type="password" value={actual} onChange={(e) => setActual(e.target.value)} required className={inputCls} onFocus={onF} onBlur={onB} />
+          <PasswordInput value={actual} onChange={setActual} required autoComplete="current-password" className={inputCls} onFocus={onF} onBlur={onB} />
         </div>
         <div>
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Nueva contraseña</label>
-          <input type="password" value={nueva} onChange={(e) => setNueva(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required className={inputCls} onFocus={onF} onBlur={onB} />
+          <PasswordInput value={nueva} onChange={setNueva} placeholder="Mínimo 8 caracteres" minLength={8} required autoComplete="new-password" className={inputCls} onFocus={onF} onBlur={onB} />
+          <PasswordRequisitos value={nueva} />
         </div>
         <div>
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Confirmar nueva contraseña</label>
-          <input type="password" value={confirmar} onChange={(e) => setConfirmar(e.target.value)} required className={inputCls} onFocus={onF} onBlur={onB} />
+          <PasswordInput value={confirmar} onChange={setConfirmar} required autoComplete="new-password" className={inputCls} onFocus={onF} onBlur={onB} />
         </div>
-        <button type="submit" disabled={loading}
+        <button type="submit" disabled={loading || !passwordValido(nueva) || nueva !== confirmar}
           className="w-full py-4 rounded-2xl font-bold text-white text-base mt-2 disabled:opacity-50 transition-all active:scale-[0.98]"
           style={{ backgroundColor: "#f9b23b" }}>
           {loading ? <span className="flex items-center justify-center gap-2"><Spinner /> Guardando...</span> : "Actualizar contraseña"}
