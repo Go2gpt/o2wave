@@ -129,11 +129,20 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
                       <span className="text-xs text-gray-600">{f}</span>
                     </div>
                   ))}
+                  {/* Admin (bypass): todo accesible → pintamos lo "no incluido" como ✓ para no
+                      contradecir su dashboard, donde sí tiene esas features activas. */}
                   {plan.noIncluye?.map((f) => (
-                    <div key={f} className="flex items-center gap-2 opacity-40">
-                      <span className="text-xs text-gray-400">✗</span>
-                      <span className="text-xs text-gray-400">{f}</span>
-                    </div>
+                    esAdmin ? (
+                      <div key={f} className="flex items-center gap-2">
+                        <span className="text-xs" style={{ color: "#93bf30" }}>✓</span>
+                        <span className="text-xs text-gray-600">{f}</span>
+                      </div>
+                    ) : (
+                      <div key={f} className="flex items-center gap-2 opacity-40">
+                        <span className="text-xs text-gray-400">✗</span>
+                        <span className="text-xs text-gray-400">{f}</span>
+                      </div>
+                    )
                   ))}
                 </div>
 

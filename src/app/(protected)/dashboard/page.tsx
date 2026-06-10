@@ -183,7 +183,7 @@ export default async function DashboardPage() {
               <GenerarPackButton />
               <div className="flex gap-2">
                 <Link href="/pack" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
-                  style={{ borderColor: "#e5e7eb", color: "#374151" }}>📚 Ver historial</Link>
+                  style={{ borderColor: "#e5e7eb", color: "#374151" }}>📚 Ver todos los packs</Link>
                 <Link href="/perfil#pack-semanal" className="flex-1 py-2.5 rounded-xl border-2 text-xs font-bold text-center transition-all active:scale-95"
                   style={{ borderColor: "#e5e7eb", color: "#374151" }}>⚙️ Editar configuración</Link>
               </div>

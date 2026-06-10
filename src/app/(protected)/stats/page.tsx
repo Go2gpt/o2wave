@@ -42,8 +42,13 @@ export default async function StatsPage() {
   const { count: communityPosts } = await supabase
     .from("generated_posts").select("*", { count: "exact", head: true });
 
-  const { count: communityUsers } = await supabase
+  // Organizaciones: el count directo a profiles está limitado por RLS (solo ve el
+  // perfil propio → siempre 1). Usamos un RPC SECURITY DEFINER; si aún no existe,
+  // caemos al count directo.
+  const { count: communityUsersCount } = await supabase
     .from("profiles").select("*", { count: "exact", head: true });
+  const { data: orgsRpc } = await supabase.rpc("contar_organizaciones");
+  const communityUsers = typeof orgsRpc === "number" ? orgsRpc : communityUsersCount;
 
   // Días de pack a nivel comunidad vía RPC (NULL → total). Tolerante si la RPC aún no existe.
   const { data: diasPackComunidad } = await supabase.rpc("contar_dias_pack", { p_user_id: null });

@@ -20,7 +20,8 @@ export default function Avatar({ profile }: { profile: AvatarProfile | null }) {
         className="w-10 h-10 rounded-full object-cover shadow-md border-2 border-white" />
     );
   }
-  const iniciales = obtenerIniciales(profile?.nombre_entidad ?? profile?.email ?? "U");
+  // || (no ??): nombre_entidad podría ser "" (string vacío) y debe caer al email.
+  const iniciales = obtenerIniciales(profile?.nombre_entidad || profile?.email || "U");
   return (
     <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md border-2 border-white text-white font-semibold text-sm"
       style={{ background: "linear-gradient(135deg, #f9b23b 0%, #93bf30 100%)" }}>
