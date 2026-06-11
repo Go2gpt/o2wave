@@ -36,7 +36,7 @@ export default function OnboardingWebPage() {
     }
   };
 
-  const skipOnboarding = () => goToResults({ suficiente: false }, "");
+  const irSinWeb = () => router.push("/onboarding/sin-web");
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -88,8 +88,8 @@ export default function OnboardingWebPage() {
               </button>
             </form>
 
-            <button onClick={skipOnboarding} className="w-full mt-3 py-3 text-sm text-gray-400 font-medium">
-              No tengo web / rellenar a mano →
+            <button onClick={irSinWeb} className="w-full mt-3 py-3 text-sm text-gray-400 font-medium">
+              No tengo web →
             </button>
           </>
         ) : (
