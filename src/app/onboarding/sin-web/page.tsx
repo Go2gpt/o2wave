@@ -169,7 +169,7 @@ export default function OnboardingSinWebPage() {
           <>
             <div className="mb-6">
               <h1 className="text-xl font-bold text-gray-900 mb-2">Empezamos por lo básico</h1>
-              <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>1 minuto y la IA escribirá como tú. Solo se hace una vez.</p>
+              <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>Dedica 1 minuto y la IA aprenderá a comunicar como tu organización, no como una IA genérica.</p>
             </div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">En una frase, ¿a qué se dedica tu organización?</label>
             <textarea value={frase} onChange={(e) => setFrase(e.target.value)} rows={3}
