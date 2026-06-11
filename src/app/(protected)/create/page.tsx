@@ -300,12 +300,15 @@ function CreateInner() {
               </div>
               <div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tono</p>
-                <select value={form.tonoTikTok} onChange={e => set("tonoTikTok", e.target.value)}
-                  className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors bg-white"
-                  onFocus={e => e.target.style.borderColor = "#f9b23b"}
-                  onBlur={e => e.target.style.borderColor = "#f3f4f6"}>
-                  {TONOS_TIKTOK.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                <div className="flex gap-2 flex-wrap">
+                  {TONOS_TIKTOK.map(t => (
+                    <button key={t.value} type="button" onClick={() => set("tonoTikTok", t.value)}
+                      className="px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                      style={pill(form.tonoTikTok === t.value)}>
+                      {t.value}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
