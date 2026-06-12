@@ -30,7 +30,8 @@ async function deletePost(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: { success?: string } }) {
+  const pagoExitoso = searchParams?.success === "1";
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/welcome");
@@ -130,6 +131,17 @@ export default async function DashboardPage() {
           <Avatar profile={avatarProfile} />
         </Link>
       </div>
+
+      {/* Aviso de suscripción activada (tras volver de Stripe Checkout) */}
+      {pagoExitoso && (
+        <div className="mx-5 mb-4 rounded-2xl p-4 flex items-center gap-3" style={{ backgroundColor: "#f0f7e6", border: "1px solid #d4e8b4" }}>
+          <span className="text-xl flex-shrink-0">✅</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold" style={{ color: "#3f6212" }}>Suscripción activa</p>
+            <p className="text-xs" style={{ color: "#5a7d2a" }}>¡Gracias! Tu plan puede tardar unos segundos en reflejarse.</p>
+          </div>
+        </div>
+      )}
 
       {/* Greeting */}
       <div className="px-5 mb-5">

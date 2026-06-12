@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
+import { irACheckoutODashboard, descartarPlanPendiente } from "@/lib/checkoutRedirect";
 
 interface Analysis {
   nombre?: string | null;
@@ -71,6 +72,13 @@ export default function OnboardingIdentityPage() {
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [suficiente, setSuficiente] = useState(true);
+  const [hayPlanPendiente, setHayPlanPendiente] = useState(false);
+  const gratisRef = useRef(false); // true → opt-out "empezar gratis", se salta el checkout
+
+  // ¿El usuario venía de /plans con un plan de pago? → mostrar opt-out al finalizar.
+  useEffect(() => {
+    try { setHayPlanPendiente(!!localStorage.getItem("plan_pendiente_checkout")); } catch { /* noop */ }
+  }, []);
 
   // Campos editables (paso 1)
   const [nombre, setNombre] = useState("");
@@ -147,7 +155,9 @@ export default function OnboardingIdentityPage() {
 
       sessionStorage.removeItem("onb_data");
       sessionStorage.removeItem("web_url");
-      router.push("/dashboard");
+      // Si venía de /plans con un plan de pago, retoma el checkout; si no, al dashboard.
+      if (gratisRef.current) { descartarPlanPendiente(); router.push("/dashboard"); }
+      else await irACheckoutODashboard(router);
     } catch (err) {
       console.error(err);
       setSaving(false);
@@ -258,6 +268,12 @@ export default function OnboardingIdentityPage() {
                 className="w-full py-3 text-sm text-gray-400 font-medium">
                 ← Volver a los datos
               </button>
+              {hayPlanPendiente && (
+                <button onClick={() => { gratisRef.current = true; handleSave(); }} disabled={saving}
+                  className="w-full py-2 text-xs text-gray-400 font-medium underline">
+                  Prefiero empezar gratis por ahora
+                </button>
+              )}
             </div>
           </>
         )}

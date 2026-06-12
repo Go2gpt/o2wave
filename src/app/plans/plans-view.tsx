@@ -148,7 +148,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
 
                 {/* CTA según modo: visitante / admin / logueado-actual / logueado-otro */}
                 {!autenticado ? (
-                  <button onClick={() => router.push(`/register?plan=${plan.id}`)} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
+                  <button onClick={() => router.push(`/register?plan=${plan.id}&ciclo=${ciclo}`)} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
                     {esGratis ? "Empezar gratis" : "Suscribirme"}
                   </button>
                 ) : esAdmin ? (

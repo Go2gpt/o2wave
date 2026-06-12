@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { validarNIF, normalizarNIF } from "@/lib/nif";
+import { guardarPlanPendiente } from "@/lib/checkoutRedirect";
 import PasswordInput from "@/components/PasswordInput";
 import PasswordRequisitos, { passwordValido } from "@/components/PasswordRequisitos";
 
@@ -61,11 +62,14 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
-  // Preselecciona el tipo según ?plan= (viene de /plans). Fallback: ong_pequena.
+  // Preselecciona el tipo según ?plan= (viene de /plans) y guarda el plan/ciclo
+  // de pago pendiente para retomar el checkout tras el onboarding. Fallback: ong_pequena.
   useEffect(() => {
-    const plan = new URLSearchParams(window.location.search).get("plan");
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan");
     const tipoMapeado = plan ? PLAN_A_TIPO[plan] : undefined;
     if (tipoMapeado) setTipo(tipoMapeado);
+    guardarPlanPendiente(plan, params.get("ciclo"));
   }, []);
 
   const pideNif = tipo === "ong_pequena" || tipo === "ong_mediana";

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       client_reference_id: user.id,
       metadata: { user_id: user.id, plan, ciclo },
       subscription_data: { metadata: { user_id: user.id, plan, ciclo } },
-      success_url: `${SITE_URL}/plans?success=1`,
+      success_url: `${SITE_URL}/dashboard?success=1`,
       cancel_url: `${SITE_URL}/plans?cancelled=1`,
     });
 

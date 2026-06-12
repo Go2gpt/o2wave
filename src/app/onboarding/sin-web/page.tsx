@@ -7,6 +7,7 @@ import Spinner from "@/components/ui/Spinner";
 import ProgressBar from "@/components/ProgressBar";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
+import { irACheckoutODashboard, descartarPlanPendiente } from "@/lib/checkoutRedirect";
 
 interface Analysis {
   nombre?: string | null;
@@ -49,6 +50,12 @@ export default function OnboardingSinWebPage() {
   const [error, setError] = useState("");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hayPlanPendiente, setHayPlanPendiente] = useState(false);
+
+  // ¿El usuario venía de /plans con un plan de pago? → mostrar opt-out en el paso 4.
+  useEffect(() => {
+    try { setHayPlanPendiente(!!localStorage.getItem("plan_pendiente_checkout")); } catch { /* noop */ }
+  }, []);
 
   // Rotación de mensajes durante el análisis (cubre el tiempo real del POST,
   // sin temporizadores que adelanten o atrasen el cambio de pantalla).
@@ -122,6 +129,16 @@ export default function OnboardingSinWebPage() {
     setSaving(true);
     const ok = await guardarPerfil(analysis);
     if (!ok) { setSaving(false); setError("No se pudo guardar tu perfil. Inténtalo de nuevo."); return; }
+    // Si venía de /plans con un plan de pago, retoma el checkout; si no, al dashboard.
+    await irACheckoutODashboard(router);
+  };
+
+  const empezarGratis = async () => {
+    if (!analysis) return;
+    setSaving(true);
+    const ok = await guardarPerfil(analysis);
+    if (!ok) { setSaving(false); setError("No se pudo guardar tu perfil. Inténtalo de nuevo."); return; }
+    descartarPlanPendiente(); // renuncia al plan de pago elegido en /plans
     router.push("/dashboard");
   };
 
@@ -269,6 +286,11 @@ export default function OnboardingSinWebPage() {
                 {saving ? <span className="flex items-center justify-center gap-2"><Spinner /> Guardando…</span> : "Está perfecto, empezar a crear contenido"}
               </button>
               <button onClick={ajustarDetalles} disabled={saving} className="w-full py-3 text-sm text-gray-400 font-medium">Quiero ajustar algún detalle</button>
+              {hayPlanPendiente && (
+                <button onClick={empezarGratis} disabled={saving} className="w-full py-2 text-xs text-gray-400 font-medium underline">
+                  Prefiero empezar gratis por ahora
+                </button>
+              )}
             </div>
           </>
         )}
