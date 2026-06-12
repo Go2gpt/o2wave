@@ -51,10 +51,22 @@ export default function OnboardingSinWebPage() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [saving, setSaving] = useState(false);
   const [hayPlanPendiente, setHayPlanPendiente] = useState(false);
+  const [esEmpresa, setEsEmpresa] = useState(false);
 
   // ¿El usuario venía de /plans con un plan de pago? → mostrar opt-out en el paso 4.
   useEffect(() => {
     try { setHayPlanPendiente(!!localStorage.getItem("plan_pendiente_checkout")); } catch { /* noop */ }
+  }, []);
+
+  // Tipo de entidad (empresa vs ONG) para adaptar los textos del wizard.
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
+      setEsEmpresa(data?.tipo_entidad === "empresa");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Rotación de mensajes durante el análisis (cubre el tiempo real del POST,
@@ -186,11 +198,17 @@ export default function OnboardingSinWebPage() {
           <>
             <div className="mb-6">
               <h1 className="text-xl font-bold text-gray-900 mb-2">Empezamos por lo básico</h1>
-              <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>Dedica 1 minuto y la IA aprenderá a comunicar como tu organización, no como una IA genérica.</p>
+              <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>{esEmpresa
+                ? "Dedica 1 minuto y la IA aprenderá a comunicar como tu empresa, no como una IA genérica."
+                : "Dedica 1 minuto y la IA aprenderá a comunicar como tu organización, no como una IA genérica."}</p>
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">En una frase, ¿a qué se dedica tu organización?</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{esEmpresa
+              ? "En una frase, ¿a qué se dedica tu empresa?"
+              : "En una frase, ¿a qué se dedica tu organización?"}</label>
             <textarea value={frase} onChange={(e) => setFrase(e.target.value)} rows={3}
-              placeholder="Ej: ayudamos a personas en exclusión social en Barcelona"
+              placeholder={esEmpresa
+                ? "Ej: agencia de viajes especializada en escapadas rurales en España."
+                : "Ej: ayudamos a personas en exclusión social en Barcelona"}
               className={inputCls} onFocus={onF} onBlur={onB} />
             <button onClick={() => { setPaso(2); window.scrollTo(0, 0); }} disabled={frase.trim().length < 10}
               className="w-full mt-5 py-4 rounded-2xl font-bold text-white text-base disabled:opacity-50 transition-all active:scale-[0.98]"
@@ -205,8 +223,12 @@ export default function OnboardingSinWebPage() {
               <h1 className="text-xl font-bold text-gray-900 mb-2">Tu voz real</h1>
               <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>Cuanto más nos cuentes ahora, menos tendrás que editar después.</p>
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Pega aquí 2-3 posts recientes de tus redes (Instagram, Facebook, LinkedIn…)</label>
-            <p className="text-xs text-gray-400 mb-2">Copia el texto de tus mejores posts. Sin imágenes ni hashtags, solo el texto. La IA aprenderá tu tono.</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{esEmpresa
+              ? "Pega aquí 2-3 posts recientes de tus redes sociales (LinkedIn, Instagram, Facebook…)"
+              : "Pega aquí 2-3 posts recientes de tus redes (Instagram, Facebook, LinkedIn…)"}</label>
+            <p className="text-xs text-gray-400 mb-2">{esEmpresa
+              ? "Copia el texto de tus mejores posts. Sin imágenes ni hashtags."
+              : "Copia el texto de tus mejores posts. Sin imágenes ni hashtags, solo el texto. La IA aprenderá tu tono."}</p>
             <textarea value={posts} onChange={(e) => setPosts(e.target.value)} rows={9}
               placeholder="Pega aquí el texto de tus posts…" className={inputCls} onFocus={onF} onBlur={onB} />
             <button onClick={() => { setPaso(3); window.scrollTo(0, 0); }}
@@ -223,8 +245,12 @@ export default function OnboardingSinWebPage() {
               <h1 className="text-xl font-bold text-gray-900 mb-2">Tu identidad pública</h1>
               <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>Un último empujón. Promesa: tu app aprenderá tu voz, no será una IA genérica.</p>
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Pega tu bio o descripción de la organización</label>
-            <p className="text-xs text-gray-400 mb-2">La que tienes en Instagram, Facebook o LinkedIn. O cualquier descripción corta que uses.</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{esEmpresa
+              ? "Pega tu bio o descripción de la empresa"
+              : "Pega tu bio o descripción de la organización"}</label>
+            <p className="text-xs text-gray-400 mb-2">{esEmpresa
+              ? "La que tienes en LinkedIn, Instagram, Facebook o tu firma de email."
+              : "La que tienes en Instagram, Facebook o LinkedIn. O cualquier descripción corta que uses."}</p>
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={5}
               placeholder="Pega aquí tu bio…" className={inputCls} onFocus={onF} onBlur={onB} />
             <button onClick={analizar}
@@ -245,7 +271,7 @@ export default function OnboardingSinWebPage() {
             <div className="space-y-3">
               {analysis.mision_valores && (
                 <div className="bg-gray-50 rounded-2xl p-4">
-                  <p className="text-sm font-bold text-gray-800 mb-1">🎯 Tu propósito</p>
+                  <p className="text-sm font-bold text-gray-800 mb-1">{esEmpresa ? "🎯 Tu actividad" : "🎯 Tu propósito"}</p>
                   <p className="text-sm text-gray-600 leading-relaxed">{analysis.mision_valores}</p>
                 </div>
               )}
