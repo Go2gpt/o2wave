@@ -115,6 +115,17 @@ export async function enviarFalloCobroUsuario(p: { to: string; nombre: string; p
   await enviar(p.to, "⚠️ No hemos podido cobrar tu suscripción de o2Wave", layout(inner), "fallo-cobro-usuario");
 }
 
+/** Aviso de que el pack semanal automático ya está generado y disponible en la app. */
+export async function enviarPackListo(p: { to: string; nombre: string }): Promise<void> {
+  const inner = `
+    <p>Hola ${esc(p.nombre) || ""},</p>
+    <p>Tu plan de contenido para esta semana ya está disponible en la app. Días de posts listos para que solo tengas que publicar.</p>
+    <p>${boton(`${SITE_URL}/pack`, "Ver mi pack")}</p>
+    <p>Si tienes cualquier duda, escríbenos a ${ADMIN_EMAIL}.</p>
+    <p style="color:#6b7280;font-size:13px;margin-top:20px">— Equipo o2Wave</p>`;
+  await enviar(p.to, "Tu pack semanal de o2Wave está listo ✨", layout(inner), "pack-listo");
+}
+
 /* ------------------------------- emails admin ------------------------------- */
 
 function adminLista(filas: [string, string][]): string {

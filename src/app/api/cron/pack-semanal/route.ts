@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { procesarPackJob } from "@/lib/packProcessor";
 import { canUseFeature, isPlanActivo } from "@/lib/plans";
+import { enviarPackListo } from "@/lib/emails";
 
 export const maxDuration = 300; // hasta 5 min para procesar muchos packs
 export const runtime = "nodejs";
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
 
   const { data: usuarios, error } = await admin
     .from("profiles")
-    .select("id, plan_actual, plan_estado, es_admin, pack_semanal_activo")
+    .select("id, plan_actual, plan_estado, es_admin, pack_semanal_activo, email, nombre_entidad")
     .eq("pack_semanal_activo", true);
 
   if (error) {
@@ -76,6 +77,12 @@ export async function GET(request: Request) {
       const result = await procesarPackJob(admin, job.id as string);
       console.log(`cron pack-semanal: OK pack ${result.pack_id} (user ${user.id}, ${result.con_imagen} imágenes, ${result.fallos.length} fallos)`);
       procesados++;
+      // Aviso por email (no bloqueante: un fallo aquí no descontabiliza el pack).
+      try {
+        if (user.email) await enviarPackListo({ to: user.email, nombre: user.nombre_entidad ?? "" });
+      } catch (mailErr) {
+        console.error("cron pack-semanal: error enviando email pack-listo", user.id, mailErr instanceof Error ? mailErr.message : mailErr);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error desconocido";
       console.error("cron pack-semanal: error procesando", user.id, msg);
