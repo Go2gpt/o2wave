@@ -1,113 +1,222 @@
+import Link from "next/link";
 import LegalPage from "@/components/LegalPage";
 
 export const metadata = { title: "Términos y Condiciones — o2Wave" };
 
 export default function TerminosPage() {
   return (
-    <LegalPage title="Términos y Condiciones de Uso">
+    <LegalPage title="Términos y condiciones de uso de o2Wave">
       <p>
-        Estos Términos y Condiciones regulan el acceso y uso del servicio o2Wave. Al registrarse y
-        utilizar el servicio, usted acepta quedar vinculado por ellos.
+        Los presentes Términos y condiciones (en adelante, los &laquo;Términos&raquo;) regulan el acceso y uso
+        de la plataforma o2Wave, accesible a través de <a href="https://www.o2wave.app">https://www.o2wave.app</a>{" "}
+        (en adelante, el &laquo;Servicio&raquo;), titularidad de:
+      </p>
+      <p>
+        <strong>Asociación Generación o2</strong> (en adelante, &laquo;Generación o2&raquo;, &laquo;nosotros&raquo; o &laquo;el Titular&raquo;)<br />
+        NIF: G67418350<br />
+        Domicilio: Carrer Encuny 7, piso 10, puerta 8, 08038 Barcelona, España<br />
+        Email de contacto: <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>
+      </p>
+      <p>
+        El uso del Servicio implica la aceptación plena y sin reservas de estos Términos. Si no estás de
+        acuerdo con alguno de ellos, no utilices el Servicio.
       </p>
 
-      <h2>1. Quiénes somos</h2>
-      <ul>
-        <li><strong>Titular del servicio:</strong> Asociación Generación o2</li>
-        <li><strong>NIF:</strong> G67418350</li>
-        <li><strong>Dirección:</strong> C/ Encuny 7, piso 10 puerta 8, 08038 Barcelona, España</li>
-        <li><strong>Contacto:</strong> <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a></li>
-      </ul>
-
-      <h2>2. Objeto del servicio</h2>
+      <h2>1. Información general</h2>
       <p>
-        o2Wave es una herramienta de generación de contenido para redes sociales mediante inteligencia
-        artificial, dirigida a organizaciones sin ánimo de lucro (ONGs) y a empresas. Permite generar
-        textos, imágenes y guiones adaptados a la identidad de cada entidad.
+        Los presentes Términos regulan el acceso y uso de la plataforma o2Wave. El Titular del Servicio es la
+        Asociación Generación o2, con NIF G67418350 y domicilio en Carrer Encuny 7, piso 10, puerta 8, 08038
+        Barcelona, España.
       </p>
 
-      <h2>3. Registro y cuenta</h2>
-      <ul>
-        <li>Para usar el servicio debe ser mayor de 18 años.</li>
-        <li>Debe ser representante legítimo de la entidad (ONG o empresa) con la que se registra.</li>
-        <li>Las ONGs deben superar un proceso de verificación documental para acceder a sus condiciones.</li>
-        <li>Usted es responsable de la veracidad de los datos facilitados y de la confidencialidad de su contraseña.</li>
-      </ul>
-
-      <h2>4. Planes y suscripciones</h2>
+      <h2>2. Objeto del Servicio</h2>
       <p>
-        Las condiciones económicas, cuando la funcionalidad de pago esté disponible, son las siguientes:
+        o2Wave es una herramienta de software como servicio (SaaS) que asiste a organizaciones sin ánimo de
+        lucro (ONGs), pequeñas y medianas empresas (PYMEs) y profesionales en la generación de contenido para
+        redes sociales mediante inteligencia artificial. El Servicio incluye, entre otras funcionalidades:
       </p>
       <ul>
-        <li><strong>ONG pequeña:</strong> gratuito, sujeto a verificación documental.</li>
-        <li><strong>ONG mediana:</strong> 9 €/mes.</li>
-        <li><strong>Empresa (Early Bird):</strong> 9 €/mes para los primeros 100 usuarios; posteriormente, plan Estándar a 19 €/mes y plan Pro a 39 €/mes.</li>
-      </ul>
-      <p>Los precios podrán actualizarse conforme a la cláusula 10.</p>
-
-      <h2>5. Cancelación de la suscripción</h2>
-      <ul>
-        <li>Puede cancelar su suscripción en cualquier momento.</li>
-        <li>Mantendrá el acceso al servicio hasta el final del periodo ya pagado.</li>
-        <li>No se realizan devoluciones por periodos ya abonados.</li>
-        <li>Dado que el servicio digital se presta de forma inmediata, usted renuncia expresamente al derecho de desistimiento de 14 días al aceptar el inicio inmediato de la prestación, conforme a la excepción prevista para servicios digitales.</li>
+        <li>Generación automatizada de textos, imágenes y guiones para Instagram, Facebook y TikTok.</li>
+        <li>Calendario editorial de días clave.</li>
+        <li>Generación semanal automática de un pack de contenido (en planes que lo incluyan).</li>
+        <li>Estadísticas de actividad y herramientas de gestión del perfil de marca.</li>
       </ul>
 
-      <h2>6. Propiedad intelectual</h2>
-      <ul>
-        <li>Usted es el propietario del contenido que genera con el servicio.</li>
-        <li>o2Wave se reserva una licencia mínima, no exclusiva y limitada, para almacenar y mostrar dicho contenido dentro de la aplicación con el fin de prestarle el servicio.</li>
-        <li>La marca o2Wave, el código, el diseño y la tecnología del servicio son propiedad de la Asociación Generación o2 y están protegidos.</li>
-      </ul>
-
-      <h2>7. Uso de la inteligencia artificial</h2>
-      <ul>
-        <li>El contenido se genera mediante modelos de inteligencia artificial, que pueden producir resultados erróneos, incompletos, ofensivos o inadecuados.</li>
-        <li>Usted es responsable de revisar y validar todo el contenido antes de publicarlo.</li>
-        <li>o2Wave no garantiza la exactitud del contenido generado ni su adecuación a su público objetivo o a una finalidad concreta.</li>
-      </ul>
-
-      <h2>8. Conductas prohibidas</h2>
-      <p>Queda prohibido utilizar el servicio para:</p>
-      <ul>
-        <li>Generar o difundir contenido ilegal.</li>
-        <li>Suplantar la identidad de personas o entidades.</li>
-        <li>Vulnerar derechos de autor o de propiedad intelectual de terceros.</li>
-        <li>Realizar ingeniería inversa del servicio.</li>
-        <li>Extraer datos de forma automatizada (scraping).</li>
-        <li>Revender o ceder el acceso al servicio.</li>
-        <li>Crear múltiples cuentas para eludir los límites de uso.</li>
-      </ul>
-
-      <h2>9. Suspensión y cancelación de cuentas</h2>
+      <h2>3. Registro y cuenta de usuario</h2>
       <p>
-        o2Wave podrá suspender o eliminar cuentas que incumplan estos términos. Salvo en casos graves o
-        urgentes, se notificará previamente al usuario.
+        3.1. Para utilizar el Servicio es necesario registrarse y crear una cuenta proporcionando un correo
+        electrónico válido, una contraseña, el NIF/CIF de la entidad y completar el proceso de verificación.
+      </p>
+      <p>3.2. El usuario declara y garantiza:</p>
+      <ul>
+        <li>Ser mayor de 18 años.</li>
+        <li>Tener capacidad legal para contratar.</li>
+        <li>Que los datos facilitados son veraces, exactos y se mantendrán actualizados.</li>
+        <li>Actuar en nombre de la organización a la que representa, con autoridad suficiente para vincularla.</li>
+      </ul>
+      <p>
+        3.3. El usuario es responsable de mantener la confidencialidad de sus credenciales y de cualquier
+        actividad realizada desde su cuenta. Cualquier acceso no autorizado debe ser notificado de inmediato a{" "}
+        <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>.
+      </p>
+      <p>
+        3.4. Generación o2 podrá suspender o cancelar cuentas que incumplan estos Términos o que se utilicen
+        para finalidades fraudulentas o ilícitas.
       </p>
 
-      <h2>10. Modificaciones del servicio</h2>
+      <h2>4. Planes, precios y pagos</h2>
       <p>
-        o2Wave podrá modificar funcionalidades, planes y precios, notificándolo con una antelación
-        razonable a través de los medios de contacto facilitados.
+        4.1. El Servicio se ofrece bajo distintos planes (gratuito y de pago) cuyas características, límites de
+        uso y precios están publicados en <Link href="/plans">la página de planes</Link>. Los precios incluyen
+        el IVA correspondiente.
+      </p>
+      <p>
+        4.2. La contratación de planes de pago se realiza mediante suscripción periódica (mensual o anual). Los
+        pagos se procesan a través de <strong>Stripe Payments Europe, Ltd.</strong>, proveedor de pagos
+        certificado PCI-DSS. Generación o2 no almacena ni accede en ningún momento a los datos de tarjeta
+        bancaria del usuario.
+      </p>
+      <p>
+        4.3. La suscripción se renueva automáticamente al final de cada periodo facturado salvo que el usuario
+        la cancele con anterioridad desde el portal de gestión de su cuenta o desde la sección &laquo;Mi
+        suscripción&raquo; en su perfil.
+      </p>
+      <p>4.4. <strong>Cancelación y reembolsos:</strong></p>
+      <ul>
+        <li>El usuario puede cancelar su suscripción en cualquier momento, sin penalización.</li>
+        <li>Tras la cancelación, el Servicio continuará activo hasta la finalización del periodo facturado en curso.</li>
+        <li>No se efectuarán reembolsos parciales por el tiempo no consumido del periodo facturado.</li>
+        <li>En caso de defectos graves del Servicio no resueltos en plazo razonable, el usuario podrá solicitar un reembolso proporcional escribiendo a <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>.</li>
+      </ul>
+      <p>
+        4.5. <strong>Plan gratuito:</strong> los usuarios del plan gratuito disponen de un número limitado de
+        generaciones mensuales. Una vez alcanzado el límite, la generación de nuevo contenido queda bloqueada
+        hasta el siguiente ciclo o hasta que el usuario contrate un plan superior.
+      </p>
+      <p>
+        4.6. <strong>Impago:</strong> si una renovación de pago falla y no se regulariza en un plazo de 7 días,
+        la cuenta pasará a estado suspendido y se bloqueará la generación de nuevo contenido. El usuario podrá
+        restablecer el servicio actualizando su método de pago.
       </p>
 
-      <h2>11. Limitación de responsabilidad</h2>
+      <h2>5. Uso aceptable</h2>
       <p>
-        En la medida permitida por la ley, o2Wave no responde de lucros cesantes, daños indirectos o
-        consecuentes derivados del uso del servicio. La responsabilidad máxima de o2Wave se limita al
-        importe efectivamente abonado por el usuario en los 12 meses anteriores al hecho que origine la
-        reclamación.
+        5.1. El usuario se compromete a utilizar el Servicio exclusivamente para fines lícitos y conforme a la
+        moral, el orden público y las buenas costumbres. Queda prohibido, entre otros:
+      </p>
+      <ul>
+        <li>Generar contenido ilegal, discriminatorio, violento, sexualmente explícito que involucre a menores, o que infrinja derechos de terceros.</li>
+        <li>Suplantar la identidad de otras personas u organizaciones.</li>
+        <li>Utilizar el Servicio para spam, fraude, phishing o cualquier finalidad maliciosa.</li>
+        <li>Realizar ingeniería inversa, descompilación o intentos de obtener el código fuente.</li>
+        <li>Acceder a cuentas o sistemas ajenos sin autorización.</li>
+        <li>Utilizar bots o scripts automatizados para abusar de los límites del Servicio.</li>
+      </ul>
+      <p>
+        5.2. Generación o2 podrá suspender o cancelar cualquier cuenta que incumpla las anteriores normas sin
+        derecho a reembolso.
       </p>
 
-      <h2>12. Legislación aplicable y jurisdicción</h2>
+      <h2>6. Contenido generado por inteligencia artificial</h2>
       <p>
-        Estos términos se rigen por la legislación española. Para la resolución de cualquier
-        controversia, las partes se someten a los juzgados y tribunales de Barcelona, salvo que la
-        normativa de consumo aplicable disponga otro fuero.
+        6.1. El contenido (textos, imágenes, guiones) generado por o2Wave es producido por modelos de
+        inteligencia artificial de terceros (incluyendo, entre otros, Anthropic y Replicate). Generación o2 no
+        garantiza la exactitud, originalidad ni ausencia de errores de dicho contenido.
+      </p>
+      <p>
+        6.2. El usuario es <strong>el único responsable</strong> del contenido que publique, comparta o
+        distribuya, debiendo revisarlo antes de su publicación.
+      </p>
+      <p>
+        6.3. La titularidad y derechos de uso del contenido generado corresponden al usuario, sin perjuicio de
+        las limitaciones impuestas por los términos de uso de los modelos de IA subyacentes y de la legislación
+        aplicable en materia de propiedad intelectual.
       </p>
 
-      <h2>13. Contacto</h2>
+      <h2>7. Propiedad intelectual del Servicio</h2>
       <p>
-        Para cualquier consulta sobre estos términos, escriba a <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>.
+        7.1. Todos los derechos sobre el Servicio, su software, diseño, marca, logos, dominios y demás
+        elementos identificativos son propiedad exclusiva de Generación o2 o sus licenciantes.
+      </p>
+      <p>
+        7.2. La marca <strong>&laquo;o2Wave&raquo;</strong> y el logotipo asociado son signos distintivos de
+        Generación o2.
+      </p>
+      <p>
+        7.3. Queda prohibida la reproducción, distribución, comunicación pública o transformación del Servicio
+        sin autorización expresa.
+      </p>
+
+      <h2>8. Limitación de responsabilidad</h2>
+      <p>
+        8.1. El Servicio se presta &laquo;tal cual&raquo; y &laquo;según disponibilidad&raquo;, sin más
+        garantías que las legalmente exigibles.
+      </p>
+      <p>8.2. Generación o2 no será responsable de los daños o perjuicios derivados de:</p>
+      <ul>
+        <li>La indisponibilidad temporal del Servicio por causas técnicas, mantenimiento o fuerza mayor.</li>
+        <li>El uso indebido del Servicio por parte del usuario.</li>
+        <li>La exactitud, calidad o licitud del contenido generado por la IA.</li>
+        <li>Pérdidas comerciales, lucro cesante o daños indirectos.</li>
+      </ul>
+      <p>
+        8.3. En todo caso, la responsabilidad máxima de Generación o2 frente al usuario quedará limitada al
+        importe efectivamente abonado por el usuario en los doce (12) meses anteriores al hecho que origine la
+        responsabilidad.
+      </p>
+
+      <h2>9. Modificaciones del Servicio</h2>
+      <p>
+        9.1. Generación o2 se reserva el derecho a modificar, ampliar o suspender total o parcialmente el
+        Servicio, así como a introducir nuevas funcionalidades, en cualquier momento.
+      </p>
+      <p>
+        9.2. Las modificaciones sustanciales se comunicarán al usuario con una antelación mínima de 15 días por
+        correo electrónico.
+      </p>
+
+      <h2>10. Protección de datos</h2>
+      <p>
+        El tratamiento de los datos personales del usuario se rige por la{" "}
+        <Link href="/privacidad">Política de privacidad</Link>, que forma parte integrante de estos Términos.
+      </p>
+
+      <h2>11. Comunicaciones electrónicas</h2>
+      <p>
+        11.1. Al utilizar el Servicio, el usuario acepta recibir las comunicaciones electrónicas necesarias
+        para la prestación del Servicio (confirmaciones, notificaciones técnicas, avisos de facturación, etc.).
+      </p>
+      <p>
+        11.2. El usuario podrá darse de baja en cualquier momento de las comunicaciones comerciales no
+        esenciales desde la configuración de su cuenta o escribiendo a{" "}
+        <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>.
+      </p>
+
+      <h2>12. Modificación de los Términos</h2>
+      <p>
+        12.1. Generación o2 podrá modificar estos Términos en cualquier momento. Las modificaciones entrarán en
+        vigor a los 15 días naturales de su publicación.
+      </p>
+      <p>
+        12.2. La continuación en el uso del Servicio tras dicho plazo supondrá la aceptación de los nuevos
+        Términos. Si el usuario no acepta los cambios, podrá cancelar su cuenta sin penalización.
+      </p>
+
+      <h2>13. Ley aplicable y jurisdicción</h2>
+      <p>13.1. Estos Términos se rigen por la legislación española.</p>
+      <p>
+        13.2. Para la resolución de cualquier controversia derivada de los presentes Términos, las partes se
+        someten expresamente a los Juzgados y Tribunales de Barcelona, con renuncia expresa a cualquier otro
+        fuero que pudiera corresponderles, salvo aquellos en los que la legislación de consumo imponga un fuero
+        distinto al usuario que tenga la consideración de consumidor.
+      </p>
+
+      <h2>14. Contacto</h2>
+      <p>Para cualquier consulta relacionada con estos Términos puedes escribirnos a:</p>
+      <p>
+        <strong>Asociación Generación o2</strong><br />
+        Email: <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a><br />
+        Dirección: Carrer Encuny 7, piso 10, puerta 8, 08038 Barcelona, España
       </p>
     </LegalPage>
   );
