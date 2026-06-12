@@ -54,10 +54,10 @@ export default function WelcomePage() {
 
         {/* CTA buttons */}
         <div className="w-full max-w-xs space-y-3">
-          <Link href="/register"
+          <Link href="/plans"
             className="block w-full py-4 rounded-2xl text-center font-bold text-base text-white transition-all active:scale-[0.98]"
             style={{ backgroundColor: "#f9b23b" }}>
-            Empezar gratis
+            Planes y precios
           </Link>
           <Link href="/login"
             className="block w-full py-4 rounded-2xl text-center font-semibold text-sm transition-all active:scale-[0.98]"
