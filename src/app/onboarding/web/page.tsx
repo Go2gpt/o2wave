@@ -69,7 +69,7 @@ export default function OnboardingWebPage() {
                   URL de tu web
                 </label>
                 <input type="text" value={url} onChange={(e) => setUrl(e.target.value)}
-                  placeholder="www.tuorganizacion.org" required
+                  placeholder="www.tudominio.com" required
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
                   onFocus={(e) => (e.target.style.borderColor = "#f9b23b")}
                   onBlur={(e) => (e.target.style.borderColor = "#f3f4f6")} />

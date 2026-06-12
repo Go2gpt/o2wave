@@ -72,7 +72,9 @@ export default function RegisterPage() {
     guardarPlanPendiente(plan, params.get("ciclo"));
   }, []);
 
-  const pideNif = tipo === "ong_pequena" || tipo === "ong_mediana";
+  const esEmpresa = tipo === "empresa";
+  // Todos los tipos (ONG y empresa) tienen NIF/CIF y deben aportarlo.
+  const pideNif = true;
   const DUP_MSG = "Este NIF ya está registrado en o2Wave. Si crees que es un error, contacta con nosotros.";
 
   const esErrorNifDuplicado = (msg: string) =>
@@ -211,7 +213,7 @@ export default function RegisterPage() {
               Correo electrónico
             </label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="hola@tuorganizacion.org" required
+              placeholder="tu@email.com" required
               className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
               onFocus={e => e.target.style.borderColor = selectedColor}
               onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
@@ -231,10 +233,10 @@ export default function RegisterPage() {
           {pideNif && (
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                NIF de la entidad
+                {esEmpresa ? "CIF de la empresa" : "NIF de la entidad"}
               </label>
               <input type="text" value={nif} onChange={e => { setNif(e.target.value.toUpperCase()); setNifError(""); }}
-                placeholder="Ej: G12345678" required
+                placeholder={esEmpresa ? "Ej: B12345678" : "Ej: G12345678"} required
                 className="w-full border-2 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
                 style={{ borderColor: nifError ? "#f9b23b" : "#f3f4f6" }}
                 onFocus={e => e.target.style.borderColor = nifError ? "#f9b23b" : selectedColor}
@@ -250,7 +252,7 @@ export default function RegisterPage() {
                 <p className="text-[11px] font-medium mt-1.5" style={{ color: "#f9b23b" }}>⚠️ {nifError}</p>
               ) : (
                 <p className="text-[11px] text-gray-400 mt-1.5">
-                  Necesario para verificar tu entidad sin ánimo de lucro.
+                  {esEmpresa ? "Necesario para identificar tu empresa." : "Necesario para verificar tu entidad sin ánimo de lucro."}
                 </p>
               )}
             </div>

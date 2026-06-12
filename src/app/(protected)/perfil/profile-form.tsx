@@ -273,10 +273,10 @@ export default function ProfileForm({
       </div>
 
       <div className="px-5 space-y-6">
-        {/* Sección 1 — Datos de la entidad */}
+        {/* Sección 1 — Datos de la entidad / empresa */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold text-gray-800">Datos de la entidad</h2>
-          <TextField label="Nombre de la entidad" value={form.nombre_entidad} onChange={(v) => set("nombre_entidad", v)} max={100} />
+          <h2 className="text-sm font-bold text-gray-800">{esEmpresa ? "Datos de la empresa" : "Datos de la entidad"}</h2>
+          <TextField label={esEmpresa ? "Nombre de la empresa" : "Nombre de la entidad"} value={form.nombre_entidad} onChange={(v) => set("nombre_entidad", v)} max={100} />
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Email</label>
             <input value={initial.email} disabled className={`${inputCls} bg-gray-50 text-gray-400 cursor-not-allowed`} />

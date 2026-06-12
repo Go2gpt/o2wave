@@ -67,7 +67,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
 
       <div className="px-5 pb-3 pt-2">
         <h1 className="text-xl font-bold text-gray-900">{autenticado ? "Planes" : "Elige tu plan"}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">El que mejor se adapta a tu organización.</p>
+        <p className="text-sm text-gray-500 mt-0.5">El que mejor se adapta a tu organización o empresa.</p>
       </div>
 
       {/* Toggle mensual / anual */}
