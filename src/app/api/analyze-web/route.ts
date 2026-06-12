@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { normalizarMarca } from "@/lib/formatText";
+import { createClient } from "@/lib/supabase-server";
 
 export const maxDuration = 60;
 
@@ -70,17 +71,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ suficiente: false, url: normalizedUrl });
     }
 
+    // Tipo de entidad (server-side) para adaptar el prompt.
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    let esEmpresa = false;
+    if (user) {
+      const { data: prof } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
+      esEmpresa = prof?.tipo_entidad === "empresa";
+    }
+    const ente = esEmpresa ? "empresa" : "organización";
+
     // 3) Análisis exhaustivo con Claude
-    const prompt = `Eres un analista de marca. A partir del TEXTO extraído de la web de una organización, devuelve un análisis en JSON.
+    const prompt = `Eres un analista de marca. A partir del TEXTO extraído de la web de una ${ente}, devuelve un análisis en JSON.
 
 REGLAS:
 - Responde ÚNICAMENTE con el objeto JSON, sin texto adicional ni markdown.
 - Si un campo NO se puede inferir del texto, devuelve null (o [] para arrays). NO inventes datos.
+- NOMBRE: si el TEXTO no contiene un nombre propio claro y explícito de la ${ente}, devuelve "" (string vacío). NO inventes ni infieras un nombre.
 - Sé conciso y fiel al contenido.
 
 Estructura EXACTA:
 {
-  "nombre": "nombre de la organización",
+  "nombre": "nombre propio SOLO si aparece explícito en el TEXTO; si no, ''",
   "tipo": "ong" | "empresa" | "autonomo",
   "sector": "sector principal (educacion, salud, medio_ambiente, social, cultura, comercio, tecnologia, deporte, general)",
   "mision_valores": "misión y valores en 2-3 frases",
@@ -116,9 +128,14 @@ ${texto}
       return NextResponse.json({ suficiente: false, url: normalizedUrl });
     }
 
-    // Regla de marca: "O2" → "o2" en el nombre
-    if (typeof analysis.nombre === "string") {
-      analysis.nombre = normalizarMarca(analysis.nombre);
+    // Anti-invención: si el nombre devuelto NO aparece literalmente en el texto
+    // de la web, lo consideramos inventado y lo vaciamos. Si aparece, normalizamos marca.
+    if (typeof analysis.nombre === "string" && analysis.nombre.trim()) {
+      analysis.nombre = texto.toLowerCase().includes(analysis.nombre.trim().toLowerCase())
+        ? normalizarMarca(analysis.nombre)
+        : "";
+    } else {
+      analysis.nombre = "";
     }
 
     return NextResponse.json({ suficiente: true, analysis, url: normalizedUrl });

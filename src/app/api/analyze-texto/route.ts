@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { normalizarMarca } from "@/lib/formatText";
+import { createClient } from "@/lib/supabase-server";
 
 export const maxDuration = 60;
 
@@ -24,11 +25,22 @@ export async function POST(request: NextRequest) {
     const postsTxt = (posts || "").slice(0, MAX_TEXT);
     const bioTxt = (bio || "").slice(0, MAX_TEXT);
 
-    const prompt = `Eres un analista de marca para o2Wave. A partir de los siguientes textos de una organización, extrae su perfil de comunicación.
+    // Tipo de entidad (server-side, fuente única) para adaptar el prompt.
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    let esEmpresa = false;
+    if (user) {
+      const { data: prof } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
+      esEmpresa = prof?.tipo_entidad === "empresa";
+    }
+    const ente = esEmpresa ? "empresa" : "organización";
+
+    const prompt = `Eres un analista de marca para o2Wave. A partir de los siguientes textos de una ${ente}, extrae su perfil de comunicación.
 
 REGLAS:
 - Responde ÚNICAMENTE con el objeto JSON, sin texto adicional ni markdown.
 - Si un campo NO se puede inferir de los textos, devuelve null (o [] para arrays). NO inventes datos.
+- NOMBRE: si los textos NO contienen un nombre propio claro y explícito de la ${ente}, devuelve "" (string vacío) en "nombre". NO inventes, NO infieras, NO sugieras un nombre.
 - Detecta el idioma predominante de los textos para "idioma_principal".
 - Sé conciso y fiel al contenido.
 ${INSTRUCCION_TILDES}
@@ -39,7 +51,7 @@ BIO O DESCRIPCIÓN (si hay): ${bioTxt || "(no aportada)"}
 
 Estructura EXACTA:
 {
-  "nombre": "nombre de la organización (o null si no se menciona)",
+  "nombre": "nombre propio de la ${ente} SOLO si aparece explícito en los textos; si no, ''",
   "sector": "sector principal (educacion, salud, medio_ambiente, social, cultura, comercio, tecnologia, deporte, general)",
   "mision_valores": "misión y valores en 2-3 frases (max 500 caracteres)",
   "publico_objetivo": "a quién se dirige (max 300)",
@@ -72,7 +84,16 @@ Estructura EXACTA:
     }
 
     // Regla de marca: "O2" → "o2" en el nombre.
-    if (typeof analysis.nombre === "string") analysis.nombre = normalizarMarca(analysis.nombre);
+    // Anti-invención: si el nombre devuelto NO aparece literalmente en lo que
+    // escribió el usuario, lo consideramos inventado y lo vaciamos.
+    const entrada = `${frase} ${postsTxt} ${bioTxt}`.toLowerCase();
+    if (typeof analysis.nombre === "string" && analysis.nombre.trim()) {
+      analysis.nombre = entrada.includes(analysis.nombre.trim().toLowerCase())
+        ? normalizarMarca(analysis.nombre)
+        : "";
+    } else {
+      analysis.nombre = "";
+    }
     // Colores no son inferibles desde texto plano (sin web).
     analysis.colores_marca = [];
 
