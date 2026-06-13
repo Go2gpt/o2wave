@@ -1,19 +1,20 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CATEGORIAS, CATEGORIA_LABEL } from "@/lib/categorias";
+import { CATEGORIA_LABEL, categoriasParaTipo } from "@/lib/categorias";
 
 /**
  * Defaults sensatos por tipo de entidad. Se usan cuando la IA falla, devuelve
  * vacío, o el perfil tiene poca información — para no dejar el calendario vacío.
  */
 const DEFAULTS_POR_TIPO: Record<string, string[]> = {
-  ong_pequena: ["causas_sociales", "derechos_humanos"],
-  ong_mediana: ["causas_sociales", "derechos_humanos"],
-  empresa: ["causas_sociales"],
+  ong_pequena: ["causas_sociales", "derechos_humanos", "educacion_formacion"],
+  ong_mediana: ["causas_sociales", "derechos_humanos", "educacion_formacion"],
+  empresa: ["fechas_comerciales", "ventas_marketing", "cliente_atencion", "rrhh_equipo"],
 };
 
 function defaultsPara(tipo: string | null | undefined): string[] {
-  return (tipo && DEFAULTS_POR_TIPO[tipo]) || ["causas_sociales"];
+  if (tipo && DEFAULTS_POR_TIPO[tipo]) return DEFAULTS_POR_TIPO[tipo];
+  return tipo === "empresa" ? ["fechas_comerciales", "ventas_marketing"] : ["causas_sociales"];
 }
 
 /** Descripciones para guiar a la IA en la preselección. */
@@ -28,10 +29,18 @@ const CATEGORIA_DESC: Record<string, string> = {
   educacion_cultura: "educación, cultura, arte, lectura, ciencia, patrimonio",
   derechos_humanos: "derechos humanos, paz, refugio, justicia social, solidaridad internacional",
   fiestas_tradiciones: "fiestas nacionales, autonómicas y religiosas (Constitución, Reyes, Sant Jordi, Navidad, etc.)",
+  fechas_comerciales: "campañas comerciales: San Valentín, Día del Padre/Madre, Black Friday, Navidad, rebajas",
+  cliente_atencion: "atención al cliente, fidelización, experiencia de cliente, Día del Cliente/Consumidor",
+  ventas_marketing: "ventas, marketing digital, redes sociales, email marketing, captación",
+  innovacion_tecnologia: "innovación, tecnología, internet, ciberseguridad, transformación digital",
+  rrhh_equipo: "personas, equipo, talento, bienestar laboral, salud y seguridad en el trabajo",
+  sostenibilidad_empresa: "sostenibilidad, RSC, medio ambiente, reciclaje, economía circular",
+  educacion_formacion: "educación, formación, aprendizaje continuo, lectura, alfabetización",
+  industria_emprendimiento: "emprendimiento, pymes, industria, innovación empresarial, autónomos",
 };
 
 /** Extrae y valida el array de categorías de la respuesta de Claude. */
-function extraerCategorias(raw: string): string[] {
+function extraerCategorias(raw: string, validas: string[]): string[] {
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
   let parsed: unknown = null;
   try {
@@ -44,7 +53,7 @@ function extraerCategorias(raw: string): string[] {
   const arr = (parsed && typeof parsed === "object" && Array.isArray((parsed as { categorias?: unknown }).categorias))
     ? (parsed as { categorias: unknown[] }).categorias
     : [];
-  return arr.filter((c): c is string => typeof c === "string" && (CATEGORIAS as readonly string[]).includes(c)).slice(0, 5);
+  return arr.filter((c): c is string => typeof c === "string" && validas.includes(c)).slice(0, 5);
 }
 
 /** Inserta las categorías para el usuario, ignorando duplicados. Devuelve true si OK. */
@@ -87,7 +96,8 @@ export async function preseleccionarCategorias(supabase: SupabaseClient, userId:
     // caemos a los defaults por tipo de entidad más abajo.
     if (contexto.length >= 20) {
       try {
-        const lista = CATEGORIAS.map((c) => `- ${c} (${CATEGORIA_LABEL[c]}): ${CATEGORIA_DESC[c]}`).join("\n");
+        const validas = categoriasParaTipo(tipoEntidad);
+        const lista = validas.map((c) => `- ${c} (${CATEGORIA_LABEL[c]}): ${CATEGORIA_DESC[c]}`).join("\n");
         const tipoLabel = tipoEntidad === "empresa" ? "empresa / PYME" : "ONG / entidad sin ánimo de lucro";
         const prompt = `Eres un clasificador. A partir de los datos de una organización, elige hasta 5 categorías (de la lista) que mejor encajen con su actividad y causas.
 
@@ -110,7 +120,7 @@ Responde ÚNICAMENTE con un JSON válido: {"categorias": ["id1", "id2", ...]} co
           messages: [{ role: "user", content: prompt }],
         });
         const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
-        cats = extraerCategorias(raw);
+        cats = extraerCategorias(raw, validas);
       } catch (e) {
         console.error("preseleccionarCategorias: fallo en la llamada IA, se usarán defaults:", e);
       }

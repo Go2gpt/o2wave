@@ -11,7 +11,7 @@ import ChipsInput from "@/components/ChipsInput";
 import InstallButton from "@/components/InstallButton";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
-import { CATEGORIAS, CATEGORIA_LABEL } from "@/lib/categorias";
+import { CATEGORIA_LABEL, categoriasParaTipo } from "@/lib/categorias";
 
 export interface ProfileData {
   id: string;
@@ -388,7 +388,7 @@ export default function ProfileForm({
             <p className="text-xs text-gray-400 mt-0.5">Elige qué temas quieres que aparezcan en tu calendario de días clave.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {CATEGORIAS.map((c) => {
+            {categoriasParaTipo(initial.tipo_entidad).map((c) => {
               const sel = cats.includes(c);
               return (
                 <button key={c} type="button" onClick={() => toggleCat(c)}
