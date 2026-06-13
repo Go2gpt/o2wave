@@ -67,6 +67,11 @@ interface PerfilPack {
   idioma_principal: string | null;
 }
 
+/** "empresa" u "organización" según el tipo, para textos de los prompts. */
+function enteDe(p: PerfilPack): string {
+  return p.tipo_entidad === "empresa" ? "empresa" : "organización";
+}
+
 function contextoDe(p: PerfilPack): string {
   const temas = Array.isArray(p.temas_prioritarios) ? p.temas_prioritarios.join(", ") : "";
   return [
@@ -84,10 +89,10 @@ function contextoDe(p: PerfilPack): string {
 async function temasIA(p: PerfilPack, n: number): Promise<string[]> {
   if (n <= 0) return [];
   try {
-    const prompt = `Eres estratega de contenido para "${p.nombre_entidad || "una organización"}".
+    const prompt = `Eres estratega de contenido para "${p.nombre_entidad || `una ${enteDe(p)}`}".
 ${contextoDe(p)}
 
-Propón ${n} temas de publicación variados y CONCRETOS, basados en la actividad real de esta organización (sus servicios, causas, público y logros). NO uses efemérides genéricas ni días internacionales. Cada tema en una frase corta y accionable.
+Propón ${n} temas de publicación variados y CONCRETOS, basados en la actividad real de esta ${enteDe(p)} (sus servicios, productos, causas, público y logros). NO uses efemérides genéricas ni días internacionales. Cada tema en una frase corta y accionable.
 Responde SOLO con JSON: {"temas": ["tema 1", "tema 2", ...]} con exactamente ${n} elementos.
 ${INSTRUCCION_TILDES}
 ${instruccionIdioma(p.idioma_principal)}`;
@@ -96,10 +101,10 @@ ${instruccionIdioma(p.idioma_principal)}`;
     const parsed = parseJSON(raw) as { temas?: unknown };
     const temas = Array.isArray(parsed?.temas) ? parsed.temas.filter((t): t is string => typeof t === "string") : [];
     // Rellenar si la IA devuelve menos de los pedidos.
-    while (temas.length < n) temas.push("Comparte una historia o impacto de tu organización");
+    while (temas.length < n) temas.push(`Comparte una historia o impacto de tu ${enteDe(p)}`);
     return temas.slice(0, n);
   } catch {
-    return Array.from({ length: n }, () => "Comparte una historia o impacto de tu organización");
+    return Array.from({ length: n }, () => `Comparte una historia o impacto de tu ${enteDe(p)}`);
   }
 }
 
@@ -113,7 +118,7 @@ const promptImagenFallback = (tema: string) =>
 async function generarTextoRed(p: PerfilPack, tema: string, red: string): Promise<TextoRed> {
   try {
     const limite = red === "Instagram" ? "máximo 150 palabras" : "máximo 200 palabras";
-    const prompt = `Genera un post para ${red} de "${p.nombre_entidad || "la organización"}" (${p.tipo_entidad || "ong"}).
+    const prompt = `Genera un post para ${red} de "${p.nombre_entidad || `la ${enteDe(p)}`}" (${p.tipo_entidad || "ong"}).
 Tema: ${tema}
 ${contextoDe(p)}
 
@@ -148,7 +153,7 @@ ${instruccionIdioma(p.idioma_principal)}`;
 /** Genera guion estructurado de TikTok. */
 async function generarGuionTikTok(p: PerfilPack, tema: string): Promise<{ guion: GuionTikTok | null; texto: string; titular: string; hashtags: string[] }> {
   try {
-    const prompt = `Crea un guion de TikTok (30s, tono cercano) para "${p.nombre_entidad || "la organización"}".
+    const prompt = `Crea un guion de TikTok (30s, tono cercano) para "${p.nombre_entidad || `la ${enteDe(p)}`}".
 Tema: ${tema}
 ${contextoDe(p)}
 
@@ -395,7 +400,7 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   // Rellenar huecos con temas IA basados en la actividad.
   if (indicesIA.length) {
     const temas = await temasIA(perfil, indicesIA.length);
-    indicesIA.forEach((idx, k) => { planes[idx].tema = temas[k] || "Comparte una historia de tu organización"; });
+    indicesIA.forEach((idx, k) => { planes[idx].tema = temas[k] || `Comparte una historia de tu ${enteDe(perfil)}`; });
   }
 
   // Distribución de redes.

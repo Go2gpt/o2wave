@@ -150,7 +150,7 @@ PARÁMETROS:
 - Duración total: ${duracion} → usa ${segmentosPara(duracion)}
 - Tono: ${tonoTk} (refléjalo en el vocabulario y la energía del texto)
 - Entorno o ubicación de grabación: ${entorno}
-${contextoUsuario ? `\nCONTEXTO DE LA ORGANIZACIÓN:\n${contextoUsuario}\n` : ""}
+${contextoUsuario ? `\nCONTEXTO DE LA ENTIDAD:\n${contextoUsuario}\n` : ""}
 INSTRUCCIONES:
 - El guion debe caber en la duración indicada.
 - Los planos deben ser PRÁCTICOS para alguien sin equipo (smartphone + luz natural) y deben encajar con el entorno indicado (${entorno}): ambienta las tomas en ese lugar.
@@ -202,7 +202,7 @@ ${INSTRUCCION_TILDES}
 ${instruccionIdioma(profile?.idioma_principal)}`;
 
     const prompt = `Contenido para ${redSocial}${formatoInstagram ? ` (${formatoInstagram})` : ""}:
-Organización: ${nombreOrganizacion} (${tipoOrganizacion})
+Entidad: ${nombreOrganizacion} (${tipoOrganizacion})
 Tema: ${tema} | Tono: ${tono}
 ${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${incluirHashtags ? "✅ Con hashtags" : "❌ Sin hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
 ${redSocial === "Instagram" ? "Máximo 150 palabras, impacto visual." : ""}
