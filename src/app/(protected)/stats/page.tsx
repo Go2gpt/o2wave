@@ -59,7 +59,7 @@ export default async function StatsPage() {
 
   const COMMUNITY = [
     { label: "Posts generados", value: communityTotal.toLocaleString(), icon: "✨", color: "#f9b23b" },
-    { label: "Organizaciones", value: communityUsers?.toLocaleString() || "—", icon: "🌍", color: "#93bf30" },
+    { label: "Cuentas activas", value: communityUsers?.toLocaleString() || "—", icon: "🌍", color: "#93bf30" },
     { label: "Horas ahorradas", value: (communityTotal * 0.5).toFixed(1) + "h", icon: "⏱️", color: "#6366f1" },
   ];
 
@@ -139,7 +139,7 @@ export default async function StatsPage() {
         style={{ background: "linear-gradient(135deg, #0F0F0F 0%, #1c1c1c 100%)" }}>
         <p className="text-white font-bold text-sm mb-1">💚 Impacto colectivo</p>
         <p className="text-gray-400 text-xs leading-relaxed">
-          Cada post generado es tiempo que ONGs y PYMEs dedican a lo que de verdad importa: su misión.
+          Cada post generado es tiempo que las cuentas dedican a lo que de verdad importa: su trabajo.
         </p>
       </div>
     </div>

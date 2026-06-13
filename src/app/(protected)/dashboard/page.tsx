@@ -53,7 +53,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     .order("created_at", { ascending: false })
     .limit(3);
 
-  const nombre = profile?.nombre_entidad || session.user.email?.split("@")[0] || "Usuario";
+  // Saludo neutro: si no hay nombre de entidad, no exponemos el prefijo del email.
+  const nombre = profile?.nombre_entidad || "";
 
   // Logo de la entidad (de brand_identity) para el avatar; si no hay, mostrará iniciales.
   const { data: brand } = await supabase
@@ -145,7 +146,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
       {/* Greeting */}
       <div className="px-5 mb-5">
-        <h1 className="text-xl font-bold text-gray-900">Hola, {nombre} 👋</h1>
+        <h1 className="text-xl font-bold text-gray-900">{nombre ? `Hola, ${nombre} 👋` : "Hola 👋"}</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           {recentPosts?.length
             ? `Tienes ${recentPosts.length} publicación${recentPosts.length > 1 ? "es" : ""} reciente${recentPosts.length > 1 ? "s" : ""}.`
