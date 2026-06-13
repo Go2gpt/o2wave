@@ -89,7 +89,7 @@ export async function enviarCancelacionUsuario(p: { to: string; nombre: string; 
   const np = nombrePlan(p.plan);
   const parrafoGratis = p.esOng
     ? `<p>Tu cuenta sigue activa con el plan gratuito <strong>ONG pequeña</strong>, así que puedes seguir usando o2Wave con las funciones básicas.</p>`
-    : "";
+    : `<p>Tu cuenta seguirá activa hasta el final del periodo ya facturado. Después podrás reactivar tu suscripción cuando quieras.</p>`;
   const inner = `
     <p>Hola ${esc(p.nombre) || ""},</p>
     <p>Hemos procesado la cancelación de tu suscripción a <strong>${esc(np)}</strong>. No se te volverá a cobrar.</p>
