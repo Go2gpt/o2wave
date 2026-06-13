@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { canUseFeature } from "@/lib/plans";
 import BackLink from "@/components/BackLink";
 
@@ -42,13 +43,17 @@ export default async function StatsPage() {
   const { count: communityPosts } = await supabase
     .from("generated_posts").select("*", { count: "exact", head: true });
 
-  // Organizaciones: el count directo a profiles está limitado por RLS (solo ve el
-  // perfil propio → siempre 1). Usamos un RPC SECURITY DEFINER; si aún no existe,
-  // caemos al count directo.
-  const { count: communityUsersCount } = await supabase
-    .from("profiles").select("*", { count: "exact", head: true });
-  const { data: orgsRpc } = await supabase.rpc("contar_organizaciones");
-  const communityUsers = typeof orgsRpc === "number" ? orgsRpc : communityUsersCount;
+  // Cuentas activas: contamos usuarios reales en auth.users (no perfiles, que
+  // pueden quedar huérfanos e inflar el número). Vía admin (service role).
+  let communityUsers: number | null = null;
+  try {
+    const { data: lu } = await createAdminClient().auth.admin.listUsers({ page: 1, perPage: 1000 });
+    communityUsers = lu?.users?.length ?? null;
+  } catch {
+    // Fallback tolerante: count de profiles (puede sobrecontar huérfanos).
+    const { count } = await supabase.from("profiles").select("*", { count: "exact", head: true });
+    communityUsers = count ?? null;
+  }
 
   // Días de pack a nivel comunidad vía RPC (NULL → total). Tolerante si la RPC aún no existe.
   const { data: diasPackComunidad } = await supabase.rpc("contar_dias_pack", { p_user_id: null });

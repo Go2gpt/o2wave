@@ -315,8 +315,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         )}
       </div>
 
-      {/* Plan banner (free users) */}
-      {profile?.plan === "free" && (
+      {/* Plan banner: solo donde tiene sentido mejorar (free ONG o Early Bird). No a admins. */}
+      {!profile?.es_admin && ["ong_pequena", "earlybird"].includes(profile?.plan_actual ?? "") && (
         <div className="mx-5 mb-5 rounded-2xl p-4 flex items-center gap-3"
           style={{ background: "linear-gradient(135deg, #0F0F0F 0%, #1c1c1c 100%)" }}>
           <span className="text-2xl">🚀</span>

@@ -1,8 +1,10 @@
 import Link from "next/link";
+import CuentaEliminadaBanner from "@/components/CuentaEliminadaBanner";
 
-export default function WelcomePage() {
+export default function WelcomePage({ searchParams }: { searchParams: { cuenta_eliminada?: string } }) {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#0F0F0F" }}>
+      {searchParams?.cuenta_eliminada === "1" && <CuentaEliminadaBanner />}
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10"

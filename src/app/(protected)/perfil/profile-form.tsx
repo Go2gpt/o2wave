@@ -249,9 +249,9 @@ export default function ProfileForm({
     try {
       const res = await fetch("/api/account/delete", { method: "POST" });
       if (!res.ok) throw new Error("delete_failed");
-      // Cuenta borrada: cerramos sesión y salimos a la pantalla pública.
+      // Cuenta borrada: cerramos sesión y salimos a la pantalla pública con aviso.
       await supabase.auth.signOut();
-      window.location.href = "/welcome";
+      router.push("/welcome?cuenta_eliminada=1");
     } catch {
       setDeleteStep(0); setDeleteText("");
       setToast({ message: "No se pudo eliminar la cuenta. Contacta con soporte.", type: "error" });
