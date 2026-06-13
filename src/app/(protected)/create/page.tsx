@@ -20,11 +20,6 @@ const FORMATO_OPTIONS = [
   { value: "Post 1080×1080" as FormatoInstagram, label: "Post" },
   { value: "Story 9:16" as FormatoInstagram, label: "Story" },
 ];
-const TIPOS = [
-  { value: "ong" as TipoEntidad, label: "ONG", emoji: "🤝" },
-  { value: "pyme" as TipoEntidad, label: "PYME", emoji: "🏢" },
-  { value: "autonomo" as TipoEntidad, label: "Autónomo", emoji: "💼" },
-];
 const DURACIONES_TIKTOK = [
   { value: "15s", label: "15s — gancho rápido" },
   { value: "30s", label: "30s — medio (recomendado)" },
@@ -79,10 +74,15 @@ function CreateInner() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("nombre_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("nombre_entidad, tipo_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
       setGating({ plan_actual: profile?.plan_actual, plan_estado: profile?.plan_estado, es_admin: profile?.es_admin, posts_gratis_usados: profile?.posts_gratis_usados });
-      // Pre-rellena el nombre de la organización (editable) si el campo está vacío.
-      if (profile?.nombre_entidad) setForm((f) => f.nombreOrganizacion ? f : { ...f, nombreOrganizacion: profile.nombre_entidad! });
+      // El tipo de la entidad viene del perfil (fuente única), no de un selector.
+      setForm((f) => ({
+        ...f,
+        tipoOrganizacion: (profile?.tipo_entidad as TipoEntidad) || f.tipoOrganizacion,
+        // Pre-rellena el nombre (editable) si está vacío.
+        nombreOrganizacion: f.nombreOrganizacion || profile?.nombre_entidad || "",
+      }));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -199,28 +199,13 @@ function CreateInner() {
         {/* Nombre */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-            Nombre de tu organización
+            {form.tipoOrganizacion === "empresa" ? "Nombre de tu empresa" : "Nombre de tu organización"}
           </label>
           <input value={form.nombreOrganizacion} onChange={e => set("nombreOrganizacion", e.target.value)}
-            placeholder="Ej: Fundación Futuro Verde" required
+            placeholder={form.tipoOrganizacion === "empresa" ? "Ej: Zapatos Rodríguez" : "Ej: Fundación Futuro Verde"} required
             className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors"
             onFocus={e => e.target.style.borderColor = "#f9b23b"}
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
-        </div>
-
-        {/* Tipo */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Tipo</label>
-          <div className="flex gap-2">
-            {TIPOS.map(({ value, label, emoji }) => (
-              <button key={value} type="button" onClick={() => set("tipoOrganizacion", value)}
-                className="flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all"
-                style={pill(form.tipoOrganizacion === value)}>
-                <span className="block text-lg mb-0.5">{emoji}</span>
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Red social */}
@@ -398,7 +383,7 @@ function CreateInner() {
           <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
             <div className="text-4xl mb-2">🔒</div>
             <h3 className="font-bold text-gray-900 mb-1">{showUpsell} está en los planes de pago</h3>
-            <p className="text-sm text-gray-500 mb-4">Mejora a ONG mediana o superior para crear contenido para {showUpsell}.</p>
+            <p className="text-sm text-gray-500 mb-4">Mejora tu plan para desbloquear esta función ({showUpsell}).</p>
             <Link href="/plans" className="block w-full py-3 rounded-2xl font-bold text-white text-sm" style={{ backgroundColor: "#f9b23b" }}>Ver planes</Link>
             <button onClick={() => setShowUpsell(null)} className="w-full py-2.5 text-sm text-gray-500 font-medium">Ahora no</button>
           </div>
