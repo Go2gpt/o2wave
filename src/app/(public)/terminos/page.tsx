@@ -9,13 +9,9 @@ export default function TerminosPage() {
       <p>
         Los presentes Términos y condiciones (en adelante, los &laquo;Términos&raquo;) regulan el acceso y uso
         de la plataforma o2Wave, accesible a través de <a href="https://www.o2wave.app">https://www.o2wave.app</a>{" "}
-        (en adelante, el &laquo;Servicio&raquo;), titularidad de:
-      </p>
-      <p>
-        <strong>Asociación Generación o2</strong> (en adelante, &laquo;Generación o2&raquo;, &laquo;nosotros&raquo; o &laquo;el Titular&raquo;)<br />
-        NIF: G67418350<br />
-        Domicilio: Carrer Encuny 7, piso 10, puerta 8, 08038 Barcelona, España<br />
-        Email de contacto: <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>
+        (en adelante, el &laquo;Servicio&raquo;), titularidad de la <strong>Asociación Generación o2</strong>{" "}
+        (en adelante, &laquo;Generación o2&raquo;, &laquo;nosotros&raquo; o &laquo;el Titular&raquo;), cuyos datos
+        identificativos figuran en el apartado 1.
       </p>
       <p>
         El uso del Servicio implica la aceptación plena y sin reservas de estos Términos. Si no estás de
@@ -25,8 +21,8 @@ export default function TerminosPage() {
       <h2>1. Información general</h2>
       <p>
         Los presentes Términos regulan el acceso y uso de la plataforma o2Wave. El Titular del Servicio es la
-        Asociación Generación o2, con NIF G67418350 y domicilio en Carrer Encuny 7, piso 10, puerta 8, 08038
-        Barcelona, España.
+        Asociación Generación o2, con NIF G67418350, domicilio en Carrer Encuny 7, piso 10, puerta 8, 08038
+        Barcelona, España, y email de contacto <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>.
       </p>
 
       <h2>2. Objeto del Servicio</h2>
