@@ -246,10 +246,16 @@ export default function ProfileForm({
   const logout = async () => { await supabase.auth.signOut(); router.push("/welcome"); };
 
   const eliminarCuenta = async () => {
-    // Placeholder: la RPC aún no existe. Mostramos aviso.
-    try { await supabase.rpc("eliminar_mi_cuenta"); } catch {}
-    setDeleteStep(0); setDeleteText("");
-    setToast({ message: "Función pendiente, contacta con soporte.", type: "error" });
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      if (!res.ok) throw new Error("delete_failed");
+      // Cuenta borrada: cerramos sesión y salimos a la pantalla pública.
+      await supabase.auth.signOut();
+      window.location.href = "/welcome";
+    } catch {
+      setDeleteStep(0); setDeleteText("");
+      setToast({ message: "No se pudo eliminar la cuenta. Contacta con soporte.", type: "error" });
+    }
   };
 
   const VERIF: Record<string, { label: string; bg: string; color: string }> = {
