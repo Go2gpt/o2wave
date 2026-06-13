@@ -79,7 +79,7 @@ export async function GET(request: Request) {
       procesados++;
       // Aviso por email (no bloqueante: un fallo aquí no descontabiliza el pack).
       try {
-        if (user.email) await enviarPackListo({ to: user.email, nombre: user.nombre_entidad ?? "" });
+        if (user.email) await enviarPackListo({ to: user.email, nombre: user.nombre_entidad ?? "", packId: result.pack_id });
       } catch (mailErr) {
         console.error("cron pack-semanal: error enviando email pack-listo", user.id, mailErr instanceof Error ? mailErr.message : mailErr);
       }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { procesarPackJob } from "@/lib/packProcessor";
+import { enviarPackListo } from "@/lib/emails";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -14,7 +15,7 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("pack_semanal_activo").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("pack_semanal_activo, nombre_entidad").eq("id", user.id).single();
   if (!profile?.pack_semanal_activo) {
     return NextResponse.json({ error: "Activa el pack semanal automático en tu perfil para poder generarlo." }, { status: 400 });
   }
@@ -46,6 +47,12 @@ export async function POST() {
   try {
     const result = await procesarPackJob(admin, job.id as string);
     console.log(`pack/generar: OK pack ${result.pack_id} (${result.con_imagen} imágenes, ${result.fallos.length} fallos)`);
+    // Aviso por email con deep-link al pack (no bloqueante: igual patrón que el cron).
+    try {
+      if (user.email) await enviarPackListo({ to: user.email, nombre: profile?.nombre_entidad ?? "", packId: result.pack_id });
+    } catch (mailErr) {
+      console.error("pack/generar: error enviando email pack-listo", mailErr instanceof Error ? mailErr.message : mailErr);
+    }
     return NextResponse.json({ ok: true, pack_id: result.pack_id, con_imagen: result.con_imagen });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
