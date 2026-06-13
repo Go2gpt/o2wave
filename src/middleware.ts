@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
   ) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("onboarding_complete, tipo_entidad, estado_verificacion")
+      .select("onboarding_complete, tipo_entidad, estado_verificacion, plan_estado, es_admin")
       .eq("id", session.user.id)
       .single();
 
@@ -99,6 +99,23 @@ export async function middleware(request: NextRequest) {
         !pathname.startsWith("/verificacion")
       ) {
         return redirectTo("/verificacion");
+      }
+
+      // Bloqueo duro: una empresa sin suscripción activa no accede al servicio.
+      // Whitelist: planes, perfil y verificación; /api y /onboarding ya quedan
+      // fuera de este bloque. Admin pasa siempre. Bypass temporal por código promo
+      // (cookie cosmética hasta tener el sistema real de códigos).
+      const subActiva = profile.plan_estado === "activa" || profile.plan_estado === "trial";
+      const promoBypass = request.cookies.get("o2_promo_bypass")?.value === "1";
+      const enWhitelist = ["/plans", "/perfil", "/verificacion"].some((r) => pathname.startsWith(r));
+      if (
+        profile.tipo_entidad === "empresa" &&
+        !profile.es_admin &&
+        !subActiva &&
+        !promoBypass &&
+        !enWhitelist
+      ) {
+        return redirectTo("/plans?empresa_sin_sub=1");
       }
     }
   }

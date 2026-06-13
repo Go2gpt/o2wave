@@ -9,18 +9,29 @@ import Toast, { type ToastState } from "@/components/Toast";
 import { PLANES } from "@/lib/plans";
 import type { PlanActual, PlanCiclo } from "@/types";
 
-export default function PlansView({ autenticado, esAdmin, grupo, planActual, success, cancelled }: {
+export default function PlansView({ autenticado, esAdmin, grupo, planActual, success, cancelled, empresaSinSub }: {
   autenticado: boolean;
   esAdmin: boolean;
   grupo: "ong" | "empresa";
   planActual: PlanActual | null;
   success: boolean;
   cancelled: boolean;
+  empresaSinSub?: boolean;
 }) {
   const router = useRouter();
   const [ciclo, setCiclo] = useState<PlanCiclo>("mensual");
   const [loading, setLoading] = useState<PlanActual | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
+  const [promo, setPromo] = useState("");
+
+  // Bypass temporal por código promocional: aceptamos cualquier código no vacío
+  // (sin validación todavía) y dejamos pasar fijando la cookie que lee el middleware.
+  // TODO: sustituir por el sistema real de validación de códigos.
+  const aplicarPromo = () => {
+    if (!promo.trim()) return;
+    document.cookie = "o2_promo_bypass=1; path=/; max-age=2592000";
+    router.push("/dashboard");
+  };
 
   useEffect(() => {
     if (success) setToast({ message: "¡Suscripción completada! Puede tardar unos segundos en reflejarse.", type: "success" });
@@ -63,6 +74,25 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
             <Link href="/register" className="text-sm font-bold text-white px-4 py-2 rounded-full" style={{ backgroundColor: "#f9b23b" }}>Empezar gratis</Link>
           </div>
         </header>
+      )}
+
+      {/* Bloqueo empresa sin suscripción: aviso + código promocional */}
+      {empresaSinSub && (
+        <div className="mx-5 mb-4 mt-2 rounded-2xl p-4" style={{ backgroundColor: "#fff8ef", border: "1px solid #f9d9a8" }}>
+          <p className="text-sm font-bold" style={{ color: "#b9791a" }}>Activa tu suscripción para continuar</p>
+          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+            Las empresas necesitan una suscripción activa para acceder al servicio. Si tienes un código promocional, ingrésalo aquí.
+          </p>
+          <div className="flex gap-2 mt-3">
+            <input value={promo} onChange={(e) => setPromo(e.target.value)} placeholder="Código promocional"
+              className="flex-1 border-2 border-gray-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none"
+              onFocus={(e) => (e.target.style.borderColor = "#f9b23b")} onBlur={(e) => (e.target.style.borderColor = "#f3f4f6")} />
+            <button onClick={aplicarPromo} disabled={!promo.trim()}
+              className="px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: "#f9b23b" }}>
+              Aplicar
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="px-5 pb-3 pt-2">

@@ -4,7 +4,7 @@ import PlansView from "./plans-view";
 
 export const dynamic = "force-dynamic";
 
-export default async function PlansPage({ searchParams }: { searchParams: { success?: string; cancelled?: string } }) {
+export default async function PlansPage({ searchParams }: { searchParams: { success?: string; cancelled?: string; empresa_sin_sub?: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -27,6 +27,7 @@ export default async function PlansPage({ searchParams }: { searchParams: { succ
       planActual={planActual}
       success={searchParams?.success === "1"}
       cancelled={searchParams?.cancelled === "1"}
+      empresaSinSub={searchParams?.empresa_sin_sub === "1"}
     />
   );
 }
