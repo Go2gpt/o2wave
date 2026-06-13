@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
             <p>Hemos verificado tu ${tipo} en <strong>o2Wave</strong>. Tu cuenta ya está activa
             y puedes acceder a <strong>todas las funciones</strong> de tu plan.</p>
             <p>Entra y empieza a generar contenido para tu comunidad.</p>
-            <p style="color:#6b7280;font-size:13px;margin-top:24px">Comunicas tú, ayudas a muchos.<br/>El equipo de o2Wave</p>
+            <p style="color:#6b7280;font-size:13px;margin-top:24px">La IA que no se nota.<br/>El equipo de o2Wave</p>
           </div>`,
       });
     }

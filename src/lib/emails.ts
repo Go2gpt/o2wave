@@ -45,7 +45,7 @@ function layout(inner: string): string {
       </div>
       <div style="padding:24px;color:#0F0F0F;line-height:1.6;font-size:15px">${inner}</div>
       <div style="padding:16px 24px;border-top:1px solid #f0f0f0;text-align:center">
-        <p style="margin:0;color:#93bf30;font-style:italic;font-size:13px">Comunicas tú, ayudas a muchos.</p>
+        <p style="margin:0;color:#93bf30;font-style:italic;font-size:13px">La IA que no se nota.</p>
         <p style="margin:4px 0 0;color:#9ca3af;font-size:11px">o2Wave · www.o2wave.app</p>
       </div>
     </div>

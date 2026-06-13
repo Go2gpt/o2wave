@@ -177,7 +177,7 @@ function CreateInner() {
         <div className="absolute inset-0 flex items-center justify-center text-3xl">✨</div>
       </div>
       <h2 className="text-lg font-bold text-gray-900 mb-2">Generando tu contenido...</h2>
-      <p className="text-sm text-gray-400">Claude AI está trabajando para ti</p>
+      <p className="text-sm text-gray-400">Esto suele tardar unos segundos…</p>
     </div>
   );
 
@@ -186,9 +186,6 @@ function CreateInner() {
       {/* Header */}
       <div className="px-5 pt-8 pb-2 flex items-center justify-between">
         <BackLink href="/dashboard">Inicio</BackLink>
-        <span className="text-xs font-semibold text-gray-400 bg-white px-3 py-1.5 rounded-full border border-gray-200">
-          ✨ Claude AI
-        </span>
       </div>
 
       <div className="px-5 pb-2">
