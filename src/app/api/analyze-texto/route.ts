@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     const { fraseDescriptiva, posts, bio }: { fraseDescriptiva?: string; posts?: string; bio?: string } = await request.json();
 
-    if (!fraseDescriptiva || fraseDescriptiva.trim().length < 10) {
+    if (!fraseDescriptiva || fraseDescriptiva.trim().length < 4) {
       return NextResponse.json({ error: "Describe en una frase a qué te dedicas." }, { status: 400 });
     }
 

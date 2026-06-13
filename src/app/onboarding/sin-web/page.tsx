@@ -210,7 +210,7 @@ export default function OnboardingSinWebPage() {
                 ? "Ej: agencia de viajes especializada en escapadas rurales en España."
                 : "Ej: ayudamos a personas en exclusión social en Barcelona"}
               className={inputCls} onFocus={onF} onBlur={onB} />
-            <button onClick={() => { setPaso(2); window.scrollTo(0, 0); }} disabled={frase.trim().length < 10}
+            <button onClick={() => { setPaso(2); window.scrollTo(0, 0); }} disabled={frase.trim().length < 4}
               className="w-full mt-5 py-4 rounded-2xl font-bold text-white text-base disabled:opacity-50 transition-all active:scale-[0.98]"
               style={{ backgroundColor: "#f9b23b" }}>Siguiente →</button>
           </>
