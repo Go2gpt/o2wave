@@ -29,9 +29,9 @@ export default function PagoFallidoBanner() {
         <div className="flex items-start gap-3">
           <span className="text-xl flex-shrink-0">⚠️</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-red-700">Tu último pago no se completó</p>
+            <p className="text-sm font-bold text-red-700">Hubo un problema con tu último pago</p>
             <p className="text-xs text-red-600 mt-0.5 leading-relaxed">
-              Actualiza tu método de pago para seguir generando contenido sin interrupciones.
+              Actualiza tu método de pago para mantener tu suscripción activa.
             </p>
             {error && <p className="text-xs text-red-500 mt-1 font-medium">{error}</p>}
             <button onClick={abrirPortal} disabled={cargando}
