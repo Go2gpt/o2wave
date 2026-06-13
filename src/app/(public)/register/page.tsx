@@ -61,6 +61,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [aceptaGratis, setAceptaGratis] = useState(false);
 
   // Preselecciona el tipo según ?plan= (viene de /plans) y guarda el plan/ciclo
   // de pago pendiente para retomar el checkout tras el onboarding. Fallback: ong_pequena.
@@ -80,10 +81,19 @@ export default function RegisterPage() {
   const esErrorNifDuplicado = (msg: string) =>
     msg.includes("23505") || msg.toLowerCase().includes("nif");
 
+  const esGratisPlan = tipo === "ong_pequena";
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setNifError("");
+
+    // Plan gratuito: la declaración de cumplimiento es obligatoria.
+    if (esGratisPlan && !aceptaGratis) {
+      setError("Para continuar con el plan gratuito, marca la declaración de cumplimiento.");
+      return;
+    }
+    const fechaAcept = esGratisPlan && aceptaGratis ? new Date().toISOString() : null;
 
     let nifNorm: string | null = null;
     if (pideNif) {
@@ -105,7 +115,14 @@ export default function RegisterPage() {
         email,
         password,
         options: {
-          data: { tipo_entidad: tipo, nif: nifNorm },
+          // La aceptación viaja en metadata para sobrevivir a la confirmación por
+          // email (el trigger handle_new_user la copia al perfil).
+          data: {
+            tipo_entidad: tipo,
+            nif: nifNorm,
+            acepto_condiciones_plan_gratuito: esGratisPlan ? aceptaGratis : false,
+            fecha_aceptacion_plan_gratuito: fechaAcept,
+          },
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/web`,
         },
       });
@@ -121,6 +138,8 @@ export default function RegisterPage() {
           tipo_entidad: tipo,
           nif: nifNorm,
           plan: "free",
+          acepto_condiciones_plan_gratuito: esGratisPlan ? aceptaGratis : false,
+          fecha_aceptacion_plan_gratuito: fechaAcept,
         });
         if (upErr) {
           if (esErrorNifDuplicado(`${upErr.code} ${upErr.message}`)) { setNifError(DUP_MSG); return; }
@@ -201,6 +220,27 @@ export default function RegisterPage() {
           ))}
         </div>
 
+        {/* Plan gratuito: condiciones + declaración obligatoria (solo ONG pequeña) */}
+        {esGratisPlan && (
+          <div className="mb-4 rounded-2xl p-4" style={{ border: "1px solid #e5e7eb", backgroundColor: "#f9fafb" }}>
+            <p className="text-xs font-semibold text-gray-700 mb-2">El plan gratuito está disponible para entidades sin ánimo de lucro con:</p>
+            <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4 mb-3">
+              <li>CIF que empieza por G, R, V o N.</li>
+              <li>Presupuesto anual inferior a 50.000 €.</li>
+              <li>Máximo 1 trabajador remunerado.</li>
+              <li>Acceso a 10 publicaciones al mes (Instagram y Facebook).</li>
+            </ul>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={aceptaGratis} onChange={(e) => setAceptaGratis(e.target.checked)}
+                className="mt-0.5 w-4 h-4 flex-shrink-0" style={{ accentColor: "#93bf30" }} />
+              <span className="text-xs text-gray-600 leading-relaxed">
+                Declaro que mi entidad cumple los requisitos del plan gratuito y acepto las condiciones descritas en la sección 5 de los Términos de uso.{" "}
+                <a href="/terminos#plan-gratuito" target="_blank" rel="noopener noreferrer" className="font-semibold" style={{ color: "#93bf30" }}>Ver condiciones completas →</a>
+              </span>
+            </label>
+          </div>
+        )}
+
         {/* Solidarity tagline */}
         <p className="text-center text-xs text-gray-400 mb-6">
           Las que pueden, sostienen a las que no pueden.
@@ -270,7 +310,7 @@ export default function RegisterPage() {
             <Link href="/privacidad" className="underline font-medium">Política de privacidad</Link>.
           </p>
 
-          <button type="submit" disabled={loading || !passwordValido(password)}
+          <button type="submit" disabled={loading || !passwordValido(password) || (esGratisPlan && !aceptaGratis)}
             className="w-full py-4 rounded-2xl font-bold text-white text-base mt-2 disabled:opacity-50 transition-all active:scale-[0.98]"
             style={{ backgroundColor: selectedColor }}>
             {loading ? (

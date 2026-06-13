@@ -24,6 +24,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
   const [loading, setLoading] = useState<PlanActual | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
   const [promo, setPromo] = useState("");
+  const [condicionesAbiertas, setCondicionesAbiertas] = useState(false);
 
   // Bypass temporal por código promocional: aceptamos cualquier código no vacío
   // (sin validación todavía) y dejamos pasar fijando la cookie que lee el middleware.
@@ -201,6 +202,30 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
                     )
                   ))}
                 </div>
+
+                {/* Condiciones del plan gratuito (solo card ONG pequeña) */}
+                {esGratis && (
+                  <div className="mb-3">
+                    <button type="button" onClick={() => setCondicionesAbiertas((v) => !v)}
+                      className="text-xs font-semibold" style={{ color: "#93bf30" }}>
+                      {condicionesAbiertas ? "Ocultar condiciones del plan gratuito" : "Ver condiciones del plan gratuito →"}
+                    </button>
+                    {condicionesAbiertas && (
+                      <div className="mt-2 rounded-xl p-3 text-xs text-gray-600 leading-relaxed" style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb" }}>
+                        <ul className="space-y-1 list-disc pl-4">
+                          <li>Solo entidades sin ánimo de lucro (CIF G, R, V, N).</li>
+                          <li>Presupuesto anual inferior a 50.000 €.</li>
+                          <li>Máximo 1 trabajador remunerado (resto voluntariado).</li>
+                          <li>10 publicaciones al mes (Instagram y Facebook).</li>
+                          <li>Sin TikTok ni pack semanal automático.</li>
+                        </ul>
+                        <Link href="/terminos#plan-gratuito" className="inline-block mt-2 font-semibold" style={{ color: "#93bf30" }}>
+                          Leer texto legal completo →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* CTA según modo: visitante / admin / logueado-actual / logueado-otro */}
                 {!autenticado ? (

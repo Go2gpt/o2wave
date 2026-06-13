@@ -87,7 +87,8 @@ export default function TerminosPage() {
       <p>
         4.5. <strong>Plan gratuito:</strong> los usuarios del plan gratuito disponen de un número limitado de
         generaciones mensuales. Una vez alcanzado el límite, la generación de nuevo contenido queda bloqueada
-        hasta el siguiente ciclo o hasta que el usuario contrate un plan superior.
+        hasta el siguiente ciclo o hasta que el usuario contrate un plan superior. Las condiciones de acceso al
+        plan gratuito se detallan en el apartado 5.
       </p>
       <p>
         4.6. <strong>Impago:</strong> si una renovación de pago falla y no se regulariza en un plazo de 7 días,
@@ -95,9 +96,75 @@ export default function TerminosPage() {
         restablecer el servicio actualizando su método de pago.
       </p>
 
-      <h2>5. Uso aceptable</h2>
+      <h2 id="plan-gratuito">5. Plan gratuito para ONGs pequeñas</h2>
       <p>
-        5.1. El usuario se compromete a utilizar el Servicio exclusivamente para fines lícitos y conforme a la
+        o2Wave ofrece un plan gratuito permanente diseñado para entidades sin ánimo de lucro de pequeña
+        dimensión. Para acogerse al plan gratuito, el usuario debe cumplir todos los siguientes requisitos:
+      </p>
+      <h3>5.1. Naturaleza jurídica de la entidad</h3>
+      <p>
+        La cuenta debe corresponder a una entidad sin ánimo de lucro legalmente constituida en España o en otro
+        país, identificada con un CIF que empiece por G (asociaciones), R (religiosas), V (fundaciones,
+        agrupaciones sin personalidad jurídica con NIF), N (entidades extranjeras), o equivalente extranjero.
+        Quedan excluidas las sociedades mercantiles (S.L., S.A., S.L.U., S.C., autónomos personas físicas),
+        aunque su actividad tenga componente social.
+      </p>
+      <h3>5.2. Presupuesto anual</h3>
+      <p>
+        La entidad debe declarar un presupuesto anual de funcionamiento inferior a 50.000 € (cincuenta mil
+        euros). Este presupuesto incluye la totalidad de ingresos anuales (cuotas, subvenciones, donaciones,
+        prestaciones de servicios, etc.) según las cuentas anuales más recientes presentadas en el registro
+        correspondiente.
+      </p>
+      <h3>5.3. Estructura del equipo</h3>
+      <p>
+        La entidad debe operar principalmente con personal voluntario. Se admiten como máximo un (1) trabajador
+        remunerado a tiempo completo o equivalente en jornada parcial. No se contabilizan: voluntarios,
+        becarios sin retribución, personal subcontratado puntualmente para acciones concretas, ni miembros de
+        junta directiva no retribuidos.
+      </p>
+      <h3>5.4. Servicios incluidos en el plan gratuito</h3>
+      <p>El plan gratuito incluye:</p>
+      <ul>
+        <li>Generación de hasta diez (10) publicaciones al mes con inteligencia artificial (texto + imagen). El contador se reinicia el día 1 de cada mes natural.</li>
+        <li>Publicación en redes sociales Instagram y Facebook.</li>
+        <li>Acceso al calendario de días clave y a la preselección de categorías según el tipo de entidad.</li>
+        <li>Estadísticas básicas de actividad.</li>
+      </ul>
+      <h3>5.5. Servicios NO incluidos en el plan gratuito</h3>
+      <p>El plan gratuito NO incluye los siguientes servicios, que requieren suscripción de pago:</p>
+      <ul>
+        <li>Publicación en TikTok.</li>
+        <li>Pack semanal automático de contenido.</li>
+        <li>Estadísticas avanzadas (analítica de evolución, comparativas, etc.).</li>
+        <li>Generación ilimitada de publicaciones (por encima del cap mensual).</li>
+      </ul>
+      <h3>5.6. Veracidad de la declaración y consecuencias</h3>
+      <p>
+        El usuario es responsable de la veracidad de los datos declarados al registrarse y acogerse al plan
+        gratuito. Generación o2 se reserva el derecho de:
+      </p>
+      <ul>
+        <li>a) Solicitar al usuario documentación acreditativa del cumplimiento de los requisitos (estatutos, cuentas anuales, certificado del registro de asociaciones, etc.) en cualquier momento.</li>
+        <li>b) Reclasificar la cuenta al plan &laquo;ONG mediana&raquo; (de pago) si comprueba que la entidad excede los umbrales establecidos, notificándolo al usuario con un mínimo de quince (15) días de antelación.</li>
+        <li>c) Suspender el plan gratuito si se detecta falsedad en la declaración inicial. En tal caso, el usuario podrá continuar usando el Servicio contratando un plan de pago.</li>
+      </ul>
+      <h3>5.7. Cambios en las condiciones del plan gratuito</h3>
+      <p>
+        Generación o2 podrá modificar los límites, los servicios incluidos o los criterios de acceso al plan
+        gratuito, notificándolo al usuario con un mínimo de treinta (30) días de antelación. En caso de no
+        aceptación, el usuario podrá darse de baja sin penalización.
+      </p>
+      <h3>5.8. Códigos promocionales</h3>
+      <p>
+        Las entidades que no cumplan los criterios del plan gratuito permanente pueden, no obstante, acogerse a
+        códigos promocionales (campañas de lanzamiento, descuentos puntuales, etc.) ofrecidos por Generación o2.
+        Estos códigos se rigen por sus propias condiciones, indicadas en el momento del canje.
+      </p>
+
+      <h2>6. Uso aceptable</h2>
+      <p>
+        6.1. El usuario se compromete a utilizar el Servicio exclusivamente para fines lícitos y conforme a la
         moral, el orden público y las buenas costumbres. Queda prohibido, entre otros:
       </p>
       <ul>
@@ -109,50 +176,50 @@ export default function TerminosPage() {
         <li>Utilizar bots o scripts automatizados para abusar de los límites del Servicio.</li>
       </ul>
       <p>
-        5.2. Generación o2 podrá suspender o cancelar cualquier cuenta que incumpla las anteriores normas sin
+        6.2. Generación o2 podrá suspender o cancelar cualquier cuenta que incumpla las anteriores normas sin
         derecho a reembolso.
       </p>
 
-      <h2>6. Contenido generado por inteligencia artificial</h2>
+      <h2>7. Contenido generado por inteligencia artificial</h2>
       <p>
-        6.1. El contenido (textos, imágenes, guiones) generado por o2Wave es producido por modelos de
+        7.1. El contenido (textos, imágenes, guiones) generado por o2Wave es producido por modelos de
         inteligencia artificial de terceros (incluyendo, entre otros, Anthropic y Replicate). Generación o2 no
         garantiza la exactitud, originalidad ni ausencia de errores de dicho contenido.
       </p>
       <p>
-        6.2. El usuario es <strong>el único responsable</strong> del contenido que publique, comparta o
+        7.2. El usuario es <strong>el único responsable</strong> del contenido que publique, comparta o
         distribuya, debiendo revisarlo antes de su publicación.
       </p>
       <p>
-        6.3. La titularidad y derechos de uso del contenido generado corresponden al usuario, sin perjuicio de
+        7.3. La titularidad y derechos de uso del contenido generado corresponden al usuario, sin perjuicio de
         las limitaciones impuestas por los términos de uso de los modelos de IA subyacentes y de la legislación
         aplicable en materia de propiedad intelectual.
       </p>
       <p>
-        6.4. <strong>Tecnología.</strong> Generación de texto con modelos de Anthropic (Claude). Generación de
+        7.4. <strong>Tecnología.</strong> Generación de texto con modelos de Anthropic (Claude). Generación de
         imágenes con Replicate. Almacenamiento y autenticación con Supabase. Pagos procesados por Stripe.
       </p>
 
-      <h2>7. Propiedad intelectual del Servicio</h2>
+      <h2>8. Propiedad intelectual del Servicio</h2>
       <p>
-        7.1. Todos los derechos sobre el Servicio, su software, diseño, marca, logos, dominios y demás
+        8.1. Todos los derechos sobre el Servicio, su software, diseño, marca, logos, dominios y demás
         elementos identificativos son propiedad exclusiva de Generación o2 o sus licenciantes.
       </p>
       <p>
-        7.2. La marca <strong>&laquo;o2Wave&raquo;</strong> y el logotipo asociado son signos distintivos de
+        8.2. La marca <strong>&laquo;o2Wave&raquo;</strong> y el logotipo asociado son signos distintivos de
         Generación o2.
       </p>
       <p>
-        7.3. Queda prohibida la reproducción, distribución, comunicación pública o transformación del Servicio
+        8.3. Queda prohibida la reproducción, distribución, comunicación pública o transformación del Servicio
         sin autorización expresa.
       </p>
 
-      <h2>8. Limitación de responsabilidad</h2>
+      <h2>9. Limitación de responsabilidad</h2>
       <p>
-        8.1. El Servicio se presta &laquo;tal cual&raquo; y &laquo;según disponibilidad&raquo;, sin más
+        9.1. El Servicio se presta &laquo;tal cual&raquo; y &laquo;según disponibilidad&raquo;, sin más
         garantías que las legalmente exigibles.
       </p>
-      <p>8.2. Generación o2 no será responsable de los daños o perjuicios derivados de:</p>
+      <p>9.2. Generación o2 no será responsable de los daños o perjuicios derivados de:</p>
       <ul>
         <li>La indisponibilidad temporal del Servicio por causas técnicas, mantenimiento o fuerza mayor.</li>
         <li>El uso indebido del Servicio por parte del usuario.</li>
@@ -160,58 +227,58 @@ export default function TerminosPage() {
         <li>Pérdidas comerciales, lucro cesante o daños indirectos.</li>
       </ul>
       <p>
-        8.3. En todo caso, la responsabilidad máxima de Generación o2 frente al usuario quedará limitada al
+        9.3. En todo caso, la responsabilidad máxima de Generación o2 frente al usuario quedará limitada al
         importe efectivamente abonado por el usuario en los doce (12) meses anteriores al hecho que origine la
         responsabilidad.
       </p>
 
-      <h2>9. Modificaciones del Servicio</h2>
+      <h2>10. Modificaciones del Servicio</h2>
       <p>
-        9.1. Generación o2 se reserva el derecho a modificar, ampliar o suspender total o parcialmente el
+        10.1. Generación o2 se reserva el derecho a modificar, ampliar o suspender total o parcialmente el
         Servicio, así como a introducir nuevas funcionalidades, en cualquier momento.
       </p>
       <p>
-        9.2. Las modificaciones sustanciales se comunicarán al usuario con una antelación mínima de 15 días por
+        10.2. Las modificaciones sustanciales se comunicarán al usuario con una antelación mínima de 15 días por
         correo electrónico.
       </p>
 
-      <h2>10. Protección de datos</h2>
+      <h2>11. Protección de datos</h2>
       <p>
         El tratamiento de los datos personales del usuario se rige por la{" "}
         <Link href="/privacidad">Política de privacidad</Link>, que forma parte integrante de estos Términos.
       </p>
 
-      <h2>11. Comunicaciones electrónicas</h2>
+      <h2>12. Comunicaciones electrónicas</h2>
       <p>
-        11.1. Al utilizar el Servicio, el usuario acepta recibir las comunicaciones electrónicas necesarias
+        12.1. Al utilizar el Servicio, el usuario acepta recibir las comunicaciones electrónicas necesarias
         para la prestación del Servicio (confirmaciones, notificaciones técnicas, avisos de facturación, etc.).
       </p>
       <p>
-        11.2. El usuario podrá darse de baja en cualquier momento de las comunicaciones comerciales no
+        12.2. El usuario podrá darse de baja en cualquier momento de las comunicaciones comerciales no
         esenciales desde la configuración de su cuenta o escribiendo a{" "}
         <a href="mailto:info@generacion-o2.org">info@generacion-o2.org</a>.
       </p>
 
-      <h2>12. Modificación de los Términos</h2>
+      <h2>13. Modificación de los Términos</h2>
       <p>
-        12.1. Generación o2 podrá modificar estos Términos en cualquier momento. Las modificaciones entrarán en
+        13.1. Generación o2 podrá modificar estos Términos en cualquier momento. Las modificaciones entrarán en
         vigor a los 15 días naturales de su publicación.
       </p>
       <p>
-        12.2. La continuación en el uso del Servicio tras dicho plazo supondrá la aceptación de los nuevos
+        13.2. La continuación en el uso del Servicio tras dicho plazo supondrá la aceptación de los nuevos
         Términos. Si el usuario no acepta los cambios, podrá cancelar su cuenta sin penalización.
       </p>
 
-      <h2>13. Ley aplicable y jurisdicción</h2>
-      <p>13.1. Estos Términos se rigen por la legislación española.</p>
+      <h2>14. Ley aplicable y jurisdicción</h2>
+      <p>14.1. Estos Términos se rigen por la legislación española.</p>
       <p>
-        13.2. Para la resolución de cualquier controversia derivada de los presentes Términos, las partes se
+        14.2. Para la resolución de cualquier controversia derivada de los presentes Términos, las partes se
         someten expresamente a los Juzgados y Tribunales de Barcelona, con renuncia expresa a cualquier otro
         fuero que pudiera corresponderles, salvo aquellos en los que la legislación de consumo imponga un fuero
         distinto al usuario que tenga la consideración de consumidor.
       </p>
 
-      <h2>14. Contacto</h2>
+      <h2>15. Contacto</h2>
       <p>Para cualquier consulta relacionada con estos Términos puedes escribirnos a:</p>
       <p>
         <strong>Asociación Generación o2</strong><br />
