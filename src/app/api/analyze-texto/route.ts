@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const { fraseDescriptiva, posts, bio }: { fraseDescriptiva?: string; posts?: string; bio?: string } = await request.json();
 
     if (!fraseDescriptiva || fraseDescriptiva.trim().length < 10) {
-      return NextResponse.json({ error: "Describe en una frase a qué se dedica tu organización." }, { status: 400 });
+      return NextResponse.json({ error: "Describe en una frase a qué te dedicas." }, { status: 400 });
     }
 
     const frase = fraseDescriptiva.slice(0, 2000);

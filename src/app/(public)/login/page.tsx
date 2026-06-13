@@ -71,7 +71,7 @@ function LoginForm() {
               Correo electrónico
             </label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="hola@tuorganizacion.org" required
+              placeholder="tu@email.com" required
               className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
               onFocus={e => e.target.style.borderColor = "#f9b23b"}
               onBlur={e => e.target.style.borderColor = "#f3f4f6"} />

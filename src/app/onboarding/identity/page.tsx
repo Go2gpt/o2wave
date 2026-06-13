@@ -73,11 +73,23 @@ export default function OnboardingIdentityPage() {
   const [loaded, setLoaded] = useState(false);
   const [suficiente, setSuficiente] = useState(true);
   const [hayPlanPendiente, setHayPlanPendiente] = useState(false);
+  const [esEmpresa, setEsEmpresa] = useState(false);
   const gratisRef = useRef(false); // true → opt-out "empezar gratis", se salta el checkout
 
   // ¿El usuario venía de /plans con un plan de pago? → mostrar opt-out al finalizar.
   useEffect(() => {
     try { setHayPlanPendiente(!!localStorage.getItem("plan_pendiente_checkout")); } catch { /* noop */ }
+  }, []);
+
+  // Tipo de entidad (empresa vs ONG) para adaptar los textos.
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
+      setEsEmpresa(data?.tipo_entidad === "empresa");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Campos editables (paso 1)
@@ -187,7 +199,7 @@ export default function OnboardingIdentityPage() {
           <>
             <div>
               <h1 className="text-xl font-bold text-gray-900 mb-1">
-                {suficiente ? "Esto es lo que hemos detectado" : "Cuéntanos sobre tu organización"}
+                {suficiente ? "Esto es lo que hemos detectado" : (esEmpresa ? "Cuéntanos sobre tu empresa" : "Cuéntanos sobre tu organización")}
               </h1>
               <p className="text-sm text-gray-500">
                 {suficiente
