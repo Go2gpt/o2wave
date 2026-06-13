@@ -128,6 +128,10 @@ export default function TerminosPage() {
         las limitaciones impuestas por los términos de uso de los modelos de IA subyacentes y de la legislación
         aplicable en materia de propiedad intelectual.
       </p>
+      <p>
+        6.4. <strong>Tecnología.</strong> Generación de texto con modelos de Anthropic (Claude). Generación de
+        imágenes con Replicate. Almacenamiento y autenticación con Supabase. Pagos procesados por Stripe.
+      </p>
 
       <h2>7. Propiedad intelectual del Servicio</h2>
       <p>

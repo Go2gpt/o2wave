@@ -1,7 +1,7 @@
 {
   "name": "o2Wave",
   "short_name": "o2Wave",
-  "description": "Genera contenido para redes sociales con IA. Diseñado para ONGs y PYMEs.",
+  "description": "La IA que no se nota. Tu community manager personal.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

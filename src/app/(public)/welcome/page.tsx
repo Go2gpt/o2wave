@@ -37,9 +37,9 @@ export default function WelcomePage({ searchParams }: { searchParams: { cuenta_e
 
         {/* Headline */}
         <h1 className="text-2xl font-bold text-white leading-snug mb-3 max-w-xs">
-          Tú pones un rato al día.
+          La IA que no se nota.
           <br />
-          <span style={{ color: "#f9b23b" }}>Nosotros el resto.</span>
+          <span style={{ color: "#f9b23b" }}>Tu community manager personal.</span>
         </h1>
 
         <p className="text-gray-400 text-sm leading-relaxed max-w-xs mb-5">
@@ -47,12 +47,13 @@ export default function WelcomePage({ searchParams }: { searchParams: { cuenta_e
           Diseñado para ONGs y PYMEs que quieren comunicar mejor, sin perder tiempo.
         </p>
 
-        {/* Claude badge */}
-        <div className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full mb-5"
+        {/* Badge: probado en Generación o2 (enlace a la web de la asociación) */}
+        <a href="https://www.generacion-o2.org" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full mb-5"
           style={{ backgroundColor: "rgba(147,191,48,0.15)", color: "#93bf30", border: "1px solid rgba(147,191,48,0.3)" }}>
-          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#93bf30" }} />
-          Potenciado por Claude AI
-        </div>
+          <span aria-hidden="true">★</span>
+          Probado en Generación o2
+        </a>
 
         {/* CTA buttons */}
         <div className="w-full max-w-xs space-y-3">

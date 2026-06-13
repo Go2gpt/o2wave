@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# o2Wave
+
+**La IA que no se nota. Tu community manager personal.**
+
+Generador de contenido para redes sociales (Instagram, Facebook, TikTok) con IA, para ONGs y PYMEs. Proyecto [Next.js](https://nextjs.org).
 
 ## Getting Started
 
