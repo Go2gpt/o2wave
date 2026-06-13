@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
 import { PLANES } from "@/lib/plans";
+import { BETA_ACTIVA } from "@/lib/constants";
 import type { PlanActual, PlanCiclo } from "@/types";
 
 export default function PlansView({ autenticado, esAdmin, grupo, planActual, success, cancelled, empresaSinSub }: {
@@ -44,7 +45,9 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
   const suscribir = async (plan: PlanActual) => {
     setLoading(plan);
     try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan, ciclo }) });
+      // Durante la beta solo mensual (el cupón BETA1MES no se puede limitar por intervalo).
+      const cicloPago: PlanCiclo = BETA_ACTIVA ? "mensual" : ciclo;
+      const res = await fetch("/api/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan, ciclo: cicloPago }) });
       const data = await res.json();
       if (data.url) { window.location.href = data.url; return; }
       throw new Error(data.error || "No se pudo iniciar el pago");
@@ -98,18 +101,41 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
       <div className="px-5 pb-3 pt-2">
         <h1 className="text-xl font-bold text-gray-900">{autenticado ? "Planes" : "Elige tu plan"}</h1>
         <p className="text-sm text-gray-500 mt-0.5">El que mejor se adapta a tu organización o empresa.</p>
+        {/* Banner de lanzamiento (beta) */}
+        {BETA_ACTIVA && (
+          <div className="mt-3 rounded-xl px-3 py-2 text-sm font-medium" style={{ backgroundColor: "#f0f7e6", color: "#3f6212" }}>
+            🎁 Lanzamiento: usa el código <strong>BETA1MES</strong> en el checkout para tu primer mes gratis.
+          </div>
+        )}
       </div>
 
-      {/* Toggle mensual / anual */}
+      {/* Toggle mensual / anual ("Anual" deshabilitado durante la beta) */}
       <div className="px-5 mb-4">
         <div className="flex bg-gray-100 rounded-full p-1">
-          {(["mensual", "anual"] as PlanCiclo[]).map((c) => (
-            <button key={c} onClick={() => setCiclo(c)}
-              className="flex-1 py-2 rounded-full text-sm font-bold transition-all"
-              style={ciclo === c ? { backgroundColor: "#fff", color: "#f9b23b", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" } : { color: "#9ca3af" }}>
-              {c === "mensual" ? "Mensual" : "Anual"}
-            </button>
-          ))}
+          {(["mensual", "anual"] as PlanCiclo[]).map((c) => {
+            const bloqueado = c === "anual" && BETA_ACTIVA;
+            return (
+              <button key={c} type="button"
+                onClick={() => { if (!bloqueado) setCiclo(c); }}
+                disabled={bloqueado}
+                title={bloqueado ? "Disponible próximamente. Por ahora suscríbete al plan mensual." : undefined}
+                className="flex-1 py-2 rounded-full text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+                style={
+                  bloqueado
+                    ? { color: "#c4c4c4", cursor: "not-allowed" }
+                    : ciclo === c
+                      ? { backgroundColor: "#fff", color: "#f9b23b", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }
+                      : { color: "#9ca3af" }
+                }>
+                {c === "mensual" ? "Mensual" : "Anual"}
+                {bloqueado && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#e5e7eb", color: "#9ca3af" }}>
+                    Pronto
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -178,7 +204,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
 
                 {/* CTA según modo: visitante / admin / logueado-actual / logueado-otro */}
                 {!autenticado ? (
-                  <button onClick={() => router.push(`/register?plan=${plan.id}&ciclo=${ciclo}`)} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
+                  <button onClick={() => router.push(`/register?plan=${plan.id}&ciclo=${BETA_ACTIVA ? "mensual" : ciclo}`)} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
                     {esGratis ? "Empezar gratis" : "Suscribirme"}
                   </button>
                 ) : esAdmin ? (
