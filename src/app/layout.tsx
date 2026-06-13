@@ -3,18 +3,22 @@ import "./globals.css";
 import CookieNotice from "@/components/CookieNotice";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.o2wave.app"),
   title: "o²Wave — La IA que no se nota",
   description: "La IA que no se nota. Tu community manager personal.",
   manifest: "/manifest.json",
   openGraph: {
-    title: "o²Wave — La IA que no se nota",
-    description: "La IA que no se nota. Tu community manager personal.",
+    title: "o2Wave — La IA que no se nota",
+    description: "La IA que no se nota. Tu community manager personal. Para ONGs y pequeñas empresas.",
+    url: "https://www.o2wave.app/",
     type: "website",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "o²Wave — La IA que no se nota",
+    title: "o2Wave — La IA que no se nota",
     description: "La IA que no se nota. Tu community manager personal.",
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [
