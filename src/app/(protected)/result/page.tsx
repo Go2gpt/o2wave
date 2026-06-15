@@ -294,7 +294,8 @@ function ResultContent() {
   const textoStoryClipboard = () => {
     const titular = headline.trim();
     const caption = limpiarMarkdown(post?.texto || "");
-    const tags = caption.match(/#[\p{L}\p{N}_]+/gu) || [];
+    // Incluye acentos/ñ (À-ÿ) sin flag unicode (tsconfig target = es5).
+    const tags = caption.match(/#[A-Za-z0-9_À-ÿ]+/g) || [];
     const LIMITE = 250;
     const armar = () => (tags.length ? `${titular}\n\n${tags.join(" ")}` : titular);
     let texto = armar();
