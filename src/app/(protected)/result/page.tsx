@@ -33,6 +33,7 @@ function ResultContent() {
   const [posX, setPosX] = useState(50);
   const [posY, setPosY] = useState(85);
   const [fontSize, setFontSize] = useState(52); // px referenciado a 1080
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("center");
   const [textEnabled, setTextEnabled] = useState(true);
   const [editingText, setEditingText] = useState(false);
   const [draftText, setDraftText] = useState("");
@@ -202,7 +203,7 @@ function ResultContent() {
         body: JSON.stringify({
           imageUrl: post.imagen_url,
           headline: textEnabled ? headline : null,
-          positionX: posX, positionY: posY, fontSize, aspectRatio: aspect,
+          positionX: posX, positionY: posY, fontSize, aspectRatio: aspect, textAlign,
         }),
       });
       if (!res.ok) throw new Error("compose failed");
@@ -252,7 +253,7 @@ function ResultContent() {
         body: JSON.stringify({
           imageUrl: post.imagen_url,
           headline: textEnabled ? headline : null,
-          positionX: posX, positionY: posY, fontSize, aspectRatio: aspect,
+          positionX: posX, positionY: posY, fontSize, aspectRatio: aspect, textAlign,
         }),
       });
       if (!res.ok) throw new Error("compose failed");
@@ -340,9 +341,14 @@ function ResultContent() {
                   }} />
                 <div ref={textRef}
                   onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
-                  className="absolute text-center font-bold select-none"
+                  className="absolute font-bold select-none"
                   style={{
-                    left: `${posX}%`, top: `${posY}%`, transform: "translate(-50%,-50%)",
+                    top: `${posY}%`,
+                    ...(textAlign === "center"
+                      ? { left: `${posX}%`, transform: "translate(-50%,-50%)", textAlign: "center" as const }
+                      : textAlign === "left"
+                        ? { left: "7.5%", transform: "translateY(-50%)", textAlign: "left" as const }
+                        : { right: "7.5%", transform: "translateY(-50%)", textAlign: "right" as const }),
                     maxWidth: "85%", color: "#FFFFFF", fontFamily: "Montserrat, sans-serif", fontWeight: 700,
                     fontSize: dispW ? fontSize * (dispW / 1080) : 24, lineHeight: 1.2,
                     textShadow: "0 0 6px rgba(0,0,0,0.6)",
@@ -380,6 +386,21 @@ function ResultContent() {
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tamaño</label>
                     <input type="range" min={28} max={72} value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
                       className="w-full accent-[#f9b23b]" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Alineación</label>
+                    <div className="flex gap-2">
+                      {([["left","◀","Izquierda"],["center","▬","Centro"],["right","▶","Derecha"]] as const).map(([val, icon, lbl]) => {
+                        const activo = textAlign === val;
+                        return (
+                          <button key={val} type="button" onClick={() => setTextAlign(val)} aria-label={lbl}
+                            className="flex-1 py-2 rounded-xl border-2 text-sm font-semibold transition-all"
+                            style={activo ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" } : { borderColor: "#e5e7eb", color: "#9ca3af" }}>
+                            {icon}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </>
               )}

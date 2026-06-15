@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-    const { imageUrl, headline, positionX, positionY, fontSize, aspectRatio } = await request.json();
+    const { imageUrl, headline, positionX, positionY, fontSize, aspectRatio, textAlign } = await request.json();
     if (!imageUrl) return NextResponse.json({ error: "Falta imageUrl" }, { status: 400 });
 
     const imgRes = await fetch(imageUrl);
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       positionY: typeof positionY === "number" ? positionY : 85,
       fontSize: typeof fontSize === "number" ? fontSize : 52,
       aspectRatio: aspectRatio || "1:1",
+      textAlign: textAlign === "left" || textAlign === "right" ? textAlign : "center",
     });
 
     return new NextResponse(new Uint8Array(finalBuffer), {

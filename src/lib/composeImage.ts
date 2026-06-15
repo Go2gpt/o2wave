@@ -108,7 +108,7 @@ function pathD(p: opentype.Path): string {
  * por opentype.js 2.x. El SVG se ajusta a la línea más ancha → nunca recorta.
  * Cada línea es un <path> con `d` serializado a mano (ver pathD).
  */
-function renderLineas(lineas: string[], fontSize: number, color: string): Promise<Buffer> {
+function renderLineas(lineas: string[], fontSize: number, color: string, align: "left" | "center" | "right" = "center"): Promise<Buffer> {
   const scale = fontSize / FONT.unitsPerEm;
   const lineHeight = Math.round(fontSize * 1.25);
   const anchos = lineas.map((l) => medirAncho(l, fontSize));
@@ -118,7 +118,8 @@ function renderLineas(lineas: string[], fontSize: number, color: string): Promis
   const paths: string[] = [];
   lineas.forEach((linea, i) => {
     const full = new opentype.Path();
-    let penX = (svgWidth - anchos[i]) / 2; // centrado horizontal de cada línea
+    // Alineación de cada línea dentro del bloque (svgWidth = línea más ancha).
+    let penX = align === "left" ? 0 : align === "right" ? (svgWidth - anchos[i]) : (svgWidth - anchos[i]) / 2;
     const y = fontSize + i * lineHeight;   // baseline de cada línea
     for (const ch of linea) {
       const g = FONT.charToGlyph(ch);
@@ -175,10 +176,11 @@ async function watermarkComposites(width: number, height: number): Promise<sharp
 export interface ComposeOptions {
   imageBuffer: Buffer;
   headline: string | null;
-  positionX: number; // 0-100, centro del texto
+  positionX: number; // 0-100, centro del texto (solo aplica a align "center")
   positionY: number; // 0-100, centro del texto
   fontSize: number;  // px referenciado a 1080
   aspectRatio: string;
+  textAlign?: "left" | "center" | "right";
 }
 
 /**
@@ -187,7 +189,7 @@ export interface ComposeOptions {
  * imagen sin tocar (solo normalizada a las dimensiones del formato).
  */
 export async function composeImage({
-  imageBuffer, headline, positionX, positionY, fontSize, aspectRatio,
+  imageBuffer, headline, positionX, positionY, fontSize, aspectRatio, textAlign = "center",
 }: ComposeOptions): Promise<Buffer> {
   const { w: width, h: height } = DIMS[aspectRatio] || DIMS["1:1"];
   const base = sharp(imageBuffer).resize(width, height, { fit: "cover" });
@@ -202,20 +204,27 @@ export async function composeImage({
   // Calculamos el layout (word wrap real + auto-shrink) UNA vez y lo compartimos
   // entre el texto blanco y su sombra negra → geometría idéntica.
   const { lineas, fontSize: sizeFinal } = layoutTitular(headline, maxTextWidth, size);
-  const blanco = await renderLineas(lineas, sizeFinal, "#FFFFFF");
-  const negro = await renderLineas(lineas, sizeFinal, "#000000");
+  const blanco = await renderLineas(lineas, sizeFinal, "#FFFFFF", textAlign);
+  const negro = await renderLineas(lineas, sizeFinal, "#000000", textAlign);
   const sombra = await sharp(negro).blur(4).toBuffer();
 
   const meta = await sharp(blanco).metadata();
   const Tw = meta.width || maxTextWidth;
   const Th = meta.height || size;
 
-  // Centro del texto (clamp para que no se salga)
-  let cx = (positionX / 100) * width;
+  // Vertical: siempre por positionY (arrastre). Horizontal: izquierda/derecha
+  // se anclan al borde (con padding); centro respeta el arrastre positionX.
+  const padX = Math.round(width * 0.075);
   let cy = (positionY / 100) * height;
-  cx = Math.max(Tw / 2, Math.min(width - Tw / 2, cx));
   cy = Math.max(Th / 2, Math.min(height - Th / 2, cy));
-  const left = Math.round(cx - Tw / 2);
+  let left: number;
+  if (textAlign === "left") left = padX;
+  else if (textAlign === "right") left = Math.max(padX, width - Tw - padX);
+  else {
+    let cx = (positionX / 100) * width;
+    cx = Math.max(Tw / 2, Math.min(width - Tw / 2, cx));
+    left = Math.round(cx - Tw / 2);
+  }
   const top = Math.round(cy - Th / 2);
 
   // Franja degradada centrada en el texto
