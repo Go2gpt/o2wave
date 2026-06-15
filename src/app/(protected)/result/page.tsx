@@ -290,22 +290,25 @@ function ResultContent() {
   // await previo (clave para que iOS no bloquee ni el clipboard ni el share).
   const shareImage = () => {
     if (!post?.imagen_url) return;
-    const caption = limpiarMarkdown(post.texto || "");
+    // En Story el caption completo no cabe (límite ~250 chars y suele no pegar):
+    // copiamos SOLO el titular corto. Post/Reel/FB/WhatsApp: caption completo.
+    const esStory = post.formato === "Story 9:16";
+    const textoParaClipboard = esStory ? headline : limpiarMarkdown(post.texto || "");
     // 1) Clipboard SÍNCRONO (sin await) dentro del gesto → iOS lo permite.
-    try { navigator.clipboard?.writeText(caption); } catch { /* no soportado */ }
+    try { navigator.clipboard?.writeText(textoParaClipboard); } catch { /* no soportado */ }
 
     const body = composeBody();
     const ready = composedRef.current;
     // 2) Si el PNG pregenerado corresponde al estado actual: share síncrono.
     if (body && ready && ready.key === JSON.stringify(body) && navigator.canShare?.({ files: [ready.file] })) {
       toastCopiado();
-      navigator.share({ files: [ready.file], text: caption }).catch((e) => {
+      navigator.share({ files: [ready.file], text: textoParaClipboard }).catch((e) => {
         if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" });
       });
       return;
     }
     // 3) Fallback: aún no pregenerado o parámetros cambiados → componer y compartir.
-    void shareImageAsync(caption);
+    void shareImageAsync(textoParaClipboard);
   };
 
   // Fallback asíncrono (el clipboard ya se escribió en el gesto). Compone el PNG
