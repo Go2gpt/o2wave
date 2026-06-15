@@ -492,6 +492,20 @@ function ResultContent() {
             </div>
           )}
 
+          {/* Aviso solo en Stories: Instagram no deja pegar texto en la descripción. */}
+          {isStory && (
+            <div className="px-4 pt-3">
+              <div className="flex gap-2 rounded-xl border p-3 text-sm leading-relaxed"
+                style={{ backgroundColor: "#fff7e0", borderColor: "#f3e3b3", color: "#7a5b12" }}>
+                <span aria-hidden="true">ℹ️</span>
+                <p>
+                  Instagram no permite pegar texto en la descripción de Stories. El titular ya está impreso sobre tu imagen.
+                  Si quieres añadir texto adicional, escríbelo manualmente con la herramienta <strong>Aa</strong> de Instagram al publicar.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Compartir (Web Share API con archivos) */}
           {canShareFiles && (
             <div className="px-4 pt-3">
