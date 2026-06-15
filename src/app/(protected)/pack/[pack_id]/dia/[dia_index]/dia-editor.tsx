@@ -170,7 +170,7 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
             </div>
             <div className="flex gap-2 flex-wrap">
               <button onClick={regenerarImagen} disabled={ocupadoImg} className={btn} style={btnStyle}>{regenI ? "Generando…" : "↻ Regenerar imagen"}</button>
-              <button onClick={() => fileRef.current?.click()} disabled={ocupadoImg} className={btn} style={btnStyle}>{uploading ? "Subiendo…" : "⬆ Subir imagen"}</button>
+              <button onClick={() => fileRef.current?.click()} disabled={ocupadoImg} className={btn} style={btnStyle}>{uploading ? "Subiendo…" : "⬆ Subir una imagen tuya"}</button>
               <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={subirImagen} className="hidden" />
             </div>
           </div>

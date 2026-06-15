@@ -429,7 +429,7 @@ function ResultContent() {
               {downloading ? "Preparando..." : "↓ Descargar"}
             </button>
             <button onClick={regenerateImage} disabled={regenImg || uploading} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
-            <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir imagen</button>
+            <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir una imagen tuya</button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
           </div>
           {/* Caso B: soporta texto pero no archivos → sugerir descargar para compartir */}
