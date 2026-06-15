@@ -10,6 +10,7 @@ import { pollForImage, aspectFor } from "@/lib/pollImage";
 import { limpiarMarkdown } from "@/lib/formatText";
 import Spinner from "@/components/ui/Spinner";
 import Toast, { type ToastState } from "@/components/Toast";
+import PublishInstructionsModal from "@/components/PublishInstructionsModal";
 import type { GeneratedPost } from "@/types";
 
 
@@ -37,7 +38,7 @@ function ResultContent() {
   const [textEnabled, setTextEnabled] = useState(true);
   const [editingText, setEditingText] = useState(false);
   const [draftText, setDraftText] = useState("");
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [sharingImg, setSharingImg] = useState(false);
   const [canShareFiles, setCanShareFiles] = useState(false);
@@ -233,18 +234,15 @@ function ResultContent() {
     }
   };
 
-  const shareImage = async () => {
+  // "Descargar y publicar": descarga la imagen al carrete + copia el caption +
+  // abre el modal con instrucciones por red. NO usa el share sheet nativo, que
+  // abre Instagram en Reel y deforma las publicaciones cuadradas.
+  const descargarYPublicar = async () => {
     if (!post?.imagen_url) return;
     setSharingImg(true);
     try {
       const caption = limpiarMarkdown(post.texto || "");
-
-      // Workaround Instagram (descarta el text al recibir files): copiamos el
-      // caption al portapapeles antes de compartir. Dentro del gesto de usuario.
-      let copiado = false;
-      if (navigator.clipboard?.writeText) {
-        try { await navigator.clipboard.writeText(caption); copiado = true; } catch {}
-      }
+      if (navigator.clipboard?.writeText) { try { await navigator.clipboard.writeText(caption); } catch {} }
 
       const aspect = aspectFor(post.red_social, post.formato);
       const res = await fetch("/api/compose-and-download", {
@@ -258,24 +256,15 @@ function ResultContent() {
       });
       if (!res.ok) throw new Error("compose failed");
       const blob = await res.blob();
-      const file = new File([blob], `o2wave-${id}.png`, { type: "image/png" });
-      if (!(navigator.canShare && navigator.canShare({ files: [file] }))) throw new Error("files no soportados");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `o2wave-${id}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
 
-      // Justo antes del menú nativo, avisamos de que el caption está copiado.
-      // En Story no hay campo de caption → instrucción explícita de pegar manualmente.
-      if (copiado) {
-        const esStory = post.formato === "Story 9:16";
-        setToast({
-          message: esStory
-            ? "Caption copiado. Pégalo manualmente como texto sobre tu story."
-            : "Caption copiado. Pégalo en la app destino si no aparece automáticamente.",
-          type: "info",
-        });
-      }
-
-      await navigator.share({ files: [file], text: caption });
+      setPublishOpen(true);
     } catch (e) {
-      if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" });
+      if (!silenciable(e)) setToast({ message: "No se pudo preparar la imagen. Inténtalo de nuevo.", type: "error" });
     } finally {
       setSharingImg(false);
     }
@@ -416,18 +405,15 @@ function ResultContent() {
             </div>
           )}
 
-          {/* Compartir (Web Share API con archivos) */}
-          {canShareFiles && (
+          {/* Descargar y publicar: guarda en galería + instrucciones (evita el Reel forzado) */}
+          {post.imagen_url && (
             <div className="px-4 pt-3">
-              <button onClick={shareImage} disabled={!post.imagen_url || sharingImg}
+              <button onClick={descargarYPublicar} disabled={sharingImg}
                 className={`${btn} w-full justify-center`} style={{ borderColor: "#f9b23b", backgroundColor: "#f9b23b", color: "#fff" }}>
-                {sharingImg ? "Preparando..." : "📤 Compartir"}
+                {sharingImg ? "Preparando..." : "↓ Descargar y publicar"}
               </button>
               <p className="text-xs text-gray-500 text-center mt-2 leading-relaxed">
-                💡 ¿Primera vez? Pulsa Compartir, elige tu red, y al pegar el caption mantén pulsado el campo de texto y dale a &quot;Pegar&quot;.{" "}
-                <button onClick={() => setHelpOpen(true)} className="font-semibold underline" style={{ color: "#f9b23b" }}>
-                  Ver cómo funciona
-                </button>
+                Guardaremos la imagen en tu galería y te explicaremos cómo subirla correctamente. (Instagram abre por defecto en Reel y deforma las publicaciones.)
               </p>
             </div>
           )}
@@ -465,28 +451,14 @@ function ResultContent() {
           </div>
         )}
 
-        {/* Mini-modal: cómo publicar en redes */}
-        {helpOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-4" onClick={() => setHelpOpen(false)}>
-            <div className="bg-white rounded-3xl p-6 w-full sm:max-w-[480px] relative" onClick={e => e.stopPropagation()}>
-              <button onClick={() => setHelpOpen(false)} aria-label="Cerrar"
-                className="absolute top-4 right-4 text-gray-300 hover:text-gray-600 text-xl leading-none">✕</button>
-              <h3 className="font-bold text-gray-900 text-lg mb-4 pr-6">Cómo publicar en redes</h3>
-              <ol className="space-y-3">
-                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📤</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Pulsa &quot;Compartir&quot;</strong> en o2Wave.</p></li>
-                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📱</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Elige tu red social</strong> (Instagram, Facebook, TikTok, WhatsApp...).</p></li>
-                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📋</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Sube la imagen.</strong> Cuando llegues al campo de caption (texto), <strong>mantén pulsado</strong> ahí.</p></li>
-                <li className="flex gap-3"><span className="text-xl flex-shrink-0">📌</span><p className="text-sm text-gray-700 leading-relaxed"><strong>Pulsa &quot;Pegar&quot;</strong> — tu texto se rellena automáticamente. ¡Listo, publica!</p></li>
-              </ol>
-              <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-                o2Wave copia automáticamente tu caption al portapapeles para que solo tengas que pegarlo.
-              </p>
-              <button onClick={() => setHelpOpen(false)}
-                className="w-full py-3 rounded-2xl font-bold text-white text-sm mt-5" style={{ backgroundColor: "#f9b23b" }}>
-                Entendido
-              </button>
-            </div>
-          </div>
+        {/* Modal de instrucciones de publicación por red (tras descargar) */}
+        {publishOpen && (
+          <PublishInstructionsModal
+            redSocial={post.red_social}
+            formato={post.formato}
+            caption={limpiarMarkdown(post.texto || "")}
+            onClose={() => setPublishOpen(false)}
+          />
         )}
         </>
       )}
