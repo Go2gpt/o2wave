@@ -499,8 +499,8 @@ function ResultContent() {
                 style={{ backgroundColor: "#fff7e0", borderColor: "#f3e3b3", color: "#7a5b12" }}>
                 <span aria-hidden="true">ℹ️</span>
                 <p>
-                  Instagram no permite pegar texto en la descripción de Stories. El titular ya está impreso sobre tu imagen.
-                  Si quieres añadir texto adicional, escríbelo manualmente con la herramienta <strong>Aa</strong> de Instagram al publicar.
+                  Instagram no permite pegar texto en la descripción de <strong>Stories</strong>. El titular ya está impreso sobre tu imagen.{" "}
+                  <strong>Si quieres añadir texto adicional</strong>, escríbelo manualmente con la herramienta <strong>Aa</strong> de Instagram al publicar.
                 </p>
               </div>
             </div>
