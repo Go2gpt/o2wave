@@ -288,12 +288,26 @@ function ResultContent() {
   // Handler SÍNCRONO: dentro del gesto del usuario copiamos el caption y, si el
   // PNG ya está pregenerado y al día, llamamos a navigator.share() sin ningún
   // await previo (clave para que iOS no bloquee ni el clipboard ni el share).
+  // Texto a copiar en Story: titular + hashtags (sin el cuerpo largo del
+  // caption, que no cabe). Los hashtags se extraen del caption. Si el total
+  // supera ~250 chars (límite de Stories) se recortan hashtags, no el titular.
+  const textoStoryClipboard = () => {
+    const titular = headline.trim();
+    const caption = limpiarMarkdown(post?.texto || "");
+    const tags = caption.match(/#[\p{L}\p{N}_]+/gu) || [];
+    const LIMITE = 250;
+    const armar = () => (tags.length ? `${titular}\n\n${tags.join(" ")}` : titular);
+    let texto = armar();
+    while (tags.length && texto.length > LIMITE) { tags.pop(); texto = armar(); }
+    return texto;
+  };
+
   const shareImage = () => {
     if (!post?.imagen_url) return;
     // En Story el caption completo no cabe (límite ~250 chars y suele no pegar):
-    // copiamos SOLO el titular corto. Post/Reel/FB/WhatsApp: caption completo.
+    // copiamos titular + hashtags. Post/Reel/FB/WhatsApp: caption completo.
     const esStory = post.formato === "Story 9:16";
-    const textoParaClipboard = esStory ? headline : limpiarMarkdown(post.texto || "");
+    const textoParaClipboard = esStory ? textoStoryClipboard() : limpiarMarkdown(post.texto || "");
     // 1) Clipboard SÍNCRONO (sin await) dentro del gesto → iOS lo permite.
     try { navigator.clipboard?.writeText(textoParaClipboard); } catch { /* no soportado */ }
 
