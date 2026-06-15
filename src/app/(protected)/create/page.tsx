@@ -15,6 +15,7 @@ const RED_OPTIONS = [
   { value: "Instagram" as RedSocial, label: "Insta", emoji: "📸" },
   { value: "Facebook" as RedSocial, label: "Face", emoji: "👥" },
   { value: "TikTok" as RedSocial, label: "TikTok", emoji: "🎵" },
+  { value: "WhatsApp" as RedSocial, label: "WhatsApp", emoji: "💬" },
 ];
 const FORMATO_OPTIONS = [
   { value: "Post 1080×1080" as FormatoInstagram, label: "Post" },

@@ -59,7 +59,7 @@ export default async function StatsPage() {
   const { data: diasPackComunidad } = await supabase.rpc("contar_dias_pack", { p_user_id: null });
   const communityTotal = (communityPosts || 0) + (typeof diasPackComunidad === "number" ? diasPackComunidad : 0);
 
-  const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵" };
+  const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵", WhatsApp: "💬" };
   const RED_COLORS: Record<string, string> = { Instagram: "#e1306c", Facebook: "#1877f2", TikTok: "#0F0F0F" };
 
   const COMMUNITY = [

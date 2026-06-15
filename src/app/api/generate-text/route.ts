@@ -211,12 +211,14 @@ ${INSTRUCCION_TILDES}
 ${instruccionIdioma(profile?.idioma_principal)}
 ${reglaIdioma(profile?.idioma_principal)}`;
 
+    const esWhatsApp = redSocial === "WhatsApp";
     const prompt = `Contenido para ${redSocial}${formatoInstagram ? ` (${formatoInstagram})` : ""}:
 Entidad: ${nombreOrganizacion} (${tipoOrganizacion})
 Tema: ${tema} | Tono: ${tono}
-${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${incluirHashtags ? "✅ Con hashtags" : "❌ Sin hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
+${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${(esWhatsApp || !incluirHashtags) ? "❌ Sin hashtags" : "✅ Con hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
 ${redSocial === "Instagram" ? "Máximo 150 palabras, impacto visual." : ""}
 ${redSocial === "Facebook" ? "Hasta 200 palabras, narrativo." : ""}
+${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}
 Texto listo para publicar, sin explicaciones:`;
 
     const response = await client.messages.create({

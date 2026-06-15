@@ -2,13 +2,13 @@ import type { PlanActual, PlanCiclo } from "@/types";
 
 /* ------------------------------ Feature gating ------------------------------ */
 
-/** Qué features incluye cada plan. Las redes usan slug en minúscula (instagram/facebook/tiktok). */
+/** Qué features incluye cada plan. Las redes usan slug en minúscula (instagram/facebook/tiktok/whatsapp). */
 export const FEATURES: Record<string, string[]> = {
-  ong_pequena: ["instagram", "facebook", "text_image", "dias_clave", "stats_basic"],
-  ong_mediana: ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
-  earlybird:   ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
-  standard:    ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
-  pro:         ["instagram", "facebook", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados", "multi_marca", "api_access"],
+  ong_pequena: ["instagram", "facebook", "whatsapp", "text_image", "dias_clave", "stats_basic"],
+  ong_mediana: ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
+  earlybird:   ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
+  standard:    ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
+  pro:         ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados", "multi_marca", "api_access"],
 };
 
 /** Posts gratuitos al mes para ong_pequena (reset el día 1 de cada mes). */

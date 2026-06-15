@@ -133,6 +133,45 @@ function renderLineas(lineas: string[], fontSize: number, color: string): Promis
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
+/**
+ * Marca de agua "✨ Gen. IA" (destello vectorial + texto, glifos como paths para
+ * evitar tofu). Devuelve el SVG y sus dimensiones. fill-opacity para discreción.
+ */
+function watermarkSVG(fs: number, color: string, opacity: number): { svg: string; w: number; h: number } {
+  const text = "Gen. IA";
+  const scale = fs / FONT.unitsPerEm;
+  const textW = Math.ceil(medirAncho(text, fs));
+  const starBox = Math.round(fs * 0.95);
+  const gap = Math.round(fs * 0.3);
+  const h = Math.round(fs * 1.3);
+  const w = starBox + gap + textW;
+  // Destello de 4 puntas (sparkle) centrado verticalmente.
+  const cx = starBox / 2, cy = h / 2, R = starBox / 2, r = R * 0.3;
+  const star = `M ${cx} ${cy - R} L ${cx + r} ${cy - r} L ${cx + R} ${cy} L ${cx + r} ${cy + r} L ${cx} ${cy + R} L ${cx - r} ${cy + r} L ${cx - R} ${cy} L ${cx - r} ${cy - r} Z`;
+  // Texto "Gen. IA" glifo a glifo (baseline ≈ fs).
+  const full = new opentype.Path();
+  let penX = starBox + gap;
+  for (const ch of text) { const g = FONT.charToGlyph(ch); full.extend(g.getPath(penX, fs, fs)); penX += (g.advanceWidth ?? 0) * scale; }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><g fill="${color}" fill-opacity="${opacity}"><path d="${star}"/><path d="${pathD(full)}"/></g></svg>`;
+  return { svg, w, h };
+}
+
+/** Genera los inputs (sombra + blanco) de la marca de agua, anclados abajo-derecha. */
+async function watermarkComposites(width: number, height: number): Promise<sharp.OverlayOptions[]> {
+  const fs = Math.max(22, Math.round(height * 0.034)); // ~3.4% de la altura
+  const blanco = watermarkSVG(fs, "#FFFFFF", 0.85);
+  const negro = watermarkSVG(fs, "#000000", 0.5);
+  const wmWhite = await sharp(Buffer.from(blanco.svg)).png().toBuffer();
+  const wmShadow = await sharp(Buffer.from(negro.svg)).png().blur(2).toBuffer();
+  const pad = Math.round(height * 0.025);
+  const left = Math.max(0, width - blanco.w - pad);
+  const top = Math.max(0, height - blanco.h - pad);
+  return [
+    { input: wmShadow, top: top + 2, left: left + 2 },
+    { input: wmWhite, top, left },
+  ];
+}
+
 export interface ComposeOptions {
   imageBuffer: Buffer;
   headline: string | null;
@@ -191,11 +230,16 @@ export async function composeImage({
     <rect x="0" y="${bandTop}" width="${width}" height="${bandH}" fill="url(#g)"/>
   </svg>`;
 
+  // Marca de agua "✨ Gen. IA" abajo-derecha: solo cuando hay composición IA
+  // (esta rama). Una imagen subida sin titular sale por el return anterior sin marca.
+  const wm = await watermarkComposites(width, height);
+
   return base
     .composite([
       { input: Buffer.from(banda), top: 0, left: 0 },
       { input: sombra, top, left },
       { input: blanco, top, left },
+      ...wm,
     ])
     .png()
     .toBuffer();

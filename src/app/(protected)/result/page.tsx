@@ -297,7 +297,7 @@ function ResultContent() {
   const guion = post.guion_tiktok && Array.isArray(post.guion_tiktok.guion) && post.guion_tiktok.guion.length
     ? post.guion_tiktok
     : null;
-  const RED_LABELS: Record<string, string> = { Instagram: "📸 Instagram", Facebook: "👥 Facebook", TikTok: "🎵 TikTok" };
+  const RED_LABELS: Record<string, string> = { Instagram: "📸 Instagram", Facebook: "👥 Facebook", TikTok: "🎵 TikTok", WhatsApp: "💬 WhatsApp" };
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-5 pb-4">

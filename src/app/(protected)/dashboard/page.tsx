@@ -121,7 +121,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     { href: "/stats",    icon: "📊", title: "Estadísticas",             subtitle: "Evolución de tu comunidad.",    color: "#ec4899", bg: "#fdf2f8", locked: !canUseFeature(profile, "stats_basic") },
   ];
 
-  const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵" };
+  const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵", WhatsApp: "💬" };
 
   return (
     <div className="max-w-lg mx-auto">
