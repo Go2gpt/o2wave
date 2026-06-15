@@ -20,10 +20,8 @@ const RED_OPTIONS = [
 
 // Color de marca por red (texto/icono sin seleccionar; fondo al seleccionar).
 const RED_COLOR: Record<string, string> = { Instagram: "#dc2743", Facebook: "#1877F2", TikTok: "#000000", WhatsApp: "#25D366" };
-const RED_BG_SEL: Record<string, string> = {
-  Instagram: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
-  Facebook: "#1877F2", TikTok: "#000000", WhatsApp: "#25D366",
-};
+// Tinte ~8% (alpha 0x14) del color oficial para el fondo del estado seleccionado.
+const RED_TINT: Record<string, string> = { Instagram: "#dc274314", Facebook: "#1877F214", TikTok: "#00000014", WhatsApp: "#25D36614" };
 
 /** Icono SVG monocromo por red (fill=currentColor → hereda el color del botón). */
 function IconoRed({ red }: { red: RedSocial }) {
@@ -242,7 +240,7 @@ function CreateInner() {
               const bloqueada = gating ? !canUseFeature(gating, value.toLowerCase()) : false;
               const sel = form.redSocial === value && !bloqueada;
               const estilo: React.CSSProperties = sel
-                ? { background: RED_BG_SEL[value], color: "#fff", border: "2px solid transparent" }
+                ? { background: RED_TINT[value], color: RED_COLOR[value], border: `2px solid ${RED_COLOR[value]}` }
                 : { background: "#fff", color: "#6b7280", border: "2px solid #e5e7eb" };
               return (
                 <button key={value} type="button"
@@ -250,7 +248,7 @@ function CreateInner() {
                   aria-disabled={bloqueada}
                   className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold transition-all"
                   style={{ ...estilo, ...(bloqueada ? { opacity: 0.6 } : {}) }}>
-                  <span style={{ color: sel ? "#fff" : RED_COLOR[value], display: "inline-flex" }}><IconoRed red={value} /></span>
+                  <span style={{ color: RED_COLOR[value], display: "inline-flex" }}><IconoRed red={value} /></span>
                   <span>{label}</span>{bloqueada && <span>🔒</span>}
                 </button>
               );
