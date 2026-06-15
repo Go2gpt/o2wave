@@ -26,7 +26,7 @@ export async function pollForImage(
 
 /** Calcula el aspect_ratio a partir de la red y el formato. */
 export function aspectFor(redSocial: string, formato?: string | null): string {
-  if (redSocial === "Instagram" && formato === "Story 9:16") return "9:16";
+  if (redSocial === "Instagram") return formato === "Story 9:16" ? "9:16" : "4:5"; // Post 4:5 (feed)
   if (redSocial === "Facebook") return "16:9";
-  return "1:1";
+  return "1:1"; // WhatsApp y resto
 }

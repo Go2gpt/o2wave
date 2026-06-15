@@ -16,6 +16,7 @@ const FONT = opentype.parse(_fontBuf.buffer.slice(_fontBuf.byteOffset, _fontBuf.
 // fontSize (referenciado a 1080) se aplica directo en ambos formatos.
 const DIMS: Record<string, { w: number; h: number }> = {
   "1:1": { w: 1080, h: 1080 },
+  "4:5": { w: 1080, h: 1350 },   // feed vertical de Instagram (Post)
   "9:16": { w: 1080, h: 1920 },
   "16:9": { w: 1920, h: 1080 },
 };
@@ -181,9 +182,6 @@ export interface ComposeOptions {
   fontSize: number;  // px referenciado a 1080
   aspectRatio: string;
   textAlign?: "left" | "center" | "right";
-  // Instagram Post: compone el contenido cuadrado y lo centra en lienzo 1080×1920
-  // con barras negras (para que el share sheet no lo deforme como Reel).
-  padVertical?: boolean;
 }
 
 /**
@@ -191,29 +189,15 @@ export interface ComposeOptions {
  * texto) en la posición y tamaño indicados. Si headline es vacío, devuelve la
  * imagen sin tocar (solo normalizada a las dimensiones del formato).
  */
-// Instagram Post: el contenido se compone CUADRADO (1080×1080) y se centra en un
-// lienzo vertical 1080×1920 con barras negras de 420px arriba/abajo. Así el share
-// sheet de Instagram (que abre en Reel/Storie) no lo recorta ni deforma. El texto y
-// el watermark van sobre el cuadrado, nunca sobre las barras.
-const PAD = { canvasW: 1080, canvasH: 1920, barra: 420 };
-
-async function padCuadrado(contenido: Buffer): Promise<Buffer> {
-  return sharp({ create: { width: PAD.canvasW, height: PAD.canvasH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } } })
-    .composite([{ input: contenido, top: PAD.barra, left: 0 }])
-    .png()
-    .toBuffer();
-}
-
 export async function composeImage({
-  imageBuffer, headline, positionX, positionY, fontSize, aspectRatio, textAlign = "center", padVertical = false,
+  imageBuffer, headline, positionX, positionY, fontSize, aspectRatio, textAlign = "center",
 }: ComposeOptions): Promise<Buffer> {
-  // Con padVertical el contenido es cuadrado (1080×1080); las barras se añaden al final.
-  const { w: width, h: height } = padVertical ? { w: 1080, h: 1080 } : (DIMS[aspectRatio] || DIMS["1:1"]);
+  // Cada red en su formato nativo (1:1, 4:5 Post, 9:16 Story, 16:9 Facebook).
+  const { w: width, h: height } = DIMS[aspectRatio] || DIMS["1:1"];
   const base = sharp(imageBuffer).resize(width, height, { fit: "cover" });
 
   if (!headline || !headline.trim()) {
-    const limpio = await base.png().toBuffer();
-    return padVertical ? padCuadrado(limpio) : limpio;
+    return base.png().toBuffer();
   }
 
   const maxTextWidth = width - 160;
@@ -263,7 +247,7 @@ export async function composeImage({
   // (esta rama). Una imagen subida sin titular sale por el return anterior sin marca.
   const wm = await watermarkComposites(width, height);
 
-  const contenido = await base
+  return base
     .composite([
       { input: Buffer.from(banda), top: 0, left: 0 },
       { input: sombra, top, left },
@@ -272,7 +256,4 @@ export async function composeImage({
     ])
     .png()
     .toBuffer();
-
-  // Post (padVertical): pegar el cuadrado compuesto en el lienzo vertical con barras negras.
-  return padVertical ? padCuadrado(contenido) : contenido;
 }

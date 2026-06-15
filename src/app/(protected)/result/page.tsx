@@ -204,7 +204,6 @@ function ResultContent() {
           imageUrl: post.imagen_url,
           headline: textEnabled ? headline : null,
           positionX: posX, positionY: posY, fontSize, aspectRatio: aspect, textAlign,
-          padVertical: post.red_social === "Instagram" && post.formato !== "Story 9:16",
         }),
       });
       if (!res.ok) throw new Error("compose failed");
@@ -234,10 +233,6 @@ function ResultContent() {
     }
   };
 
-  // Instagram Post se compone en 9:16 con barras negras (padVertical) para que el
-  // share sheet no lo deforme. Story/FB/WhatsApp van en su lienzo nativo.
-  const necesitaPadVertical = (p: GeneratedPost) => p.red_social === "Instagram" && p.formato !== "Story 9:16";
-
   const shareImage = async () => {
     if (!post?.imagen_url) return;
     setSharingImg(true);
@@ -256,7 +251,6 @@ function ResultContent() {
           imageUrl: post.imagen_url,
           headline: textEnabled ? headline : null,
           positionX: posX, positionY: posY, fontSize, aspectRatio: aspect, textAlign,
-          padVertical: necesitaPadVertical(post),
         }),
       });
       if (!res.ok) throw new Error("compose failed");
@@ -304,8 +298,6 @@ function ResultContent() {
 
   const isStory = post.formato === "Story 9:16";
   const isTikTok = post.red_social === "TikTok";
-  // Instagram Post se exporta 9:16 con la imagen cuadrada centrada y barras negras.
-  const padVertical = post.red_social === "Instagram" && post.formato !== "Story 9:16";
   const guion = post.guion_tiktok && Array.isArray(post.guion_tiktok.guion) && post.guion_tiktok.guion.length
     ? post.guion_tiktok
     : null;
@@ -332,11 +324,8 @@ function ResultContent() {
       {!isTikTok && (
         <>
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
-          <div className="relative w-full overflow-hidden" style={{ paddingTop: (padVertical || isStory) ? "177.78%" : "100%", backgroundColor: padVertical ? "#000000" : "#f3f4f6" }}>
-          {/* Post Instagram: la imagen real es cuadrada y va centrada (barras negras
-              arriba/abajo). El área editable (ref) es ese cuadrado, no las barras.
-              Story va a pantalla completa 9:16 (sin barras). */}
-          <div ref={imgBoxRef} className="absolute left-0 w-full" style={padVertical ? { top: "21.875%", height: "56.25%" } : { top: 0, height: "100%" }}>
+          {/* Cada red en su formato nativo: Post 4:5 (1080×1350), Story 9:16, Facebook/WhatsApp como antes. */}
+          <div ref={imgBoxRef} className="relative w-full bg-gray-100" style={{ paddingTop: isStory ? "177.78%" : post.red_social === "Instagram" ? "125%" : "100%" }}>
             {post.imagen_url ? (
               <img src={post.imagen_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (
@@ -373,7 +362,6 @@ function ResultContent() {
                 </div>
               </>
             )}
-          </div>
 
             {(regenImg || uploading) && (
               <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">

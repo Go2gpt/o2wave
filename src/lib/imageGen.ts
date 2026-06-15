@@ -35,7 +35,7 @@ export async function construirImagePromptEN(tema: string, tipo?: string | null)
 // Tamaño máximo soportado por modelo y formato. gpt-image-2 hace cuadrado a 1536²;
 // gpt-image-1 se queda en 1024² cuadrado.
 function sizeOpenAI(model: string, aspect: string): string {
-  if (aspect === "9:16") return "1024x1536";
+  if (aspect === "9:16" || aspect === "4:5") return "1024x1536"; // vertical (Story / Post 4:5)
   if (aspect === "16:9") return "1536x1024";
   return model === "gpt-image-2" ? "1536x1536" : "1024x1024";
 }

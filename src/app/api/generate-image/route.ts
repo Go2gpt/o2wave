@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-    const aspect = redSocial === "Instagram" && formatoInstagram === "Story 9:16" ? "9:16"
+    const aspect = redSocial === "Instagram" ? (formatoInstagram === "Story 9:16" ? "9:16" : "4:5")
       : redSocial === "Facebook" ? "16:9" : "1:1";
 
     // Prompt visual en inglés, fotorrealista (no traduce el caption).
