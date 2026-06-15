@@ -48,6 +48,10 @@ function ResultContent() {
   const [textBoxH, setTextBoxH] = useState(0);
   const imgBoxRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  // PNG ya compuesto (titular + marca horneados) listo para compartir. Se
+  // pregenera al cargar y tras cada edición, así el handler de "Compartir"
+  // puede llamar a navigator.share() SÍNCRONAMENTE (iOS no bloquea el gesto).
+  const composedRef = useRef<{ key: string; file: File } | null>(null);
 
   useEffect(() => {
     if (!id) { router.push("/create"); return; }
@@ -86,6 +90,44 @@ function ResultContent() {
       setCanShareFiles(false);
     }
   }, []);
+
+  // Cuerpo de la petición de composición a partir del estado actual del editor.
+  const composeBody = () => {
+    if (!post?.imagen_url) return null;
+    return {
+      imageUrl: post.imagen_url,
+      headline: textEnabled ? headline : null,
+      positionX: posX, positionY: posY, fontSize,
+      aspectRatio: aspectFor(post.red_social, post.formato),
+      textAlign,
+    };
+  };
+
+  // Pregeneración: compone el PNG en background (debounce) y lo cachea en
+  // composedRef. Solo en navegadores que soportan compartir archivos (iOS/PWA).
+  useEffect(() => {
+    if (!canShareFiles) return;
+    const body = composeBody();
+    if (!body) return;
+    const key = JSON.stringify(body);
+    if (composedRef.current?.key === key) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/compose-and-download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok || cancelled) return;
+        const blob = await res.blob();
+        if (cancelled) return;
+        composedRef.current = { key, file: new File([blob], `o2wave-${id}.png`, { type: "image/png" }) };
+      } catch { /* reintenta en el próximo cambio */ }
+    }, 600);
+    return () => { cancelled = true; clearTimeout(t); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canShareFiles, post?.imagen_url, headline, textEnabled, posX, posY, fontSize, textAlign, id]);
 
   const regenerateImage = async () => {
     if (!post) return;
@@ -233,40 +275,58 @@ function ResultContent() {
     }
   };
 
-  const shareImage = async () => {
+  const toastCopiado = () => {
+    const esStory = post?.formato === "Story 9:16";
+    setToast({
+      message: esStory
+        ? "Caption copiado. Pégalo manualmente como texto sobre tu story."
+        : "Caption copiado. Pégalo en la app destino si no aparece automáticamente.",
+      type: "info",
+    });
+  };
+
+  // Handler SÍNCRONO: dentro del gesto del usuario copiamos el caption y, si el
+  // PNG ya está pregenerado y al día, llamamos a navigator.share() sin ningún
+  // await previo (clave para que iOS no bloquee ni el clipboard ni el share).
+  const shareImage = () => {
     if (!post?.imagen_url) return;
+    const caption = limpiarMarkdown(post.texto || "");
+    // 1) Clipboard SÍNCRONO (sin await) dentro del gesto → iOS lo permite.
+    try { navigator.clipboard?.writeText(caption); } catch { /* no soportado */ }
+
+    const body = composeBody();
+    const ready = composedRef.current;
+    // 2) Si el PNG pregenerado corresponde al estado actual: share síncrono.
+    if (body && ready && ready.key === JSON.stringify(body) && navigator.canShare?.({ files: [ready.file] })) {
+      toastCopiado();
+      navigator.share({ files: [ready.file], text: caption }).catch((e) => {
+        if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" });
+      });
+      return;
+    }
+    // 3) Fallback: aún no pregenerado o parámetros cambiados → componer y compartir.
+    void shareImageAsync(caption);
+  };
+
+  // Fallback asíncrono (el clipboard ya se escribió en el gesto). Compone el PNG
+  // y comparte; en iOS el share puede bloquearse tras el await, de ahí la ruta
+  // síncrona preferente de arriba.
+  const shareImageAsync = async (caption: string) => {
+    const body = composeBody();
+    if (!body) return;
     setSharingImg(true);
     try {
-      const caption = limpiarMarkdown(post.texto || "");
-      // Workaround Instagram (descarta el text al recibir files): copiamos el
-      // caption al portapapeles antes de compartir. Dentro del gesto de usuario.
-      let copiado = false;
-      if (navigator.clipboard?.writeText) { try { await navigator.clipboard.writeText(caption); copiado = true; } catch {} }
-
-      const aspect = aspectFor(post.red_social, post.formato);
       const res = await fetch("/api/compose-and-download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: post.imagen_url,
-          headline: textEnabled ? headline : null,
-          positionX: posX, positionY: posY, fontSize, aspectRatio: aspect, textAlign,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("compose failed");
       const blob = await res.blob();
       const file = new File([blob], `o2wave-${id}.png`, { type: "image/png" });
+      composedRef.current = { key: JSON.stringify(body), file };
       if (!(navigator.canShare && navigator.canShare({ files: [file] }))) throw new Error("files no soportados");
-
-      if (copiado) {
-        const esStory = post.formato === "Story 9:16";
-        setToast({
-          message: esStory
-            ? "Caption copiado. Pégalo manualmente como texto sobre tu story."
-            : "Caption copiado. Pégalo en la app destino si no aparece automáticamente.",
-          type: "info",
-        });
-      }
+      toastCopiado();
       await navigator.share({ files: [file], text: caption });
     } catch (e) {
       if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" });
