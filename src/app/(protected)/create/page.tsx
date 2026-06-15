@@ -132,11 +132,14 @@ function CreateInner() {
       }
       if (textData.error) throw new Error(textData.error);
 
-      // El endpoint de imagen devuelve un predictionId; al terminar, el servidor
-      // estampa el titular (textData.titular) y sube la imagen final.
+      // El endpoint de imagen ahora es SÍNCRONO (OpenAI): devuelve imagenUrl ya
+      // subida (imagen limpia; el titular se hornea al descargar). Mantenemos el
+      // polling como compatibilidad por si algún flujo devolviera predictionId.
       const imageData = imageRes ? await imageRes.json() : null;
       let imagenUrl: string | undefined;
-      if (imageData?.predictionId) {
+      if (imageData?.imagenUrl) {
+        imagenUrl = imageData.imagenUrl;
+      } else if (imageData?.predictionId) {
         imagenUrl = (await pollForImage(imageData.predictionId)) ?? undefined;
       }
 

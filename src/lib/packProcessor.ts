@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { composeImage } from "@/lib/composeImage";
+import { generarImagenIA } from "@/lib/imageGen";
 import { quitarHashtags } from "@/lib/formatText";
 import type { PackDia, PackFuente, GuionTikTok } from "@/types";
 
@@ -119,7 +120,7 @@ ${reglaIdioma(p.idioma_principal)}`;
 interface TextoRed { titular: string; texto: string; hashtags: string[]; prompt_imagen: string; }
 
 const promptImagenFallback = (tema: string) =>
-  `Fotografía realista de alta calidad relacionada con "${tema}". Composición limpia, luminosa y profesional, ambiente positivo.`;
+  `Photograph related to "${tema}", documentary editorial style, photorealistic, natural lighting, shallow depth of field, no text, no letters, no logos, no watermarks`;
 
 
 /** Genera titular + texto + hashtags + descripción visual de la imagen (Instagram/Facebook). */
@@ -135,19 +136,21 @@ Responde SOLO con JSON válido:
   "titular": "6-8 palabras impactantes para superponer sobre la imagen",
   "texto": "texto listo para publicar (${limite}), con emojis y SIN hashtags",
   "hashtags": ["#hashtag1", "#hashtag2"],
-  "prompt_imagen": "DESCRIPCIÓN VISUAL de la imagen ideal para acompañar el post"
+  "image_prompt_en": "ENGLISH photorealistic image prompt (see rules)"
 }
 - IMPORTANTE: el campo "texto" NO debe contener hashtags ni el símbolo #. Los hashtags van EXCLUSIVAMENTE en el array "hashtags" (se muestran aparte en la app).
 - Incluye 8-12 hashtags relevantes al tema y al sector.
-- "prompt_imagen" debe ser una descripción VISUAL concreta de qué pintar (escena, sujetos, lugar, luz, ambiente, estilo fotográfico). NO un eslogan ni una frase del texto. Ejemplo: "Vista aérea de un océano azul cristalino al amanecer, una ola suave acercándose a una playa de arena clara, luz dorada cálida, fotografía realista de alta calidad". No menciones texto ni logos.
+- "image_prompt_en" debe ir SIEMPRE EN INGLÉS (aunque el resto del JSON esté en otro idioma) y describir una FOTOGRAFÍA realista editorial/documental: entidades visuales concretas (sujeto, composición, luz, ambiente). NO ilustración, NO abstracto, NO vectorial. Para personas usa solo rasgos generales (edad, expresión, contexto); NUNCA personas reales concretas ni famosos. Termina con "documentary editorial style, photorealistic, shallow depth of field, no text, no letters, no logos, no watermarks". Ejemplos:
+  · "Close-up photograph of a young hand gently holding the wrinkled hand of an elderly person, documentary editorial style, soft natural lighting, warm respectful tone, photorealistic, 50mm lens, shallow depth of field, no text, no logos"
+  · "Photograph of hands planting a young tree in healthy soil, close-up, documentary style, golden hour lighting, hopeful mood, photorealistic, no text, no logos"
 ${INSTRUCCION_TILDES}
 ${instruccionIdioma(p.idioma_principal)}
 ${reglaIdioma(p.idioma_principal)}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const o = (parseJSON(raw) || {}) as Record<string, unknown>;
-    const promptImg = typeof o.prompt_imagen === "string" && o.prompt_imagen.trim().length > 10
-      ? o.prompt_imagen.trim() : promptImagenFallback(tema);
+    const promptImg = typeof o.image_prompt_en === "string" && o.image_prompt_en.trim().length > 10
+      ? o.image_prompt_en.trim() : promptImagenFallback(tema);
     return {
       titular: typeof o.titular === "string" ? o.titular.replace(/^["'«»]|["'«»]$/g, "") : tema,
       texto: typeof o.texto === "string" ? quitarHashtags(o.texto) : "",
@@ -202,60 +205,20 @@ const aspectPara = (red: string) => (red === "Facebook" ? "16:9" : "1:1");
 
 interface ImagenResultado { url: string | null; url_limpia?: string | null; error: string | null; }
 
-/** Genera imagen FLUX (con prompt visual) + hornea titular con sharp + sube a post-images. */
+/** Genera imagen (OpenAI gpt-image-2 → fallback Replicate FLUX) + hornea titular con sharp + sube a post-images. */
 async function generarImagen(
   admin: SupabaseClient, userId: string, promptImagen: string, titular: string, red: string, presupuestoMs: number, label: string,
 ): Promise<ImagenResultado> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) { console.error(`${label}: sin REPLICATE_API_TOKEN`); return { url: null, error: "sin token replicate" }; }
   if (presupuestoMs < MIN_MS_PARA_IMAGEN) { console.warn(`${label}: presupuesto insuficiente (${presupuestoMs}ms)`); return { url: null, error: `presupuesto insuficiente (${presupuestoMs}ms)` }; }
   const t = Date.now();
   const ms = () => Date.now() - t;
   try {
     const aspect = aspectPara(red);
-    const fluxPrompt = `${promptImagen} Sin texto, sin letras, sin palabras, sin logos. High quality, clean composition.`;
 
-    console.log(`${label}: pidiendo a FLUX 1.1 Pro (aspect ${aspect})...`);
-    const startRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { prompt: fluxPrompt, aspect_ratio: aspect, output_format: "webp", output_quality: 90, safety_tolerance: 2, prompt_upsampling: false } }),
-    });
-    if (!startRes.ok) {
-      const body = await startRes.text();
-      console.error(`${label}: Replicate create ${startRes.status}: ${body.slice(0, 300)}`);
-      return { url: null, error: `replicate create ${startRes.status}: ${body.slice(0, 150)}` };
-    }
-    const pred = await startRes.json();
-    const id = pred.id as string;
-    console.log(`${label}: prediction ${id} creada en ${ms()}ms, polling...`);
-
-    // Polling directo a Replicate dentro del presupuesto.
-    const deadline = Date.now() + presupuestoMs - 4000;
-    let rawUrl: string | null = null;
-    let ultimoEstado = "starting";
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 2000));
-      const st = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-      if (!st.ok) { console.warn(`${label}: poll ${st.status} (reintentando)`); continue; }
-      const d = await st.json();
-      ultimoEstado = d.status;
-      if (d.status === "succeeded") {
-        const out = d.output;
-        rawUrl = Array.isArray(out) ? (out[0] ?? null) : (typeof out === "string" ? out : null);
-        break;
-      }
-      if (d.status === "failed" || d.status === "canceled") {
-        console.error(`${label}: Replicate ${d.status}: ${JSON.stringify(d.error)?.slice(0, 200)}`);
-        return { url: null, error: `replicate ${d.status}: ${String(d.error).slice(0, 120)}` };
-      }
-    }
-    if (!rawUrl) { console.error(`${label}: timeout FLUX tras ${ms()}ms (estado ${ultimoEstado})`); return { url: null, error: `timeout flux (estado ${ultimoEstado})` }; }
-    console.log(`${label}: FLUX OK en ${ms()}ms, descargando...`);
-
-    const imgRes = await fetch(rawUrl);
-    const clean = Buffer.from(await imgRes.arrayBuffer());
-    console.log(`${label}: imagen descargada (${clean.length}B) en ${ms()}ms, componiendo...`);
+    console.log(`${label}: generando imagen (OpenAI gpt-image-2, fallback FLUX; aspect ${aspect})...`);
+    const clean = await generarImagenIA(promptImagen, aspect, presupuestoMs - 4000);
+    if (!clean) { console.error(`${label}: sin imagen tras OpenAI+fallback en ${ms()}ms`); return { url: null, error: "sin imagen (openai+replicate)" }; }
+    console.log(`${label}: imagen lista (${clean.length}B) en ${ms()}ms, componiendo...`);
 
     let composed: Buffer;
     try {

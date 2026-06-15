@@ -1,50 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase-server";
+import { construirImagePromptEN, generarImagenIA } from "@/lib/imageGen";
 import type { ContentFormData } from "@/types";
 
+export const maxDuration = 120;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// Genera la imagen del post de forma SÍNCRONA con OpenAI gpt-image-2 (fallback
+// gpt-image-1, y fallback final a Replicate FLUX). Sube la imagen LIMPIA (sin
+// titular: el texto se hornea al descargar) y devuelve { imagenUrl }.
 export async function POST(request: NextRequest) {
   try {
     const { formData }: { formData: ContentFormData } = await request.json();
     const { tipoOrganizacion, redSocial, formatoInstagram, tema } = formData;
 
-    const token = process.env.REPLICATE_API_TOKEN;
-    if (!token) return NextResponse.json({ error: "REPLICATE_API_TOKEN no configurado" }, { status: 500 });
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-    const aspectRatio = redSocial === "Instagram" && formatoInstagram === "Story 9:16" ? "9:16"
+    const aspect = redSocial === "Instagram" && formatoInstagram === "Story 9:16" ? "9:16"
       : redSocial === "Facebook" ? "16:9" : "1:1";
 
-    const orgType = (tipoOrganizacion === "ong_pequena" || tipoOrganizacion === "ong_mediana")
-      ? "non-profit organization" : "small business";
+    // Prompt visual en inglés, fotorrealista (no traduce el caption).
+    const prompt = await construirImagePromptEN(tema, tipoOrganizacion);
+    const buffer = await generarImagenIA(prompt, aspect);
+    if (!buffer) return NextResponse.json({ error: "No se pudo generar la imagen" }, { status: 502 });
 
-    // Prompt SIN texto ni logos: solo imagen visual. El texto se añade luego
-    // por código (overlay propio con Montserrat).
-    const imagePrompt = `Professional photographic illustration for the social media of a ${orgType}, about "${tema}". Modern, vibrant, high quality, clean and uncluttered composition. Clean photographic illustration. No text, no letters, no words, no typography, no logos, no watermarks, no signatures. Pure visual content only.`;
-
-    // FLUX 1.1 Pro (mejor calidad y adherencia al prompt). Devolvemos el
-    // predictionId; el cliente hace polling y la composición del texto ocurre
-    // al terminar. flux-1.1-pro NO usa num_inference_steps ni guidance.
-    const res = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        input: {
-          prompt: imagePrompt,
-          aspect_ratio: aspectRatio,
-          output_format: "webp",
-          output_quality: 90,
-          safety_tolerance: 2,
-          prompt_upsampling: false,
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("Replicate error:", err);
-      return NextResponse.json({ error: "Error iniciando generación" }, { status: 500 });
+    const filePath = `${user.id}/post-${Date.now()}.png`;
+    const { error: upErr } = await supabase.storage
+      .from("post-images")
+      .upload(filePath, buffer, { contentType: "image/png", upsert: false });
+    if (upErr) {
+      console.error("generate-image storage upload:", upErr.message);
+      return NextResponse.json({ error: "No se pudo guardar la imagen" }, { status: 500 });
     }
 
-    const prediction = await res.json();
-    return NextResponse.json({ predictionId: prediction.id });
+    const { data: pub } = supabase.storage.from("post-images").getPublicUrl(filePath);
+    return NextResponse.json({ imagenUrl: pub.publicUrl });
   } catch (error) {
     return NextResponse.json({ error: `Error: ${error instanceof Error ? error.message : "desconocido"}` }, { status: 500 });
   }
