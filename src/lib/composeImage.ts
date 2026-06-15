@@ -188,19 +188,34 @@ export interface ComposeOptions {
  * texto) en la posición y tamaño indicados. Si headline es vacío, devuelve la
  * imagen sin tocar (solo normalizada a las dimensiones del formato).
  */
+// Story: el contenido se compone CUADRADO (1080×1080) y luego se centra en un
+// lienzo vertical 1080×1920 con barras negras de 420px arriba/abajo. Así Instagram
+// no recorta nada (ya viene en 9:16). El texto y el watermark van sobre el cuadrado.
+const STORY = { canvasW: 1080, canvasH: 1920, barra: 420 };
+
+async function padStory(contenido: Buffer): Promise<Buffer> {
+  return sharp({ create: { width: STORY.canvasW, height: STORY.canvasH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } } })
+    .composite([{ input: contenido, top: STORY.barra, left: 0 }])
+    .png()
+    .toBuffer();
+}
+
 export async function composeImage({
   imageBuffer, headline, positionX, positionY, fontSize, aspectRatio, textAlign = "center",
 }: ComposeOptions): Promise<Buffer> {
-  const { w: width, h: height } = DIMS[aspectRatio] || DIMS["1:1"];
+  const story = aspectRatio === "9:16";
+  // Para Story el contenido es cuadrado (1080×1080); el padding vertical se añade al final.
+  const { w: width, h: height } = story ? { w: 1080, h: 1080 } : (DIMS[aspectRatio] || DIMS["1:1"]);
   const base = sharp(imageBuffer).resize(width, height, { fit: "cover" });
 
   if (!headline || !headline.trim()) {
-    return base.png().toBuffer();
+    const limpio = await base.png().toBuffer();
+    return story ? padStory(limpio) : limpio;
   }
 
   const maxTextWidth = width - 160;
-  // Story (9:16) permite texto más pequeño (más espacio vertical, más texto).
-  const minFont = aspectRatio === "9:16" ? 18 : MIN_FONT_SIZE;
+  // Story permite texto más pequeño (más espacio, más texto).
+  const minFont = story ? 18 : MIN_FONT_SIZE;
   const size = Math.max(minFont, Math.min(120, Math.round(fontSize)));
 
   // Calculamos el layout (word wrap real + auto-shrink) UNA vez y lo compartimos
@@ -245,7 +260,7 @@ export async function composeImage({
   // (esta rama). Una imagen subida sin titular sale por el return anterior sin marca.
   const wm = await watermarkComposites(width, height);
 
-  return base
+  const contenido = await base
     .composite([
       { input: Buffer.from(banda), top: 0, left: 0 },
       { input: sombra, top, left },
@@ -254,4 +269,7 @@ export async function composeImage({
     ])
     .png()
     .toBuffer();
+
+  // Story: pegar el cuadrado compuesto en el lienzo vertical con barras negras.
+  return story ? padStory(contenido) : contenido;
 }

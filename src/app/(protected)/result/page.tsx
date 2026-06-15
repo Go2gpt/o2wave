@@ -319,7 +319,10 @@ function ResultContent() {
       {!isTikTok && (
         <>
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
-          <div ref={imgBoxRef} className="relative w-full bg-gray-100" style={{ paddingTop: isStory ? "177.78%" : "100%" }}>
+          <div className="relative w-full overflow-hidden" style={{ paddingTop: isStory ? "177.78%" : "100%", backgroundColor: isStory ? "#000000" : "#f3f4f6" }}>
+          {/* Story: la imagen real es cuadrada y va centrada (barras negras arriba/abajo).
+              El área editable (ref) es ese cuadrado, no las barras. */}
+          <div ref={imgBoxRef} className="absolute left-0 w-full" style={isStory ? { top: "21.875%", height: "56.25%" } : { top: 0, height: "100%" }}>
             {post.imagen_url ? (
               <img src={post.imagen_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (
@@ -356,6 +359,7 @@ function ResultContent() {
                 </div>
               </>
             )}
+          </div>
 
             {(regenImg || uploading) && (
               <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
