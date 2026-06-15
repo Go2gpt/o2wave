@@ -409,6 +409,13 @@ function ResultContent() {
             </button>
             <button onClick={regenerateImage} disabled={regenImg || uploading} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
             <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir imagen</button>
+            {/* WhatsApp: wa.me no admite adjuntar archivos por URL → solo precarga el caption. */}
+            <button
+              onClick={() => {
+                const caption = `${limpiarMarkdown(post.texto || "")}\n\n(Adjunta la imagen descargada)`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(caption)}`, "_blank", "noopener,noreferrer");
+              }}
+              className={btn} style={btnStyle}>📱 WhatsApp</button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
           </div>
           {/* Caso B: soporta texto pero no archivos → sugerir descargar para compartir */}
