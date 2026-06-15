@@ -15,6 +15,14 @@ function instruccionIdioma(idioma: string | null | undefined): string {
   return `IMPORTANTE: el idioma del contenido (texto, hashtags, guion, titular) debe ser ESTRICTAMENTE ${nombre}. NO mezcles palabras de otros idiomas (catalán/español/inglés). Si el nombre de la entidad o un término técnico es inalterable, déjalo, pero el resto del texto y los hashtags deben ser ${nombre} puro.`;
 }
 
+// Regla de calidad de redacción. Literal en español (caso por defecto); variante
+// equivalente para ca/en para no contradecir el idioma elegido (idioma_principal).
+function reglaIdioma(idioma: string | null | undefined): string {
+  if (idioma === "ca") return "REGLA D'IDIOMA: Escriu en català perfecte. Fes servir bé els accents. Sense faltes d'ortografia ni gramaticals. Revisa el text abans de retornar-lo.";
+  if (idioma === "en") return "LANGUAGE RULE: Write in flawless English. No spelling or grammar mistakes. Proofread the text before returning it.";
+  return "REGLA DE IDIOMA: Escribe en español ibérico (España) perfecto. Usa tildes correctamente. Sin faltas de ortografía ni gramaticales. Si hay dudas con palabras técnicas, usa el equivalente aceptado por la RAE. Revisa el texto antes de devolverlo.";
+}
+
 /** Tras una generación correcta, cuenta el post si el usuario está en plan gratuito. */
 async function contarUsoGratis(supabase: SupabaseClient, p: (PerfilGating & { id: string }) | null) {
   if (!p || p.es_admin) return;
@@ -141,7 +149,8 @@ export async function POST(request: NextRequest) {
 Creas guiones prácticos y grabables con un smartphone y luz natural, sin equipo profesional.
 Respondes SIEMPRE y ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin markdown.
 ${INSTRUCCION_TILDES}
-${instruccionIdioma(profile?.idioma_principal)}`;
+${instruccionIdioma(profile?.idioma_principal)}
+${reglaIdioma(profile?.idioma_principal)}`;
 
       const prompt = `Crea un guion de TikTok para "${nombreOrganizacion}" (${tipoOrganizacion}).
 
@@ -199,7 +208,8 @@ Genera contenido auténtico, directo y efectivo para redes sociales.
 Adapta el tono y formato exactamente a la red social indicada.
 Responde SOLO con el contenido generado, sin explicaciones adicionales.
 ${INSTRUCCION_TILDES}
-${instruccionIdioma(profile?.idioma_principal)}`;
+${instruccionIdioma(profile?.idioma_principal)}
+${reglaIdioma(profile?.idioma_principal)}`;
 
     const prompt = `Contenido para ${redSocial}${formatoInstagram ? ` (${formatoInstagram})` : ""}:
 Entidad: ${nombreOrganizacion} (${tipoOrganizacion})

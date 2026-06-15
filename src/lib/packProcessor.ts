@@ -15,6 +15,13 @@ function instruccionIdioma(idioma: string | null | undefined): string {
   return `IMPORTANTE: el idioma del contenido (texto, hashtags, guion, titular) debe ser ESTRICTAMENTE ${nombre}. NO mezcles palabras de otros idiomas (catalán/español/inglés). Si el nombre de la entidad o un término técnico es inalterable, déjalo, pero el resto del texto y los hashtags deben ser ${nombre} puro.`;
 }
 
+// Regla de calidad de redacción. Literal en español (por defecto); variante para ca/en.
+function reglaIdioma(idioma: string | null | undefined): string {
+  if (idioma === "ca") return "REGLA D'IDIOMA: Escriu en català perfecte. Fes servir bé els accents. Sense faltes d'ortografia ni gramaticals. Revisa el text abans de retornar-lo.";
+  if (idioma === "en") return "LANGUAGE RULE: Write in flawless English. No spelling or grammar mistakes. Proofread the text before returning it.";
+  return "REGLA DE IDIOMA: Escribe en español ibérico (España) perfecto. Usa tildes correctamente. Sin faltas de ortografía ni gramaticales. Si hay dudas con palabras técnicas, usa el equivalente aceptado por la RAE. Revisa el texto antes de devolverlo.";
+}
+
 // Presupuesto de tiempo: con flux-1.1-pro y concurrencia 5, las 5-7 imágenes se
 // resuelven en ~1 tanda (~10-30s). Bajamos a 180s para dejar ~120s de margen
 // bajo el maxDuration=300 y nunca morir a mitad de escritura en BD.
@@ -95,7 +102,8 @@ ${contextoDe(p)}
 Propón ${n} temas de publicación variados y CONCRETOS, basados en la actividad real de esta ${enteDe(p)} (sus servicios, productos, causas, público y logros). NO uses efemérides genéricas ni días internacionales. Cada tema en una frase corta y accionable.
 Responde SOLO con JSON: {"temas": ["tema 1", "tema 2", ...]} con exactamente ${n} elementos.
 ${INSTRUCCION_TILDES}
-${instruccionIdioma(p.idioma_principal)}`;
+${instruccionIdioma(p.idioma_principal)}
+${reglaIdioma(p.idioma_principal)}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 400, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const parsed = parseJSON(raw) as { temas?: unknown };
@@ -133,7 +141,8 @@ Responde SOLO con JSON válido:
 - Incluye 8-12 hashtags relevantes al tema y al sector.
 - "prompt_imagen" debe ser una descripción VISUAL concreta de qué pintar (escena, sujetos, lugar, luz, ambiente, estilo fotográfico). NO un eslogan ni una frase del texto. Ejemplo: "Vista aérea de un océano azul cristalino al amanecer, una ola suave acercándose a una playa de arena clara, luz dorada cálida, fotografía realista de alta calidad". No menciones texto ni logos.
 ${INSTRUCCION_TILDES}
-${instruccionIdioma(p.idioma_principal)}`;
+${instruccionIdioma(p.idioma_principal)}
+${reglaIdioma(p.idioma_principal)}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const o = (parseJSON(raw) || {}) as Record<string, unknown>;
@@ -161,7 +170,8 @@ Responde SOLO con JSON válido:
 {"titular":"6-10 palabras","guion":[{"tiempo":"0-3s","voz":"...","accion":"..."}],"planos":[{"numero":1,"descripcion":"plano práctico con smartphone"}],"hashtags":["#fyp","#parati"],"audio_sugerido":"tipo de audio genérico, no una canción concreta"}
 Usa 3-4 segmentos. 10-12 hashtags.
 ${INSTRUCCION_TILDES}
-${instruccionIdioma(p.idioma_principal)}`;
+${instruccionIdioma(p.idioma_principal)}
+${reglaIdioma(p.idioma_principal)}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1400, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const o = (parseJSON(raw) || {}) as Record<string, unknown>;
