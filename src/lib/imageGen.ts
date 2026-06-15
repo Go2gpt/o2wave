@@ -32,23 +32,25 @@ export async function construirImagePromptEN(tema: string, tipo?: string | null)
   }
 }
 
-function sizeOpenAI(aspect: string): string {
+// Tamaño máximo soportado por modelo y formato. gpt-image-2 hace cuadrado a 1536²;
+// gpt-image-1 se queda en 1024² cuadrado.
+function sizeOpenAI(model: string, aspect: string): string {
   if (aspect === "9:16") return "1024x1536";
   if (aspect === "16:9") return "1536x1024";
-  return "1024x1024";
+  return model === "gpt-image-2" ? "1536x1536" : "1024x1024";
 }
 
 /**
- * Genera imagen con OpenAI gpt-image-2 (quality high). Si el modelo no existe (404/400
- * model_not_found), hace fallback a gpt-image-1 (mismo endpoint y opciones). Devuelve
- * el PNG en Buffer (OpenAI Images devuelve siempre b64_json) o null.
+ * Genera imagen con OpenAI gpt-image-2 (quality high, tamaño grande). Si el modelo
+ * no existe (404/400 model_not_found), hace fallback a gpt-image-1 (1024² cuadrado).
+ * Devuelve el PNG en Buffer + el modelo servido (para observabilidad), o null.
  */
-export async function generarImagenOpenAI(prompt: string, aspect: string): Promise<Buffer | null> {
+export async function generarImagenOpenAI(prompt: string, aspect: string): Promise<{ buffer: Buffer; modelo: string } | null> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) { console.error("imageGen: sin OPENAI_API_KEY"); return null; }
-  const size = sizeOpenAI(aspect);
   for (const model of ["gpt-image-2", "gpt-image-1"]) {
     try {
+      const size = sizeOpenAI(model, aspect);
       const res = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -67,8 +69,8 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
       const data = await res.json();
       const b64 = data?.data?.[0]?.b64_json as string | undefined;
       if (!b64) { console.error("imageGen openai: respuesta sin b64_json"); return null; }
-      console.log(`imageGen: OpenAI ${model} OK`);
-      return Buffer.from(b64, "base64");
+      console.log(`imageGen: OpenAI ${model} OK (size ${size})`);
+      return { buffer: Buffer.from(b64, "base64"), modelo: model };
     } catch (e) {
       console.error(`imageGen openai ${model} error:`, e instanceof Error ? e.message : e);
       return null;
@@ -117,9 +119,10 @@ export async function generarImagenReplicate(prompt: string, aspect: string, dea
  * si falla (sin key, timeout, rate-limit, 5xx, etc.) cae a Replicate FLUX 1.1 pro.
  * Devuelve el Buffer de la imagen LIMPIA (sin titular) o null.
  */
-export async function generarImagenIA(prompt: string, aspect: string, deadlineMs = 55000): Promise<Buffer | null> {
+export async function generarImagenIA(prompt: string, aspect: string, deadlineMs = 55000): Promise<{ buffer: Buffer; fuente: string } | null> {
   const openai = await generarImagenOpenAI(prompt, aspect);
-  if (openai) return openai;
+  if (openai) return { buffer: openai.buffer, fuente: `openai:${openai.modelo}` };
   console.warn("imageGen: OpenAI no devolvió imagen → fallback a Replicate FLUX");
-  return generarImagenReplicate(prompt, aspect, deadlineMs);
+  const flux = await generarImagenReplicate(prompt, aspect, deadlineMs);
+  return flux ? { buffer: flux, fuente: "replicate:flux-1.1-pro" } : null;
 }

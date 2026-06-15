@@ -393,7 +393,7 @@ function ResultContent() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tamaño</label>
-                    <input type="range" min={28} max={72} value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
+                    <input type="range" min={isStory ? 18 : 28} max={72} value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
                       className="w-full accent-[#f9b23b]" />
                   </div>
                   <div>

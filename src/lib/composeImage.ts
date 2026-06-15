@@ -57,8 +57,8 @@ function layoutForzar(text: string, maxWidth: number, fontSize: number): LayoutT
  * - si salen más de MAX_LINEAS líneas, reduce fontSize.
  * - suelo en MIN_FONT_SIZE (a partir de ahí, wrap duro sin truncar).
  */
-function layoutTitular(text: string, maxWidth: number, fontSize: number): LayoutTitular {
-  if (fontSize <= MIN_FONT_SIZE) return layoutForzar(text, maxWidth, MIN_FONT_SIZE);
+function layoutTitular(text: string, maxWidth: number, fontSize: number, minFont: number = MIN_FONT_SIZE): LayoutTitular {
+  if (fontSize <= minFont) return layoutForzar(text, maxWidth, minFont);
 
   const palabras = text.trim().split(/\s+/);
   const lineas: string[] = [];
@@ -72,12 +72,12 @@ function layoutTitular(text: string, maxWidth: number, fontSize: number): Layout
       if (medirAncho(palabra, fontSize) <= maxWidth) {
         actual = palabra;
       } else {
-        return layoutTitular(text, maxWidth, fontSize - 2); // palabra única desborda → encoge
+        return layoutTitular(text, maxWidth, fontSize - 2, minFont); // palabra única desborda → encoge
       }
     }
   }
   if (actual) lineas.push(actual);
-  if (lineas.length > MAX_LINEAS) return layoutTitular(text, maxWidth, fontSize - 2);
+  if (lineas.length > MAX_LINEAS) return layoutTitular(text, maxWidth, fontSize - 2, minFont);
   return { lineas, fontSize };
 }
 
@@ -199,11 +199,13 @@ export async function composeImage({
   }
 
   const maxTextWidth = width - 160;
-  const size = Math.max(MIN_FONT_SIZE, Math.min(120, Math.round(fontSize)));
+  // Story (9:16) permite texto más pequeño (más espacio vertical, más texto).
+  const minFont = aspectRatio === "9:16" ? 18 : MIN_FONT_SIZE;
+  const size = Math.max(minFont, Math.min(120, Math.round(fontSize)));
 
   // Calculamos el layout (word wrap real + auto-shrink) UNA vez y lo compartimos
   // entre el texto blanco y su sombra negra → geometría idéntica.
-  const { lineas, fontSize: sizeFinal } = layoutTitular(headline, maxTextWidth, size);
+  const { lineas, fontSize: sizeFinal } = layoutTitular(headline, maxTextWidth, size, minFont);
   const blanco = await renderLineas(lineas, sizeFinal, "#FFFFFF", textAlign);
   const negro = await renderLineas(lineas, sizeFinal, "#000000", textAlign);
   const sombra = await sharp(negro).blur(4).toBuffer();

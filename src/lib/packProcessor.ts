@@ -216,9 +216,10 @@ async function generarImagen(
     const aspect = aspectPara(red);
 
     console.log(`${label}: generando imagen (OpenAI gpt-image-2, fallback FLUX; aspect ${aspect})...`);
-    const clean = await generarImagenIA(promptImagen, aspect, presupuestoMs - 4000);
-    if (!clean) { console.error(`${label}: sin imagen tras OpenAI+fallback en ${ms()}ms`); return { url: null, error: "sin imagen (openai+replicate)" }; }
-    console.log(`${label}: imagen lista (${clean.length}B) en ${ms()}ms, componiendo...`);
+    const gen = await generarImagenIA(promptImagen, aspect, presupuestoMs - 4000);
+    if (!gen) { console.error(`${label}: sin imagen tras OpenAI+fallback en ${ms()}ms`); return { url: null, error: "sin imagen (openai+replicate)" }; }
+    const clean = gen.buffer;
+    console.log(`${label}: imagen lista vía ${gen.fuente} (${clean.length}B) en ${ms()}ms, componiendo...`);
 
     let composed: Buffer;
     try {
