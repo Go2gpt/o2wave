@@ -86,7 +86,7 @@ export async function generarImagenReplicate(prompt: string, aspect: string, dea
     const startRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { prompt: fluxPrompt, aspect_ratio: aspect, output_format: "webp", output_quality: 90, safety_tolerance: 2 } }),
+      body: JSON.stringify({ input: { prompt: fluxPrompt, aspect_ratio: aspect, output_format: "png", safety_tolerance: 2 } }),
     });
     if (!startRes.ok) { console.error(`imageGen replicate create ${startRes.status}`); return null; }
     const id = (await startRes.json()).id as string;

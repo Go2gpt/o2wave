@@ -262,7 +262,16 @@ function ResultContent() {
       if (!(navigator.canShare && navigator.canShare({ files: [file] }))) throw new Error("files no soportados");
 
       // Justo antes del menú nativo, avisamos de que el caption está copiado.
-      if (copiado) setToast({ message: "Caption copiado. Pégalo en la app destino si no aparece automáticamente.", type: "info" });
+      // En Story no hay campo de caption → instrucción explícita de pegar manualmente.
+      if (copiado) {
+        const esStory = post.formato === "Story 9:16";
+        setToast({
+          message: esStory
+            ? "Caption copiado. Pégalo manualmente como texto sobre tu story."
+            : "Caption copiado. Pégalo en la app destino si no aparece automáticamente.",
+          type: "info",
+        });
+      }
 
       await navigator.share({ files: [file], text: caption });
     } catch (e) {
