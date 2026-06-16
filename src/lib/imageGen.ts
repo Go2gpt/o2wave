@@ -79,6 +79,61 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
   return null;
 }
 
+/**
+ * Pro: integra una FOTO del usuario en la escena descrita por el prompt, usando
+ * el endpoint de edición de imágenes de OpenAI (images.edit, multipart). Intenta
+ * gpt-image-2 y cae a gpt-image-1. Devuelve el PNG + el modelo, o null.
+ * `scenePrompt` debe ser el prompt de escena en inglés (sin la persona).
+ */
+export async function generarImagenIAConFoto(
+  scenePrompt: string,
+  foto: { buffer: Buffer; mime: string },
+  aspect: string,
+): Promise<{ buffer: Buffer; fuente: string } | null> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) { console.error("imageGen: sin OPENAI_API_KEY"); return null; }
+  // Inyecta contexto para que la persona quede integrada de forma realista.
+  const prompt = `Integrate the person from the reference image into the following scene: ${scenePrompt}. Maintain natural lighting and proportions. The person should look photorealistic and recognizable. No text, no letters, no logos, no watermarks.`;
+  const ext = foto.mime === "image/jpeg" ? "jpg" : "png";
+  for (const model of ["gpt-image-2", "gpt-image-1"]) {
+    try {
+      const size = sizeOpenAI(model, aspect);
+      const fd = new FormData();
+      fd.append("model", model);
+      fd.append("prompt", prompt);
+      fd.append("size", size);
+      fd.append("quality", "high");
+      fd.append("n", "1");
+      fd.append("image", new Blob([new Uint8Array(foto.buffer)], { type: foto.mime }), `foto.${ext}`);
+      const res = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` }, // sin Content-Type: fetch pone el boundary
+        body: fd,
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        // Modelo no disponible aún → probar el siguiente (gpt-image-1).
+        if ((res.status === 404 || res.status === 400) && /model/i.test(body)) {
+          console.warn(`imageGen edit: modelo ${model} no disponible (${res.status}), fallback al siguiente`);
+          continue;
+        }
+        console.error(`imageGen edit ${model} ${res.status}: ${body.slice(0, 300)}`);
+        // Errores de contenido (moderación) u otros: no reintentamos con otro modelo.
+        return null;
+      }
+      const data = await res.json();
+      const b64 = data?.data?.[0]?.b64_json as string | undefined;
+      if (!b64) { console.error("imageGen edit: respuesta sin b64_json"); return null; }
+      console.log(`imageGen: OpenAI edit ${model} OK (size ${size})`);
+      return { buffer: Buffer.from(b64, "base64"), fuente: `openai:${model}:edit` };
+    } catch (e) {
+      console.error(`imageGen edit ${model} error:`, e instanceof Error ? e.message : e);
+      return null;
+    }
+  }
+  return null;
+}
+
 /** Fallback: Replicate FLUX 1.1 pro (crea predicción, hace polling y descarga). Devuelve Buffer o null. */
 export async function generarImagenReplicate(prompt: string, aspect: string, deadlineMs = 55000): Promise<Buffer | null> {
   const token = process.env.REPLICATE_API_TOKEN;

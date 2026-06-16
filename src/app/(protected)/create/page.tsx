@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import BackLink from "@/components/BackLink";
 import Spinner from "@/components/ui/Spinner";
+import PhotoUploadBlock from "@/components/PhotoUploadBlock";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
 import { canUseFeature, puedeGenerarPostGratis, limitePostsMes, type PerfilGating } from "@/lib/plans";
@@ -90,6 +91,8 @@ function CreateInner() {
   const [gating, setGating] = useState<PerfilGating | null>(null);
   const [showUpsell, setShowUpsell] = useState<string | null>(null); // red social bloqueada
   const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
+  const [fotoPath, setFotoPath] = useState<string | null>(null);      // foto del usuario (Pro), ruta temporal en Storage
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -136,7 +139,7 @@ function CreateInner() {
       const [textRes, imageRes] = await Promise.all([
         fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }),
         form.redSocial !== "TikTok"
-          ? fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) })
+          ? fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form, fotoPath: fotoPath || undefined }) })
           : Promise.resolve(null),
       ]);
 
@@ -157,6 +160,16 @@ function CreateInner() {
       // subida (imagen limpia; el titular se hornea al descargar). Mantenemos el
       // polling como compatibilidad por si algún flujo devolviera predictionId.
       const imageData = imageRes ? await imageRes.json() : null;
+      // Si pedimos integrar la foto y el servidor falló (plan/moderación/coste),
+      // avisamos en vez de guardar un post sin imagen en silencio.
+      if (fotoPath && imageRes && !imageRes.ok) {
+        if (["plan_suspendido", "feature_no_disponible"].includes(imageData?.error)) {
+          setBloqueoMsg(imageData?.mensaje || "Integrar tu foto está disponible en el plan Pro.");
+          setLoading(false);
+          return;
+        }
+        throw new Error(imageData?.error || "No se pudo integrar tu foto.");
+      }
       let imagenUrl: string | undefined;
       if (imageData?.imagenUrl) {
         imagenUrl = imageData.imagenUrl;
@@ -178,6 +191,9 @@ function CreateInner() {
         tipo_entidad: form.tipoOrganizacion,
         nombre_entidad: form.nombreOrganizacion,
         guion_tiktok: esTikTok ? (textData.guion ?? null) : null,
+        // Solo se añade cuando se integró una foto (Pro). Si la columna aún no
+        // existe en la BD, los posts normales no se ven afectados (campo omitido).
+        ...(imageData?.fotoIntegrada ? { foto_integrada: true } : {}),
       };
 
       const { data: saved } = await supabase.from("generated_posts").insert(postData).select().single();
@@ -335,6 +351,17 @@ function CreateInner() {
             onFocus={e => e.target.style.borderColor = "#f9b23b"}
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
         </div>
+
+        {/* Foto tuya (Pro): integrar una foto del usuario en la imagen generada.
+            Solo aplica a redes con imagen (no TikTok, que genera guion). */}
+        {form.redSocial !== "TikTok" && (
+          <PhotoUploadBlock
+            habilitado={!!gating && canUseFeature(gating, "image_edit")}
+            fotoPath={fotoPath}
+            previewUrl={fotoPreview}
+            onChange={(path, url) => { setFotoPath(path); setFotoPreview(url); }}
+          />
+        )}
 
         {/* Tono (genérico — TikTok usa su propio Tono en su bloque) */}
         {form.redSocial !== "TikTok" && (

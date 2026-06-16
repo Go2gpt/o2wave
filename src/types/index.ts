@@ -58,6 +58,7 @@ export interface GeneratedPost {
   tipo_entidad?: TipoEntidad;
   nombre_entidad?: string;
   guion_tiktok?: GuionTikTok | null;
+  foto_integrada?: boolean | null; // imagen generada integrando una foto del usuario (Pro)
   created_at: string;
 }
 
