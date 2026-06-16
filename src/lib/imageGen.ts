@@ -105,8 +105,21 @@ export async function generarImagenIAConFoto(
 ): Promise<EditResult> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) { console.error("imageGen: sin OPENAI_API_KEY"); return { error: "generic" }; }
-  // Inyecta contexto para que la persona quede integrada de forma realista.
-  const prompt = `Integrate the person from the reference image into the following scene: ${scenePrompt}. Maintain natural lighting and proportions. The person should look photorealistic and recognizable. No text, no letters, no logos, no watermarks.`;
+  // Instrucciones explícitas: la foto se usa SOLO para la identidad facial; la
+  // escena/fondo/luz/ropa deben seguir la descripción del usuario, reemplazando
+  // por completo el entorno original de la foto de referencia.
+  const prompt = `IMPORTANT INSTRUCTIONS FOR IMAGE GENERATION:
+
+- Use the reference image ONLY to preserve the person's facial identity (face, hair, glasses, beard, distinctive features).
+- The scene, background, lighting, props, and clothing must follow the user's description below precisely.
+- DO NOT keep any elements (background, lighting, environment) from the reference photo's original setting.
+- The person should be naturally integrated into the new scene as described.
+- Photorealistic style unless the user explicitly requests otherwise.
+
+USER'S DESIRED SCENE:
+${scenePrompt}
+
+REMEMBER: Replace the original background/environment completely with the scene described above. Only the person's face and identity should be preserved from the reference image.`;
   const ext = foto.mime === "image/jpeg" ? "jpg" : "png";
   for (const model of ["gpt-image-2", "gpt-image-1"]) {
     try {
