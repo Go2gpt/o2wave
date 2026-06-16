@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import BackLink from "@/components/BackLink";
@@ -90,6 +90,8 @@ function CreateInner() {
   const [gating, setGating] = useState<PerfilGating | null>(null);
   const [showUpsell, setShowUpsell] = useState<string | null>(null); // red social bloqueada
   const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
+  const [genSegs, setGenSegs] = useState(0);   // segundos transcurridos durante la generación
+  const genTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -130,6 +132,9 @@ function CreateInner() {
     if (limiteAlcanzado) return;
     setError("");
     setLoading(true);
+    // Cronómetro: el usuario ve que la app sigue trabajando.
+    setGenSegs(0);
+    genTimer.current = setInterval(() => setGenSegs((s) => s + 1), 1000);
 
     try {
       // Generate text and image in parallel
@@ -188,6 +193,7 @@ function CreateInner() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error generando contenido");
     } finally {
+      if (genTimer.current) { clearInterval(genTimer.current); genTimer.current = null; }
       setLoading(false);
     }
   };
@@ -200,8 +206,8 @@ function CreateInner() {
           style={{ borderColor: "#f9b23b", borderTopColor: "transparent" }} />
         <div className="absolute inset-0 flex items-center justify-center text-3xl">✨</div>
       </div>
-      <h2 className="text-lg font-bold text-gray-900 mb-2">Generando tu contenido...</h2>
-      <p className="text-sm text-gray-400">Esto suele tardar unos segundos…</p>
+      <h2 className="text-lg font-bold text-gray-900 mb-2">Generando con IA</h2>
+      <p className="text-sm text-gray-400">Llevamos {genSegs}s · es normal que tarde un poco</p>
     </div>
   );
 
