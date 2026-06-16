@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import BackLink from "@/components/BackLink";
 import Spinner from "@/components/ui/Spinner";
-import PhotoUploadBlock from "@/components/PhotoUploadBlock";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
 import { canUseFeature, puedeGenerarPostGratis, limitePostsMes, type PerfilGating } from "@/lib/plans";
@@ -91,11 +90,6 @@ function CreateInner() {
   const [gating, setGating] = useState<PerfilGating | null>(null);
   const [showUpsell, setShowUpsell] = useState<string | null>(null); // red social bloqueada
   const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
-  const [fotoFile, setFotoFile] = useState<File | null>(null);         // foto del usuario (Pro); viaja en multipart al generar
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
-  const [genFase, setGenFase] = useState("");   // mensaje de etapa (solo generación con foto)
-  const [genSegs, setGenSegs] = useState(0);    // segundos transcurridos en la espera
-  const genTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -130,14 +124,6 @@ function CreateInner() {
   const set = <K extends keyof ContentFormData>(k: K, v: ContentFormData[K]) =>
     setForm(f => ({ ...f, [k]: v }));
 
-  // Mensaje de etapa según los segundos transcurridos (generación con foto).
-  const faseParaSegs = (s: number) =>
-    s < 3 ? "Subiendo tu foto..."
-    : s < 7 ? "Optimizando la imagen..."
-    : "Creando con IA — esto puede tardar hasta 90 segundos. No cierres esta pantalla.";
-
-  const pararProgreso = () => { if (genTimer.current) { clearInterval(genTimer.current); genTimer.current = null; } };
-
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nombreOrganizacion.trim() || !form.tema.trim()) return;
@@ -145,37 +131,14 @@ function CreateInner() {
     setError("");
     setLoading(true);
 
-    // UX de espera por etapas (solo cuando hay foto: el flujo es más largo).
-    if (fotoFile && form.redSocial !== "TikTok") {
-      setGenSegs(0);
-      setGenFase("Subiendo tu foto...");
-      genTimer.current = setInterval(() => {
-        setGenSegs((s) => { const n = s + 1; setGenFase(faseParaSegs(n)); return n; });
-      }, 1000);
-    }
-
     try {
-      // La imagen va con foto (multipart, el File viaja en el request) o sin foto
-      // (JSON). NUNCA subimos a Storage desde el cliente (rompía en Safari iOS).
-      const imageReq = (() => {
-        if (form.redSocial === "TikTok") return Promise.resolve(null);
-        if (fotoFile) {
-          const fd = new FormData();
-          fd.append("payload", JSON.stringify({ formData: form }));
-          fd.append("foto", fotoFile);
-          return fetch("/api/generate-image", { method: "POST", body: fd });
-        }
-        return fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) });
-      })();
-
       // Generate text and image in parallel
       const [textRes, imageRes] = await Promise.all([
         fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }),
-        imageReq,
+        form.redSocial !== "TikTok"
+          ? fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) })
+          : Promise.resolve(null),
       ]);
-
-      // Respuestas recibidas: última etapa antes de guardar/navegar.
-      if (fotoFile && form.redSocial !== "TikTok") { pararProgreso(); setGenFase("Componiendo resultado final..."); }
 
       const textData = await textRes.json();
       // Gating del servidor: plan suspendido (402), feature no disponible (403), límite gratis (429).
@@ -194,16 +157,6 @@ function CreateInner() {
       // subida (imagen limpia; el titular se hornea al descargar). Mantenemos el
       // polling como compatibilidad por si algún flujo devolviera predictionId.
       const imageData = imageRes ? await imageRes.json() : null;
-      // Si pedimos integrar la foto y el servidor falló (plan/moderación/coste),
-      // avisamos en vez de guardar un post sin imagen en silencio.
-      if (fotoFile && imageRes && !imageRes.ok) {
-        if (["plan_suspendido", "feature_no_disponible"].includes(imageData?.error)) {
-          setBloqueoMsg(imageData?.mensaje || "Integrar tu foto está disponible en el plan Pro.");
-          setLoading(false);
-          return;
-        }
-        throw new Error(imageData?.mensaje || imageData?.error || "No se pudo integrar tu foto.");
-      }
       let imagenUrl: string | undefined;
       if (imageData?.imagenUrl) {
         imagenUrl = imageData.imagenUrl;
@@ -225,9 +178,6 @@ function CreateInner() {
         tipo_entidad: form.tipoOrganizacion,
         nombre_entidad: form.nombreOrganizacion,
         guion_tiktok: esTikTok ? (textData.guion ?? null) : null,
-        // Solo se añade cuando se integró una foto (Pro). Si la columna aún no
-        // existe en la BD, los posts normales no se ven afectados (campo omitido).
-        ...(imageData?.fotoIntegrada ? { foto_integrada: true } : {}),
       };
 
       const { data: saved } = await supabase.from("generated_posts").insert(postData).select().single();
@@ -238,9 +188,6 @@ function CreateInner() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error generando contenido");
     } finally {
-      pararProgreso();
-      setGenFase("");
-      setGenSegs(0);
       setLoading(false);
     }
   };
@@ -253,12 +200,8 @@ function CreateInner() {
           style={{ borderColor: "#f9b23b", borderTopColor: "transparent" }} />
         <div className="absolute inset-0 flex items-center justify-center text-3xl">✨</div>
       </div>
-      <h2 className="text-lg font-bold text-gray-900 mb-2">{genFase || "Generando tu contenido..."}</h2>
-      <p className="text-sm text-gray-400">
-        {genFase
-          ? (genSegs > 0 ? `Llevamos ${genSegs}s · es normal que tarde un poco` : "Preparando...")
-          : "Esto suele tardar unos segundos…"}
-      </p>
+      <h2 className="text-lg font-bold text-gray-900 mb-2">Generando tu contenido...</h2>
+      <p className="text-sm text-gray-400">Esto suele tardar unos segundos…</p>
     </div>
   );
 
@@ -392,17 +335,6 @@ function CreateInner() {
             onFocus={e => e.target.style.borderColor = "#f9b23b"}
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
         </div>
-
-        {/* Foto tuya (Pro): integrar una foto del usuario en la imagen generada.
-            Solo aplica a redes con imagen (no TikTok, que genera guion). */}
-        {form.redSocial !== "TikTok" && (
-          <PhotoUploadBlock
-            habilitado={!!gating && canUseFeature(gating, "image_edit")}
-            foto={fotoFile}
-            previewUrl={fotoPreview}
-            onChange={(file, url) => { setFotoFile(file); setFotoPreview(url); }}
-          />
-        )}
 
         {/* Tono (genérico — TikTok usa su propio Tono en su bloque) */}
         {form.redSocial !== "TikTok" && (

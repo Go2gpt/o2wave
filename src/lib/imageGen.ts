@@ -41,7 +41,7 @@ function sizeOpenAI(model: string, aspect: string): string {
 }
 
 /**
- * Genera imagen con OpenAI gpt-image-2 (quality high, tamaño grande). Si el modelo
+ * Genera imagen con OpenAI gpt-image-2 (quality medium, tamaño grande). Si el modelo
  * no existe (404/400 model_not_found), hace fallback a gpt-image-1 (1024² cuadrado).
  * Devuelve el PNG en Buffer + el modelo servido (para observabilidad), o null.
  */
@@ -54,7 +54,7 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
       const res = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt, n: 1, size, quality: "high" }),
+        body: JSON.stringify({ model, prompt, n: 1, size, quality: "medium" }),
       });
       if (!res.ok) {
         const body = await res.text();
@@ -77,96 +77,6 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
     }
   }
   return null;
-}
-
-/** Resultado de la edición con foto: imagen lista, o un código de error clasificado. */
-export type EditCode = "content_policy" | "invalid_image" | "generic";
-export type EditResult = { buffer: Buffer; fuente: string } | { error: EditCode };
-
-// Dimensiones de generación para InstantID (SDXL): múltiplos de 8 y ~1 MP para
-// no provocar OOM/artefactos. composeImage hace luego un cover al tamaño nativo
-// de cada red (1080×1350, etc.), así que estas son solo para la generación.
-const DIMS_INSTANTID: Record<string, { width: number; height: number }> = {
-  "4:5":  { width: 1024, height: 1280 },
-  "9:16": { width: 768,  height: 1344 },
-  "16:9": { width: 1344, height: 768 },
-  "1:1":  { width: 1024, height: 1024 },
-};
-
-/**
- * Pro: integra una FOTO del usuario en la escena descrita por el prompt, con
- * Replicate InstantID (zsxkib/instant-id): preserva la identidad facial (face
- * encoder) y crea una escena NUEVA según el prompt. Enviamos la foto tal cual
- * (InstantID hace su propio face detection; un pre-crop le quitaba la cara).
- * Devuelve el PNG + la fuente, o un {error} para el mensaje al usuario.
- * `scenePrompt` debe ser el prompt de escena en inglés (sin la persona).
- */
-export async function generarImagenIAConFoto(
-  scenePrompt: string,
-  foto: { buffer: Buffer; mime: string },
-  aspect: string,
-  deadlineMs = 180000,
-): Promise<EditResult> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) { console.error("imageGen: sin REPLICATE_API_TOKEN"); return { error: "generic" }; }
-
-  // Foto tal cual (ya viene JPEG tras la conversión HEIC en cliente). InstantID
-  // hace su propio recorte de cara; un pre-crop dejaba a veces sin cara detectable.
-  const dataUri = `data:${foto.mime || "image/jpeg"};base64,${foto.buffer.toString("base64")}`;
-  const { width, height } = DIMS_INSTANTID[aspect] || DIMS_INSTANTID["1:1"];
-
-  try {
-    // El endpoint por-modelo da 404 para zsxkib/instant-id → usamos /v1/predictions
-    // con hash de versión fijo (última versión estable de la página de versiones).
-    const startRes = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        version: "2e4785a4d80dadf580077b2244c8d7c05d8e3faac04a04c02d8e099dd2876789",
-        input: {
-          image: dataUri,
-          prompt: scenePrompt,
-          negative_prompt: "blurry, lowres, bad quality, distorted face",
-          num_steps: 30,
-          style_name: "Photographic (Default)",
-          identitynet_strength_ratio: 0.8,
-          adapter_strength_ratio: 0.8,
-          guidance_scale: 5,
-          width,
-          height,
-        },
-      }),
-    });
-    if (!startRes.ok) {
-      console.error(`imageGen instant-id create ${startRes.status}:`, (await startRes.text()).slice(0, 300));
-      return { error: "generic" };
-    }
-    const id = (await startRes.json()).id as string;
-    const deadline = Date.now() + deadlineMs;
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 2500));
-      const st = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-      if (!st.ok) continue;
-      const d = await st.json();
-      if (d.status === "succeeded") {
-        const out = d.output;
-        const url = Array.isArray(out) ? out[0] : (typeof out === "string" ? out : null);
-        if (!url) { console.error("imageGen instant-id: salida vacía"); return { error: "generic" }; }
-        const img = await fetch(url);
-        console.log(`imageGen: InstantID OK (${width}x${height})`);
-        return { buffer: Buffer.from(await img.arrayBuffer()), fuente: "replicate:instant-id" };
-      }
-      if (d.status === "failed" || d.status === "canceled") {
-        console.error("imageGen instant-id falló:", JSON.stringify(d.error)?.slice(0, 300));
-        return { error: "generic" };
-      }
-    }
-    console.error("imageGen instant-id: timeout");
-    return { error: "generic" };
-  } catch (e) {
-    console.error("imageGen instant-id error:", e instanceof Error ? e.message : e);
-    return { error: "generic" };
-  }
 }
 
 /** Fallback: Replicate FLUX 1.1 pro (crea predicción, hace polling y descarga). Devuelve Buffer o null. */

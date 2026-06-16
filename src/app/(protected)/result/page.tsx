@@ -415,14 +415,6 @@ function ResultContent() {
               </div>
             )}
 
-            {/* Badge informativo: la imagen se generó integrando una foto del usuario (Pro). */}
-            {post.imagen_url && post.foto_integrada && (
-              <span className="absolute top-2 left-2 text-[11px] font-bold px-2 py-1 rounded-full text-white pointer-events-none"
-                style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
-                ✨ Foto integrada
-              </span>
-            )}
-
             {/* Overlay del titular (preview que imita el horneado) */}
             {post.imagen_url && textEnabled && headline.trim() && (
               <>
