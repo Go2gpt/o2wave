@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import sharp from "sharp";
 
 // Construye el prompt de imagen en INGLÉS, fotorrealista/editorial, a partir del
 // tema (en español). Describe entidades visuales, no traduce el caption.
@@ -95,34 +94,11 @@ const DIMS_INSTANTID: Record<string, { width: number; height: number }> = {
 };
 
 /**
- * Recorta un cuadrado de la zona superior-central (casi solo la cara): lado = 45%
- * del alto (limitado al ancho), centrado horizontalmente y colocado arriba. Quita
- * al modelo casi todo el contexto cuerpo/fondo para que invente la escena según
- * el prompt. Heurística simple sin detección de caras. Si falla, devuelve original.
- */
-async function recortarRostro(buffer: Buffer): Promise<{ buffer: Buffer; mime: string }> {
-  try {
-    const meta = await sharp(buffer).metadata();
-    const w = meta.width ?? 0, h = meta.height ?? 0;
-    if (!w || !h) return { buffer, mime: "image/jpeg" };
-    const side = Math.max(1, Math.min(w, Math.round(h * 0.45)));
-    const left = Math.max(0, Math.min(w - side, Math.round((w - side) / 2)));
-    // Zona superior-central (cara y hombros), sin pegarse al borde superior.
-    const top = Math.max(0, Math.min(h - side, Math.round((h - side) * 0.25)));
-    const out = await sharp(buffer).extract({ left, top, width: side, height: side }).jpeg({ quality: 92 }).toBuffer();
-    console.log(`imageGen edit: foto recortada a ${side}x${side} (de ${w}x${h})`);
-    return { buffer: out, mime: "image/jpeg" };
-  } catch (e) {
-    console.warn("imageGen edit: crop falló, uso la foto original:", e instanceof Error ? e.message : e);
-    return { buffer, mime: "image/jpeg" };
-  }
-}
-
-/**
  * Pro: integra una FOTO del usuario en la escena descrita por el prompt, con
  * Replicate InstantID (zsxkib/instant-id): preserva la identidad facial (face
- * encoder) y crea una escena NUEVA según el prompt. Recortamos al rostro antes
- * de enviar. Devuelve el PNG + la fuente, o un {error} para el mensaje al usuario.
+ * encoder) y crea una escena NUEVA según el prompt. Enviamos la foto tal cual
+ * (InstantID hace su propio face detection; un pre-crop le quitaba la cara).
+ * Devuelve el PNG + la fuente, o un {error} para el mensaje al usuario.
  * `scenePrompt` debe ser el prompt de escena en inglés (sin la persona).
  */
 export async function generarImagenIAConFoto(
@@ -134,9 +110,9 @@ export async function generarImagenIAConFoto(
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) { console.error("imageGen: sin REPLICATE_API_TOKEN"); return { error: "generic" }; }
 
-  // Recortamos al rostro: InstantID solo necesita la cara como identidad.
-  const recortada = await recortarRostro(foto.buffer);
-  const dataUri = `data:image/jpeg;base64,${recortada.buffer.toString("base64")}`;
+  // Foto tal cual (ya viene JPEG tras la conversión HEIC en cliente). InstantID
+  // hace su propio recorte de cara; un pre-crop dejaba a veces sin cara detectable.
+  const dataUri = `data:${foto.mime || "image/jpeg"};base64,${foto.buffer.toString("base64")}`;
   const { width, height } = DIMS_INSTANTID[aspect] || DIMS_INSTANTID["1:1"];
 
   try {
