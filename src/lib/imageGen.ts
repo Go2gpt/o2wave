@@ -84,13 +84,15 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
 export type EditCode = "content_policy" | "invalid_image" | "generic";
 export type EditResult = { buffer: Buffer; fuente: string } | { error: EditCode };
 
-/** Clasifica el body de error de OpenAI en una categoría accionable para el usuario. */
-function clasificarErrorEdit(body: string): EditCode {
-  const b = body.toLowerCase();
-  if (/content_policy_violation|safety|moderation_blocked|content policy|rejected as a result/.test(b)) return "content_policy";
-  if (/invalid_image|unsupported|invalid base64|image_parse_error|could not process image|invalid file format|unsupported_format/.test(b)) return "invalid_image";
-  return "generic";
-}
+// Dimensiones de generación para InstantID (SDXL): múltiplos de 8 y ~1 MP para
+// no provocar OOM/artefactos. composeImage hace luego un cover al tamaño nativo
+// de cada red (1080×1350, etc.), así que estas son solo para la generación.
+const DIMS_INSTANTID: Record<string, { width: number; height: number }> = {
+  "4:5":  { width: 1024, height: 1280 },
+  "9:16": { width: 768,  height: 1344 },
+  "16:9": { width: 1344, height: 768 },
+  "1:1":  { width: 1024, height: 1024 },
+};
 
 /**
  * Recorta un cuadrado de la zona superior-central (casi solo la cara): lado = 45%
@@ -117,86 +119,76 @@ async function recortarRostro(buffer: Buffer): Promise<{ buffer: Buffer; mime: s
 }
 
 /**
- * Pro: integra una FOTO del usuario en la escena descrita por el prompt, usando
- * el endpoint de edición de imágenes de OpenAI (images.edit, multipart). Intenta
- * gpt-image-2 y cae a gpt-image-1. Devuelve el PNG + el modelo, o un {error}
- * clasificado (content_policy / invalid_image / generic).
+ * Pro: integra una FOTO del usuario en la escena descrita por el prompt, con
+ * Replicate InstantID (zsxkib/instant-id): preserva la identidad facial (face
+ * encoder) y crea una escena NUEVA según el prompt. Recortamos al rostro antes
+ * de enviar. Devuelve el PNG + la fuente, o un {error} para el mensaje al usuario.
  * `scenePrompt` debe ser el prompt de escena en inglés (sin la persona).
  */
 export async function generarImagenIAConFoto(
   scenePrompt: string,
   foto: { buffer: Buffer; mime: string },
   aspect: string,
+  deadlineMs = 180000,
 ): Promise<EditResult> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) { console.error("imageGen: sin OPENAI_API_KEY"); return { error: "generic" }; }
-  // Instrucciones explícitas: la foto se usa SOLO para la identidad facial; la
-  // escena/fondo/luz/ropa deben seguir la descripción del usuario, reemplazando
-  // por completo el entorno original de la foto de referencia.
-  const prompt = `IMPORTANT INSTRUCTIONS FOR IMAGE GENERATION:
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) { console.error("imageGen: sin REPLICATE_API_TOKEN"); return { error: "generic" }; }
 
-- Use the reference image ONLY to preserve the person's facial identity (face, hair, glasses, beard, distinctive features).
-- The scene, background, lighting, props, and clothing must follow the user's description below precisely.
-- DO NOT keep any elements (background, lighting, environment) from the reference photo's original setting.
-- The person should be naturally integrated into the new scene as described.
-- Photorealistic style unless the user explicitly requests otherwise.
-
-USER'S DESIRED SCENE:
-${scenePrompt}
-
-The reference image shows ONLY a face. Build the entire scene, body, clothing, props, and background from scratch following the user's description.
-
-REMEMBER: Replace the original background/environment completely with the scene described above. Only the person's face and identity should be preserved from the reference image.`;
-  // Recortamos al rostro: así el modelo no arrastra fondo/escena de la foto y
-  // deja que el prompt mande sobre la composición.
+  // Recortamos al rostro: InstantID solo necesita la cara como identidad.
   const recortada = await recortarRostro(foto.buffer);
-  const imgBuffer = recortada.buffer, imgMime = recortada.mime;
-  const ext = imgMime === "image/jpeg" ? "jpg" : "png";
-  // gpt-image-1 ya usa input_fidelity "low" por defecto; NO lo enviamos explícito
-  // (gpt-image-1 lo rechaza con 400 y el reintento añadía ~70s).
-  const construirFd = (model: string) => {
-    const fd = new FormData();
-    fd.append("model", model);
-    fd.append("prompt", prompt);
-    fd.append("size", sizeOpenAI(model, aspect));
-    fd.append("quality", "high");
-    fd.append("n", "1");
-    fd.append("image", new Blob([new Uint8Array(imgBuffer)], { type: imgMime }), `foto.${ext}`);
-    return fd;
-  };
+  const dataUri = `data:image/jpeg;base64,${recortada.buffer.toString("base64")}`;
+  const { width, height } = DIMS_INSTANTID[aspect] || DIMS_INSTANTID["1:1"];
 
-  for (const model of ["gpt-image-2", "gpt-image-1"]) {
-    try {
-      const size = sizeOpenAI(model, aspect);
-      const res = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}` }, // sin Content-Type: fetch pone el boundary
-        body: construirFd(model),
-      });
-      if (!res.ok) {
-        const body = await res.text();
-        // Modelo no disponible aún → probar el siguiente (gpt-image-1).
-        if ((res.status === 404 || res.status === 400) && /model/i.test(body) && !/image/i.test(body)) {
-          console.warn(`imageGen edit: modelo ${model} no disponible (${res.status}), fallback al siguiente`);
-          continue;
-        }
-        // Diagnóstico: logueamos el body COMPLETO del error de OpenAI (Vercel logs).
-        console.error(`imageGen edit ${model} ${res.status} — body completo de OpenAI:`, body);
-        const code = clasificarErrorEdit(body);
-        console.error(`imageGen edit: clasificado como "${code}"`);
-        return { error: code };
-      }
-      const data = await res.json();
-      const b64 = data?.data?.[0]?.b64_json as string | undefined;
-      if (!b64) { console.error("imageGen edit: respuesta sin b64_json"); return { error: "generic" }; }
-      console.log(`imageGen: OpenAI edit ${model} OK (size ${size})`);
-      return { buffer: Buffer.from(b64, "base64"), fuente: `openai:${model}:edit` };
-    } catch (e) {
-      console.error(`imageGen edit ${model} error:`, e instanceof Error ? e.message : e);
+  try {
+    // Endpoint por modelo → usa la última versión sin fijar hash.
+    const startRes = await fetch("https://api.replicate.com/v1/models/zsxkib/instant-id/predictions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: {
+          image: dataUri,
+          prompt: scenePrompt,
+          negative_prompt: "blurry, lowres, bad quality, distorted face",
+          num_steps: 30,
+          style_name: "Photographic (Default)",
+          identitynet_strength_ratio: 0.8,
+          adapter_strength_ratio: 0.8,
+          guidance_scale: 5,
+          width,
+          height,
+        },
+      }),
+    });
+    if (!startRes.ok) {
+      console.error(`imageGen instant-id create ${startRes.status}:`, (await startRes.text()).slice(0, 300));
       return { error: "generic" };
     }
+    const id = (await startRes.json()).id as string;
+    const deadline = Date.now() + deadlineMs;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2500));
+      const st = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      if (!st.ok) continue;
+      const d = await st.json();
+      if (d.status === "succeeded") {
+        const out = d.output;
+        const url = Array.isArray(out) ? out[0] : (typeof out === "string" ? out : null);
+        if (!url) { console.error("imageGen instant-id: salida vacía"); return { error: "generic" }; }
+        const img = await fetch(url);
+        console.log(`imageGen: InstantID OK (${width}x${height})`);
+        return { buffer: Buffer.from(await img.arrayBuffer()), fuente: "replicate:instant-id" };
+      }
+      if (d.status === "failed" || d.status === "canceled") {
+        console.error("imageGen instant-id falló:", JSON.stringify(d.error)?.slice(0, 300));
+        return { error: "generic" };
+      }
+    }
+    console.error("imageGen instant-id: timeout");
+    return { error: "generic" };
+  } catch (e) {
+    console.error("imageGen instant-id error:", e instanceof Error ? e.message : e);
+    return { error: "generic" };
   }
-  return { error: "generic" };
 }
 
 /** Fallback: Replicate FLUX 1.1 pro (crea predicción, hace polling y descarga). Devuelve Buffer o null. */
