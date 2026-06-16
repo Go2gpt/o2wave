@@ -8,8 +8,15 @@ export const maxDuration = 120;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_FOTO_BYTES = 4 * 1024 * 1024; // 4 MB
+const MAX_FOTO_BYTES = 8 * 1024 * 1024; // 8 MB
 const MIME_PERMITIDOS = ["image/jpeg", "image/png"];
+
+// Mensajes al usuario según el motivo de rechazo de OpenAI images.edit.
+const MENSAJE_EDIT: Record<string, string> = {
+  content_policy: "OpenAI ha rechazado esta foto por su política de contenido. Prueba con una imagen diferente (evita rostros muy cercanos o personas reconocibles).",
+  invalid_image: "El formato de la imagen no es compatible. Convierte a JPEG o PNG y vuelve a intentarlo.",
+  generic: "No se pudo integrar tu foto. Prueba con otra imagen o sin foto.",
+};
 
 // Genera la imagen del post de forma SÍNCRONA con OpenAI gpt-image-2 (fallback
 // gpt-image-1, y fallback final a Replicate FLUX). Sube la imagen LIMPIA (sin
@@ -62,15 +69,16 @@ export async function POST(request: NextRequest) {
       const fotoBuffer = Buffer.from(await fotoBlob.arrayBuffer());
       if (fotoBuffer.byteLength > MAX_FOTO_BYTES) {
         await supabase.storage.from("post-images").remove([fotoPath]);
-        return NextResponse.json({ error: "La foto supera el límite de 4 MB." }, { status: 413 });
+        return NextResponse.json({ error: "La foto supera el límite de 8 MB." }, { status: 413 });
       }
 
-      gen = await generarImagenIAConFoto(prompt, { buffer: fotoBuffer, mime }, aspect);
+      const edit = await generarImagenIAConFoto(prompt, { buffer: fotoBuffer, mime }, aspect);
       // La foto temporal ya no hace falta (haya ido bien o mal).
       await supabase.storage.from("post-images").remove([fotoPath]);
-      if (!gen) {
-        return NextResponse.json({ error: "No se pudo integrar tu foto. Prueba con otra imagen o sin foto." }, { status: 502 });
+      if ("error" in edit) {
+        return NextResponse.json({ error: "edit_fallida", code: edit.error, mensaje: MENSAJE_EDIT[edit.error] }, { status: 502 });
       }
+      gen = edit;
       fotoIntegrada = true;
     } else {
       // --- Camino normal: generación desde cero ---

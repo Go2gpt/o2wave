@@ -168,7 +168,7 @@ function CreateInner() {
           setLoading(false);
           return;
         }
-        throw new Error(imageData?.error || "No se pudo integrar tu foto.");
+        throw new Error(imageData?.mensaje || imageData?.error || "No se pudo integrar tu foto.");
       }
       let imagenUrl: string | undefined;
       if (imageData?.imagenUrl) {

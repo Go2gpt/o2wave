@@ -79,19 +79,32 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
   return null;
 }
 
+/** Resultado de la edición con foto: imagen lista, o un código de error clasificado. */
+export type EditCode = "content_policy" | "invalid_image" | "generic";
+export type EditResult = { buffer: Buffer; fuente: string } | { error: EditCode };
+
+/** Clasifica el body de error de OpenAI en una categoría accionable para el usuario. */
+function clasificarErrorEdit(body: string): EditCode {
+  const b = body.toLowerCase();
+  if (/content_policy_violation|safety|moderation_blocked|content policy|rejected as a result/.test(b)) return "content_policy";
+  if (/invalid_image|unsupported|invalid base64|image_parse_error|could not process image|invalid file format|unsupported_format/.test(b)) return "invalid_image";
+  return "generic";
+}
+
 /**
  * Pro: integra una FOTO del usuario en la escena descrita por el prompt, usando
  * el endpoint de edición de imágenes de OpenAI (images.edit, multipart). Intenta
- * gpt-image-2 y cae a gpt-image-1. Devuelve el PNG + el modelo, o null.
+ * gpt-image-2 y cae a gpt-image-1. Devuelve el PNG + el modelo, o un {error}
+ * clasificado (content_policy / invalid_image / generic).
  * `scenePrompt` debe ser el prompt de escena en inglés (sin la persona).
  */
 export async function generarImagenIAConFoto(
   scenePrompt: string,
   foto: { buffer: Buffer; mime: string },
   aspect: string,
-): Promise<{ buffer: Buffer; fuente: string } | null> {
+): Promise<EditResult> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) { console.error("imageGen: sin OPENAI_API_KEY"); return null; }
+  if (!key) { console.error("imageGen: sin OPENAI_API_KEY"); return { error: "generic" }; }
   // Inyecta contexto para que la persona quede integrada de forma realista.
   const prompt = `Integrate the person from the reference image into the following scene: ${scenePrompt}. Maintain natural lighting and proportions. The person should look photorealistic and recognizable. No text, no letters, no logos, no watermarks.`;
   const ext = foto.mime === "image/jpeg" ? "jpg" : "png";
@@ -113,25 +126,27 @@ export async function generarImagenIAConFoto(
       if (!res.ok) {
         const body = await res.text();
         // Modelo no disponible aún → probar el siguiente (gpt-image-1).
-        if ((res.status === 404 || res.status === 400) && /model/i.test(body)) {
+        if ((res.status === 404 || res.status === 400) && /model/i.test(body) && !/image/i.test(body)) {
           console.warn(`imageGen edit: modelo ${model} no disponible (${res.status}), fallback al siguiente`);
           continue;
         }
-        console.error(`imageGen edit ${model} ${res.status}: ${body.slice(0, 300)}`);
-        // Errores de contenido (moderación) u otros: no reintentamos con otro modelo.
-        return null;
+        // Diagnóstico: logueamos el body COMPLETO del error de OpenAI (Vercel logs).
+        console.error(`imageGen edit ${model} ${res.status} — body completo de OpenAI:`, body);
+        const code = clasificarErrorEdit(body);
+        console.error(`imageGen edit: clasificado como "${code}"`);
+        return { error: code };
       }
       const data = await res.json();
       const b64 = data?.data?.[0]?.b64_json as string | undefined;
-      if (!b64) { console.error("imageGen edit: respuesta sin b64_json"); return null; }
+      if (!b64) { console.error("imageGen edit: respuesta sin b64_json"); return { error: "generic" }; }
       console.log(`imageGen: OpenAI edit ${model} OK (size ${size})`);
       return { buffer: Buffer.from(b64, "base64"), fuente: `openai:${model}:edit` };
     } catch (e) {
       console.error(`imageGen edit ${model} error:`, e instanceof Error ? e.message : e);
-      return null;
+      return { error: "generic" };
     }
   }
-  return null;
+  return { error: "generic" };
 }
 
 /** Fallback: Replicate FLUX 1.1 pro (crea predicción, hace polling y descarga). Devuelve Buffer o null. */

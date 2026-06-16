@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
-const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
+const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 const MIME_PERMITIDOS = ["image/jpeg", "image/png"];
 
 interface Props {
@@ -33,7 +33,7 @@ export default function PhotoUploadBlock({ habilitado, fotoPath, onChange, previ
     if (!file) return;
     setError("");
     if (!MIME_PERMITIDOS.includes(file.type)) { setError("Usa una imagen JPEG o PNG."); return; }
-    if (file.size > MAX_BYTES) { setError("La foto supera el límite de 4 MB."); return; }
+    if (file.size > MAX_BYTES) { setError("La foto supera el límite de 8 MB."); return; }
 
     setSubiendo(true);
     try {
@@ -81,7 +81,7 @@ export default function PhotoUploadBlock({ habilitado, fotoPath, onChange, previ
     <div className="bg-white rounded-2xl p-4 shadow-sm">
       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Foto tuya (opcional)</label>
       <p className="text-xs text-gray-400 mb-3">
-        Sube una foto tuya y la integraremos en la imagen generada según tu descripción. JPEG o PNG, máx. 4 MB.
+        Sube una foto tuya y la integraremos en la imagen generada según tu descripción. JPEG o PNG, máx. 8 MB.
       </p>
 
       {fotoPath && previewUrl ? (
@@ -97,6 +97,10 @@ export default function PhotoUploadBlock({ habilitado, fotoPath, onChange, previ
           {subiendo ? "Subiendo..." : "📷 Subir foto"}
         </button>
       )}
+
+      <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+        ℹ️ OpenAI puede rechazar fotos con rostros muy reconocibles. Si pasa, prueba con una foto donde aparezcas de perfil, de lejos o con elementos distintivos (gafas, atuendo, escenario).
+      </p>
 
       {error && <p className="text-xs text-red-600 font-medium mt-2">⚠️ {error}</p>}
       <input ref={inputRef} type="file" accept="image/jpeg,image/png" onChange={elegir} className="hidden" />
