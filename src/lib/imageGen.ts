@@ -93,17 +93,17 @@ function clasificarErrorEdit(body: string): EditCode {
 }
 
 /**
- * Recorta un cuadrado de la zona superior-central (cara y hombros): lado = 60%
+ * Recorta un cuadrado de la zona superior-central (casi solo la cara): lado = 45%
  * del alto (limitado al ancho), centrado horizontalmente y colocado arriba. Quita
- * al modelo el contexto cuerpo/fondo para que respete el prompt. Heurística simple
- * sin detección de caras: cubre el ~80% del beneficio. Si falla, devuelve original.
+ * al modelo casi todo el contexto cuerpo/fondo para que invente la escena según
+ * el prompt. Heurística simple sin detección de caras. Si falla, devuelve original.
  */
 async function recortarRostro(buffer: Buffer): Promise<{ buffer: Buffer; mime: string }> {
   try {
     const meta = await sharp(buffer).metadata();
     const w = meta.width ?? 0, h = meta.height ?? 0;
     if (!w || !h) return { buffer, mime: "image/jpeg" };
-    const side = Math.max(1, Math.min(w, Math.round(h * 0.6)));
+    const side = Math.max(1, Math.min(w, Math.round(h * 0.45)));
     const left = Math.max(0, Math.min(w - side, Math.round((w - side) / 2)));
     // Zona superior-central (cara y hombros), sin pegarse al borde superior.
     const top = Math.max(0, Math.min(h - side, Math.round((h - side) * 0.25)));
@@ -152,50 +152,39 @@ REMEMBER: Replace the original background/environment completely with the scene 
   const recortada = await recortarRostro(foto.buffer);
   const imgBuffer = recortada.buffer, imgMime = recortada.mime;
   const ext = imgMime === "image/jpeg" ? "jpg" : "png";
-  // Construye el payload. input_fidelity "low" baja el peso de la imagen de
-  // referencia para que prime el prompt (default en gpt-image-1, pero explícito).
-  const construirFd = (model: string, conFidelity: boolean) => {
+  // gpt-image-1 ya usa input_fidelity "low" por defecto; NO lo enviamos explícito
+  // (gpt-image-1 lo rechaza con 400 y el reintento añadía ~70s).
+  const construirFd = (model: string) => {
     const fd = new FormData();
     fd.append("model", model);
     fd.append("prompt", prompt);
     fd.append("size", sizeOpenAI(model, aspect));
     fd.append("quality", "high");
     fd.append("n", "1");
-    if (conFidelity) fd.append("input_fidelity", "low");
     fd.append("image", new Blob([new Uint8Array(imgBuffer)], { type: imgMime }), `foto.${ext}`);
     return fd;
   };
-  const enviar = (fd: FormData) => fetch("https://api.openai.com/v1/images/edits", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}` }, // sin Content-Type: fetch pone el boundary
-    body: fd,
-  });
 
   for (const model of ["gpt-image-2", "gpt-image-1"]) {
     try {
       const size = sizeOpenAI(model, aspect);
-      let res = await enviar(construirFd(model, true));
+      const res = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` }, // sin Content-Type: fetch pone el boundary
+        body: construirFd(model),
+      });
       if (!res.ok) {
-        let body = await res.text();
-        // Si el modelo no acepta input_fidelity, reintenta sin ese parámetro.
-        if (res.status === 400 && /input_fidelity/i.test(body)) {
-          console.warn(`imageGen edit: ${model} no acepta input_fidelity, reintento sin él`);
-          res = await enviar(construirFd(model, false));
-          if (res.ok) { /* sigue abajo al parseo */ }
-          else body = await res.text();
+        const body = await res.text();
+        // Modelo no disponible aún → probar el siguiente (gpt-image-1).
+        if ((res.status === 404 || res.status === 400) && /model/i.test(body) && !/image/i.test(body)) {
+          console.warn(`imageGen edit: modelo ${model} no disponible (${res.status}), fallback al siguiente`);
+          continue;
         }
-        if (!res.ok) {
-          // Modelo no disponible aún → probar el siguiente (gpt-image-1).
-          if ((res.status === 404 || res.status === 400) && /model/i.test(body) && !/image/i.test(body)) {
-            console.warn(`imageGen edit: modelo ${model} no disponible (${res.status}), fallback al siguiente`);
-            continue;
-          }
-          // Diagnóstico: logueamos el body COMPLETO del error de OpenAI (Vercel logs).
-          console.error(`imageGen edit ${model} ${res.status} — body completo de OpenAI:`, body);
-          const code = clasificarErrorEdit(body);
-          console.error(`imageGen edit: clasificado como "${code}"`);
-          return { error: code };
-        }
+        // Diagnóstico: logueamos el body COMPLETO del error de OpenAI (Vercel logs).
+        console.error(`imageGen edit ${model} ${res.status} — body completo de OpenAI:`, body);
+        const code = clasificarErrorEdit(body);
+        console.error(`imageGen edit: clasificado como "${code}"`);
+        return { error: code };
       }
       const data = await res.json();
       const b64 = data?.data?.[0]?.b64_json as string | undefined;
