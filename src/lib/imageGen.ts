@@ -140,11 +140,13 @@ export async function generarImagenIAConFoto(
   const { width, height } = DIMS_INSTANTID[aspect] || DIMS_INSTANTID["1:1"];
 
   try {
-    // Endpoint por modelo → usa la última versión sin fijar hash.
-    const startRes = await fetch("https://api.replicate.com/v1/models/zsxkib/instant-id/predictions", {
+    // El endpoint por-modelo da 404 para zsxkib/instant-id → usamos /v1/predictions
+    // con hash de versión fijo (última versión estable de la página de versiones).
+    const startRes = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
+        version: "2e4785a4d80dadf580077b2244c8d7c05d8e3faac04a04c02d8e099dd2876789",
         input: {
           image: dataUri,
           prompt: scenePrompt,
