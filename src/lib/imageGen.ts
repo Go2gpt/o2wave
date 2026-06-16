@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 
 // Construye el prompt de imagen en INGLÉS, fotorrealista/editorial, a partir del
 // tema (en español). Describe entidades visuales, no traduce el caption.
@@ -92,6 +93,30 @@ function clasificarErrorEdit(body: string): EditCode {
 }
 
 /**
+ * Recorta un cuadrado central (~60% de la dimensión menor) ligeramente desplazado
+ * hacia arriba, donde suele estar el rostro. Quita al modelo el contexto del
+ * fondo/cuerpo/escena original para que respete el prompt. Heurística simple sin
+ * detección de caras: cubre el ~80% del beneficio. Si falla, devuelve el original.
+ */
+async function recortarRostro(buffer: Buffer): Promise<{ buffer: Buffer; mime: string }> {
+  try {
+    const meta = await sharp(buffer).metadata();
+    const w = meta.width ?? 0, h = meta.height ?? 0;
+    if (!w || !h) return { buffer, mime: "image/jpeg" };
+    const side = Math.max(1, Math.round(Math.min(w, h) * 0.6));
+    const left = Math.max(0, Math.min(w - side, Math.round((w - side) / 2)));
+    // Sesgo hacia arriba (0.38) para encuadrar mejor la cara en retratos verticales.
+    const top = Math.max(0, Math.min(h - side, Math.round((h - side) * 0.38)));
+    const out = await sharp(buffer).extract({ left, top, width: side, height: side }).jpeg({ quality: 92 }).toBuffer();
+    console.log(`imageGen edit: foto recortada a ${side}x${side} (de ${w}x${h})`);
+    return { buffer: out, mime: "image/jpeg" };
+  } catch (e) {
+    console.warn("imageGen edit: crop falló, uso la foto original:", e instanceof Error ? e.message : e);
+    return { buffer, mime: "image/jpeg" };
+  }
+}
+
+/**
  * Pro: integra una FOTO del usuario en la escena descrita por el prompt, usando
  * el endpoint de edición de imágenes de OpenAI (images.edit, multipart). Intenta
  * gpt-image-2 y cae a gpt-image-1. Devuelve el PNG + el modelo, o un {error}
@@ -119,35 +144,58 @@ export async function generarImagenIAConFoto(
 USER'S DESIRED SCENE:
 ${scenePrompt}
 
+The reference image shows ONLY a face. Build the entire scene, body, clothing, props, and background from scratch following the user's description.
+
 REMEMBER: Replace the original background/environment completely with the scene described above. Only the person's face and identity should be preserved from the reference image.`;
-  const ext = foto.mime === "image/jpeg" ? "jpg" : "png";
+  // Recortamos al rostro: así el modelo no arrastra fondo/escena de la foto y
+  // deja que el prompt mande sobre la composición.
+  const recortada = await recortarRostro(foto.buffer);
+  const imgBuffer = recortada.buffer, imgMime = recortada.mime;
+  const ext = imgMime === "image/jpeg" ? "jpg" : "png";
+  // Construye el payload. input_fidelity "low" baja el peso de la imagen de
+  // referencia para que prime el prompt (default en gpt-image-1, pero explícito).
+  const construirFd = (model: string, conFidelity: boolean) => {
+    const fd = new FormData();
+    fd.append("model", model);
+    fd.append("prompt", prompt);
+    fd.append("size", sizeOpenAI(model, aspect));
+    fd.append("quality", "high");
+    fd.append("n", "1");
+    if (conFidelity) fd.append("input_fidelity", "low");
+    fd.append("image", new Blob([new Uint8Array(imgBuffer)], { type: imgMime }), `foto.${ext}`);
+    return fd;
+  };
+  const enviar = (fd: FormData) => fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` }, // sin Content-Type: fetch pone el boundary
+    body: fd,
+  });
+
   for (const model of ["gpt-image-2", "gpt-image-1"]) {
     try {
       const size = sizeOpenAI(model, aspect);
-      const fd = new FormData();
-      fd.append("model", model);
-      fd.append("prompt", prompt);
-      fd.append("size", size);
-      fd.append("quality", "high");
-      fd.append("n", "1");
-      fd.append("image", new Blob([new Uint8Array(foto.buffer)], { type: foto.mime }), `foto.${ext}`);
-      const res = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}` }, // sin Content-Type: fetch pone el boundary
-        body: fd,
-      });
+      let res = await enviar(construirFd(model, true));
       if (!res.ok) {
-        const body = await res.text();
-        // Modelo no disponible aún → probar el siguiente (gpt-image-1).
-        if ((res.status === 404 || res.status === 400) && /model/i.test(body) && !/image/i.test(body)) {
-          console.warn(`imageGen edit: modelo ${model} no disponible (${res.status}), fallback al siguiente`);
-          continue;
+        let body = await res.text();
+        // Si el modelo no acepta input_fidelity, reintenta sin ese parámetro.
+        if (res.status === 400 && /input_fidelity/i.test(body)) {
+          console.warn(`imageGen edit: ${model} no acepta input_fidelity, reintento sin él`);
+          res = await enviar(construirFd(model, false));
+          if (res.ok) { /* sigue abajo al parseo */ }
+          else body = await res.text();
         }
-        // Diagnóstico: logueamos el body COMPLETO del error de OpenAI (Vercel logs).
-        console.error(`imageGen edit ${model} ${res.status} — body completo de OpenAI:`, body);
-        const code = clasificarErrorEdit(body);
-        console.error(`imageGen edit: clasificado como "${code}"`);
-        return { error: code };
+        if (!res.ok) {
+          // Modelo no disponible aún → probar el siguiente (gpt-image-1).
+          if ((res.status === 404 || res.status === 400) && /model/i.test(body) && !/image/i.test(body)) {
+            console.warn(`imageGen edit: modelo ${model} no disponible (${res.status}), fallback al siguiente`);
+            continue;
+          }
+          // Diagnóstico: logueamos el body COMPLETO del error de OpenAI (Vercel logs).
+          console.error(`imageGen edit ${model} ${res.status} — body completo de OpenAI:`, body);
+          const code = clasificarErrorEdit(body);
+          console.error(`imageGen edit: clasificado como "${code}"`);
+          return { error: code };
+        }
       }
       const data = await res.json();
       const b64 = data?.data?.[0]?.b64_json as string | undefined;
