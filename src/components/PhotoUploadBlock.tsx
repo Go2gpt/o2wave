@@ -5,7 +5,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-const MIME_PERMITIDOS = ["image/jpeg", "image/png"];
+// HEIC (iPhone) se acepta y el backend lo convierte a JPEG automáticamente.
+const MIME_PERMITIDOS = ["image/jpeg", "image/png", "image/heic", "image/heif"];
+const EXT_PERMITIDAS = /\.(jpe?g|png|heic|heif)$/i;
 
 interface Props {
   /** ¿El plan del usuario incluye image_edit (Pro)? */
@@ -32,18 +34,23 @@ export default function PhotoUploadBlock({ habilitado, fotoPath, onChange, previ
     e.target.value = ""; // permite re-seleccionar el mismo archivo
     if (!file) return;
     setError("");
-    if (!MIME_PERMITIDOS.includes(file.type)) { setError("Usa una imagen JPEG o PNG."); return; }
+    // iOS a veces da file.type vacío para HEIC → validamos también por extensión.
+    if (!MIME_PERMITIDOS.includes(file.type) && !EXT_PERMITIDAS.test(file.name)) {
+      setError("Usa una imagen JPEG, PNG o HEIC."); return;
+    }
     if (file.size > MAX_BYTES) { setError("La foto supera el límite de 8 MB."); return; }
 
     setSubiendo(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setError("Inicia sesión para subir tu foto."); return; }
-      const ext = file.type === "image/jpeg" ? "jpg" : "png";
+      // La extensión es solo para el nombre temporal; el backend detecta el
+      // formato real por los bytes mágicos (incluido HEIC → lo convierte).
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
       const path = `${user.id}/tmp-foto-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("post-images")
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
       if (upErr) { setError("No se pudo subir la foto. Inténtalo de nuevo."); return; }
       const url = URL.createObjectURL(file);
       onChange(path, url);
@@ -81,7 +88,7 @@ export default function PhotoUploadBlock({ habilitado, fotoPath, onChange, previ
     <div className="bg-white rounded-2xl p-4 shadow-sm">
       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Foto tuya (opcional)</label>
       <p className="text-xs text-gray-400 mb-3">
-        Sube una foto tuya y la integraremos en la imagen generada según tu descripción. JPEG o PNG, máx. 8 MB.
+        Sube una foto tuya y la integraremos en la imagen generada según tu descripción. JPEG, PNG o HEIC (iPhone), máx. 8 MB.
       </p>
 
       {fotoPath && previewUrl ? (
@@ -103,7 +110,7 @@ export default function PhotoUploadBlock({ habilitado, fotoPath, onChange, previ
       </p>
 
       {error && <p className="text-xs text-red-600 font-medium mt-2">⚠️ {error}</p>}
-      <input ref={inputRef} type="file" accept="image/jpeg,image/png" onChange={elegir} className="hidden" />
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" onChange={elegir} className="hidden" />
     </div>
   );
 }

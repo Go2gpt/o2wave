@@ -11,6 +11,17 @@ export const dynamic = "force-dynamic";
 const MAX_FOTO_BYTES = 8 * 1024 * 1024; // 8 MB
 const MIME_PERMITIDOS = ["image/jpeg", "image/png"];
 
+// Marcas (brands) HEIF/HEIC más comunes en la caja "ftyp" del contenedor.
+const HEIC_BRANDS = ["heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs", "mif1", "msf1", "heif"];
+
+/** ¿El buffer es HEIC/HEIF? Detecta por MIME o por los bytes mágicos (ftyp + brand). */
+function esHeic(buffer: Buffer, mime: string): boolean {
+  if (mime === "image/heic" || mime === "image/heif") return true;
+  if (buffer.length < 12) return false;
+  if (buffer.toString("ascii", 4, 8) !== "ftyp") return false;
+  return HEIC_BRANDS.includes(buffer.toString("ascii", 8, 12).toLowerCase());
+}
+
 // Mensajes al usuario según el motivo de rechazo de OpenAI images.edit.
 const MENSAJE_EDIT: Record<string, string> = {
   content_policy: "OpenAI ha rechazado esta foto por su política de contenido. Prueba con una imagen diferente (evita rostros muy cercanos o personas reconocibles).",
@@ -67,15 +78,30 @@ export async function POST(request: NextRequest) {
       if (dlErr || !fotoBlob) {
         return NextResponse.json({ error: "No se pudo leer la foto subida" }, { status: 400 });
       }
-      const mime = fotoBlob.type || "image/png";
-      if (!MIME_PERMITIDOS.includes(mime)) {
-        await supabase.storage.from("post-images").remove([fotoPath]);
-        return NextResponse.json({ error: "Formato de foto no válido (usa JPEG o PNG)." }, { status: 400 });
-      }
-      const fotoBuffer = Buffer.from(await fotoBlob.arrayBuffer());
+      let fotoBuffer = Buffer.from(await fotoBlob.arrayBuffer());
+      let mime = fotoBlob.type || "";
       if (fotoBuffer.byteLength > MAX_FOTO_BYTES) {
         await supabase.storage.from("post-images").remove([fotoPath]);
         return NextResponse.json({ error: "La foto supera el límite de 8 MB." }, { status: 413 });
+      }
+      // iPhone sube HEIC por defecto. Lo convertimos a JPEG de forma invisible
+      // (sharp en Vercel no decodifica HEIC; heic-convert es JS puro).
+      if (esHeic(fotoBuffer, mime)) {
+        try {
+          const heicConvert = (await import("heic-convert")).default;
+          const jpeg = await heicConvert({ buffer: fotoBuffer, format: "JPEG", quality: 0.92 });
+          fotoBuffer = Buffer.from(jpeg);
+          mime = "image/jpeg";
+          console.log("generate-image: HEIC convertido a JPEG");
+        } catch (e) {
+          console.error("generate-image: fallo conversión HEIC:", e instanceof Error ? e.message : e);
+          await supabase.storage.from("post-images").remove([fotoPath]);
+          return NextResponse.json({ error: "No pudimos convertir tu foto HEIC. Haz una captura de pantalla o usa una foto JPEG/PNG." }, { status: 400 });
+        }
+      }
+      if (!MIME_PERMITIDOS.includes(mime)) {
+        await supabase.storage.from("post-images").remove([fotoPath]);
+        return NextResponse.json({ error: "Formato de foto no válido (usa JPEG, PNG o HEIC)." }, { status: 400 });
       }
 
       const edit = await generarImagenIAConFoto(prompt, { buffer: fotoBuffer, mime }, aspect);
