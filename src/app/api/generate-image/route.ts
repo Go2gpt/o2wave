@@ -27,6 +27,12 @@ const MENSAJE_EDIT: Record<string, string> = {
 // foto temporal se borra. Requiere plan con feature "image_edit".
 export async function POST(request: NextRequest) {
   try {
+    // DIAGNÓSTICO (temporal): ¿llega OPENAI_API_KEY al runtime de la función?
+    // Si length es "undefined" o la key no aparece, el problema es de Vercel
+    // (env no inyectada / nombre distinto / Sensitive), no del código.
+    console.log("[generate-image] OPENAI_API_KEY length:", process.env.OPENAI_API_KEY?.length ?? "undefined");
+    console.log("[generate-image] keys with OPENAI in name:", Object.keys(process.env).filter(k => k.includes("OPENAI")));
+
     const { formData, fotoPath }: { formData: ContentFormData; fotoPath?: string } = await request.json();
     const { tipoOrganizacion, redSocial, formatoInstagram, tema } = formData;
 
