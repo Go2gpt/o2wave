@@ -33,9 +33,9 @@ const MENSAJE_EDIT: Record<string, string> = {
 // gpt-image-1, y fallback final a Replicate FLUX). Sube la imagen LIMPIA (sin
 // titular: el texto se hornea al descargar) y devuelve { imagenUrl }.
 //
-// Pro: si llega `fotoPath` (una foto del usuario ya subida a post-images), se
-// integra esa persona en la escena con OpenAI images.edit. Tras procesarla, la
-// foto temporal se borra. Requiere plan con feature "image_edit".
+// Pro: si el request llega como multipart con una foto adjunta (campo "foto"),
+// se integra esa persona en la escena con OpenAI images.edit. La foto viaja en
+// el propio request (no se sube a Storage desde el cliente). Requiere "image_edit".
 export async function POST(request: NextRequest) {
   try {
     // DIAGNÓSTICO (temporal): ¿llega OPENAI_API_KEY al runtime de la función?
@@ -44,7 +44,26 @@ export async function POST(request: NextRequest) {
     console.log("[generate-image] OPENAI_API_KEY length:", process.env.OPENAI_API_KEY?.length ?? "undefined");
     console.log("[generate-image] keys with OPENAI in name:", Object.keys(process.env).filter(k => k.includes("OPENAI")));
 
-    const { formData, fotoPath }: { formData: ContentFormData; fotoPath?: string } = await request.json();
+    // Aceptamos JSON (sin foto) o multipart/form-data (con foto). La foto se
+    // envía como File en el propio request — NO se sube a Storage desde el
+    // cliente (Safari iOS construía URLs que WebKit rechazaba).
+    const ct = request.headers.get("content-type") || "";
+    let formData: ContentFormData;
+    let fotoBufferRaw: Buffer | null = null;
+    let fotoMime = "";
+    if (ct.includes("multipart/form-data")) {
+      const fd = await request.formData();
+      const payload = fd.get("payload");
+      formData = JSON.parse(typeof payload === "string" ? payload : "{}") as ContentFormData;
+      const foto = fd.get("foto");
+      if (foto instanceof File) {
+        fotoBufferRaw = Buffer.from(await foto.arrayBuffer());
+        fotoMime = foto.type || "";
+      }
+    } else {
+      const body = await request.json();
+      formData = body.formData as ContentFormData;
+    }
     const { tipoOrganizacion, redSocial, formatoInstagram, tema } = formData;
 
     const supabase = createClient();
@@ -60,7 +79,7 @@ export async function POST(request: NextRequest) {
     let gen: { buffer: Buffer; fuente: string } | null = null;
     let fotoIntegrada = false;
 
-    if (fotoPath) {
+    if (fotoBufferRaw) {
       // --- Camino Pro: integrar la foto del usuario (images.edit) ---
       const { data: profile } = await supabase
         .from("profiles").select("plan_actual, plan_estado, es_admin").eq("id", user.id).single();
@@ -70,18 +89,9 @@ export async function POST(request: NextRequest) {
       if (!canUseFeature(profile, "image_edit")) {
         return NextResponse.json({ error: "feature_no_disponible", mensaje: "Integrar tu foto está disponible en el plan Pro." }, { status: 403 });
       }
-      // Solo aceptamos rutas dentro de la carpeta del propio usuario.
-      if (!fotoPath.startsWith(`${user.id}/`)) {
-        return NextResponse.json({ error: "Ruta de foto no válida" }, { status: 400 });
-      }
-      const { data: fotoBlob, error: dlErr } = await supabase.storage.from("post-images").download(fotoPath);
-      if (dlErr || !fotoBlob) {
-        return NextResponse.json({ error: "No se pudo leer la foto subida" }, { status: 400 });
-      }
-      let fotoBuffer = Buffer.from(await fotoBlob.arrayBuffer());
-      let mime = fotoBlob.type || "";
+      let fotoBuffer = fotoBufferRaw;
+      let mime = fotoMime;
       if (fotoBuffer.byteLength > MAX_FOTO_BYTES) {
-        await supabase.storage.from("post-images").remove([fotoPath]);
         return NextResponse.json({ error: "La foto supera el límite de 8 MB." }, { status: 413 });
       }
       // iPhone sube HEIC por defecto. Lo convertimos a JPEG de forma invisible
@@ -95,18 +105,14 @@ export async function POST(request: NextRequest) {
           console.log("generate-image: HEIC convertido a JPEG");
         } catch (e) {
           console.error("generate-image: fallo conversión HEIC:", e instanceof Error ? e.message : e);
-          await supabase.storage.from("post-images").remove([fotoPath]);
           return NextResponse.json({ error: "No pudimos convertir tu foto HEIC. Haz una captura de pantalla o usa una foto JPEG/PNG." }, { status: 400 });
         }
       }
       if (!MIME_PERMITIDOS.includes(mime)) {
-        await supabase.storage.from("post-images").remove([fotoPath]);
         return NextResponse.json({ error: "Formato de foto no válido (usa JPEG, PNG o HEIC)." }, { status: 400 });
       }
 
       const edit = await generarImagenIAConFoto(prompt, { buffer: fotoBuffer, mime }, aspect);
-      // La foto temporal ya no hace falta (haya ido bien o mal).
-      await supabase.storage.from("post-images").remove([fotoPath]);
       if ("error" in edit) {
         return NextResponse.json({ error: "edit_fallida", code: edit.error, mensaje: MENSAJE_EDIT[edit.error] }, { status: 502 });
       }

@@ -91,7 +91,7 @@ function CreateInner() {
   const [gating, setGating] = useState<PerfilGating | null>(null);
   const [showUpsell, setShowUpsell] = useState<string | null>(null); // red social bloqueada
   const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
-  const [fotoPath, setFotoPath] = useState<string | null>(null);      // foto del usuario (Pro), ruta temporal en Storage
+  const [fotoFile, setFotoFile] = useState<File | null>(null);         // foto del usuario (Pro); viaja en multipart al generar
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
@@ -135,12 +135,23 @@ function CreateInner() {
     setLoading(true);
 
     try {
+      // La imagen va con foto (multipart, el File viaja en el request) o sin foto
+      // (JSON). NUNCA subimos a Storage desde el cliente (rompía en Safari iOS).
+      const imageReq = (() => {
+        if (form.redSocial === "TikTok") return Promise.resolve(null);
+        if (fotoFile) {
+          const fd = new FormData();
+          fd.append("payload", JSON.stringify({ formData: form }));
+          fd.append("foto", fotoFile);
+          return fetch("/api/generate-image", { method: "POST", body: fd });
+        }
+        return fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) });
+      })();
+
       // Generate text and image in parallel
       const [textRes, imageRes] = await Promise.all([
         fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }),
-        form.redSocial !== "TikTok"
-          ? fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form, fotoPath: fotoPath || undefined }) })
-          : Promise.resolve(null),
+        imageReq,
       ]);
 
       const textData = await textRes.json();
@@ -162,7 +173,7 @@ function CreateInner() {
       const imageData = imageRes ? await imageRes.json() : null;
       // Si pedimos integrar la foto y el servidor falló (plan/moderación/coste),
       // avisamos en vez de guardar un post sin imagen en silencio.
-      if (fotoPath && imageRes && !imageRes.ok) {
+      if (fotoFile && imageRes && !imageRes.ok) {
         if (["plan_suspendido", "feature_no_disponible"].includes(imageData?.error)) {
           setBloqueoMsg(imageData?.mensaje || "Integrar tu foto está disponible en el plan Pro.");
           setLoading(false);
@@ -357,9 +368,9 @@ function CreateInner() {
         {form.redSocial !== "TikTok" && (
           <PhotoUploadBlock
             habilitado={!!gating && canUseFeature(gating, "image_edit")}
-            fotoPath={fotoPath}
+            foto={fotoFile}
             previewUrl={fotoPreview}
-            onChange={(path, url) => { setFotoPath(path); setFotoPreview(url); }}
+            onChange={(file, url) => { setFotoFile(file); setFotoPreview(url); }}
           />
         )}
 
