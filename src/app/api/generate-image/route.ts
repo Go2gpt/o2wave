@@ -4,7 +4,7 @@ import { construirImagePromptEN, generarImagenIA, generarImagenIAConFoto } from 
 import { canUseFeature, isPlanActivo } from "@/lib/plans";
 import type { ContentFormData } from "@/types";
 
-export const maxDuration = 120;
+export const maxDuration = 300; // Vercel Pro: margen para HEIC + images.edit
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
