@@ -93,20 +93,20 @@ function clasificarErrorEdit(body: string): EditCode {
 }
 
 /**
- * Recorta un cuadrado central (~60% de la dimensión menor) ligeramente desplazado
- * hacia arriba, donde suele estar el rostro. Quita al modelo el contexto del
- * fondo/cuerpo/escena original para que respete el prompt. Heurística simple sin
- * detección de caras: cubre el ~80% del beneficio. Si falla, devuelve el original.
+ * Recorta un cuadrado de la zona superior-central (cara y hombros): lado = 60%
+ * del alto (limitado al ancho), centrado horizontalmente y colocado arriba. Quita
+ * al modelo el contexto cuerpo/fondo para que respete el prompt. Heurística simple
+ * sin detección de caras: cubre el ~80% del beneficio. Si falla, devuelve original.
  */
 async function recortarRostro(buffer: Buffer): Promise<{ buffer: Buffer; mime: string }> {
   try {
     const meta = await sharp(buffer).metadata();
     const w = meta.width ?? 0, h = meta.height ?? 0;
     if (!w || !h) return { buffer, mime: "image/jpeg" };
-    const side = Math.max(1, Math.round(Math.min(w, h) * 0.6));
+    const side = Math.max(1, Math.min(w, Math.round(h * 0.6)));
     const left = Math.max(0, Math.min(w - side, Math.round((w - side) / 2)));
-    // Sesgo hacia arriba (0.38) para encuadrar mejor la cara en retratos verticales.
-    const top = Math.max(0, Math.min(h - side, Math.round((h - side) * 0.38)));
+    // Zona superior-central (cara y hombros), sin pegarse al borde superior.
+    const top = Math.max(0, Math.min(h - side, Math.round((h - side) * 0.25)));
     const out = await sharp(buffer).extract({ left, top, width: side, height: side }).jpeg({ quality: 92 }).toBuffer();
     console.log(`imageGen edit: foto recortada a ${side}x${side} (de ${w}x${h})`);
     return { buffer: out, mime: "image/jpeg" };

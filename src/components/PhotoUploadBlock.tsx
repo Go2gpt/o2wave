@@ -26,8 +26,9 @@ interface Props {
 export default function PhotoUploadBlock({ habilitado, foto, onChange, previewUrl }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
+  const [convirtiendo, setConvirtiendo] = useState(false);
 
-  const elegir = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const elegir = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // permite re-seleccionar el mismo archivo
     if (!file) return;
@@ -38,8 +39,29 @@ export default function PhotoUploadBlock({ habilitado, foto, onChange, previewUr
     }
     if (file.size > MAX_BYTES) { setError("La foto supera el límite de 8 MB."); return; }
 
+    // HEIC (iPhone) → convertir a JPEG EN EL NAVEGADOR (ahorra ~10-15s frente a
+    // hacerlo en el backend). heic2any usa wasm y window, por eso import dinámico.
+    let finalFile = file;
+    const esHeic = file.type === "image/heic" || file.type === "image/heif" || /\.(heic|heif)$/i.test(file.name);
+    if (esHeic) {
+      setConvirtiendo(true);
+      try {
+        const heic2any = (await import("heic2any")).default;
+        const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+        const jpegBlob = Array.isArray(out) ? out[0] : out;
+        finalFile = new File([jpegBlob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+      } catch (err) {
+        // Si la conversión en cliente falla, mandamos el HEIC y el backend lo
+        // convierte (fallback). No bloqueamos al usuario.
+        console.warn("heic2any falló, se enviará el HEIC al backend:", err);
+        finalFile = file;
+      } finally {
+        setConvirtiendo(false);
+      }
+    }
+
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    onChange(file, URL.createObjectURL(file));
+    onChange(finalFile, URL.createObjectURL(finalFile));
   };
 
   const quitar = () => {
@@ -80,10 +102,10 @@ export default function PhotoUploadBlock({ habilitado, foto, onChange, previewUr
           <button type="button" onClick={quitar} className="text-sm font-bold" style={{ color: "#dc2743" }}>Quitar</button>
         </div>
       ) : (
-        <button type="button" onClick={() => inputRef.current?.click()}
-          className="px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all active:scale-95"
+        <button type="button" onClick={() => inputRef.current?.click()} disabled={convirtiendo}
+          className="px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
           style={{ borderColor: "#f9b23b", color: "#f9b23b" }}>
-          📷 Subir foto
+          {convirtiendo ? "Convirtiendo..." : "📷 Subir foto"}
         </button>
       )}
 
