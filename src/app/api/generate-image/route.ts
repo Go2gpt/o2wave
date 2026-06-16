@@ -38,12 +38,6 @@ const MENSAJE_EDIT: Record<string, string> = {
 // el propio request (no se sube a Storage desde el cliente). Requiere "image_edit".
 export async function POST(request: NextRequest) {
   try {
-    // DIAGNÓSTICO (temporal): ¿llega OPENAI_API_KEY al runtime de la función?
-    // Si length es "undefined" o la key no aparece, el problema es de Vercel
-    // (env no inyectada / nombre distinto / Sensitive), no del código.
-    console.log("[generate-image] OPENAI_API_KEY length:", process.env.OPENAI_API_KEY?.length ?? "undefined");
-    console.log("[generate-image] keys with OPENAI in name:", Object.keys(process.env).filter(k => k.includes("OPENAI")));
-
     // Aceptamos JSON (sin foto) o multipart/form-data (con foto). La foto se
     // envía como File en el propio request — NO se sube a Storage desde el
     // cliente (Safari iOS construía URLs que WebKit rechazaba).
