@@ -182,6 +182,7 @@ export interface ComposeOptions {
   fontSize: number;  // px referenciado a 1080
   aspectRatio: string;
   textAlign?: "left" | "center" | "right";
+  watermark?: boolean; // false → no estampar "✦ Gen. IA" (imagen propia del usuario, no IA)
 }
 
 /**
@@ -190,7 +191,7 @@ export interface ComposeOptions {
  * imagen sin tocar (solo normalizada a las dimensiones del formato).
  */
 export async function composeImage({
-  imageBuffer, headline, positionX, positionY, fontSize, aspectRatio, textAlign = "center",
+  imageBuffer, headline, positionX, positionY, fontSize, aspectRatio, textAlign = "center", watermark = true,
 }: ComposeOptions): Promise<Buffer> {
   // Cada red en su formato nativo (1:1, 4:5 Post, 9:16 Story, 16:9 Facebook).
   const { w: width, h: height } = DIMS[aspectRatio] || DIMS["1:1"];
@@ -243,9 +244,9 @@ export async function composeImage({
     <rect x="0" y="${bandTop}" width="${width}" height="${bandH}" fill="url(#g)"/>
   </svg>`;
 
-  // Marca de agua "✨ Gen. IA" abajo-derecha: solo cuando hay composición IA
-  // (esta rama). Una imagen subida sin titular sale por el return anterior sin marca.
-  const wm = await watermarkComposites(width, height);
+  // Marca de agua "✦ Gen. IA" abajo-derecha: solo para contenido generado por IA
+  // (EU AI Act). Si la imagen es propia del usuario (watermark=false) no se aplica.
+  const wm = watermark ? await watermarkComposites(width, height) : [];
 
   return base
     .composite([

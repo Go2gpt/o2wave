@@ -92,6 +92,10 @@ function CreateInner() {
   const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
   const [genSegs, setGenSegs] = useState(0);   // segundos transcurridos durante la generación
   const genTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [fotoPropia, setFotoPropia] = useState<File | null>(null);     // foto del usuario → se salta la generación IA
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [fotoError, setFotoError] = useState("");
+  const fotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -126,6 +130,25 @@ function CreateInner() {
   const set = <K extends keyof ContentFormData>(k: K, v: ContentFormData[K]) =>
     setForm(f => ({ ...f, [k]: v }));
 
+  // Foto propia (opcional): si la sube, nos saltamos la generación IA.
+  const elegirFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setFotoError("");
+    const okMime = ["image/jpeg", "image/png", "image/heic", "image/heif"].includes(file.type);
+    const okExt = /\.(jpe?g|png|heic|heif)$/i.test(file.name);
+    if (!okMime && !okExt) { setFotoError("Usa una imagen JPG, PNG o HEIC."); return; }
+    if (file.size > 8 * 1024 * 1024) { setFotoError("La foto supera el límite de 8 MB."); return; }
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    setFotoPropia(file);
+    setFotoPreview(URL.createObjectURL(file));
+  };
+  const quitarFoto = () => {
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    setFotoPropia(null); setFotoPreview(null); setFotoError("");
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nombreOrganizacion.trim() || !form.tema.trim()) return;
@@ -137,12 +160,23 @@ function CreateInner() {
     genTimer.current = setInterval(() => setGenSegs((s) => s + 1), 1000);
 
     try {
+      // Imagen: TikTok no lleva. Si el usuario subió su foto → la subimos
+      // (multipart) y NOS SALTAMOS la generación IA (ahorra coste). Si no →
+      // generamos con IA como hasta ahora.
+      const imageReq = (() => {
+        if (form.redSocial === "TikTok") return Promise.resolve(null);
+        if (fotoPropia) {
+          const fd = new FormData();
+          fd.append("foto", fotoPropia);
+          return fetch("/api/upload-foto", { method: "POST", body: fd });
+        }
+        return fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) });
+      })();
+
       // Generate text and image in parallel
       const [textRes, imageRes] = await Promise.all([
         fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }),
-        form.redSocial !== "TikTok"
-          ? fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) })
-          : Promise.resolve(null),
+        imageReq,
       ]);
 
       const textData = await textRes.json();
@@ -162,6 +196,10 @@ function CreateInner() {
       // subida (imagen limpia; el titular se hornea al descargar). Mantenemos el
       // polling como compatibilidad por si algún flujo devolviera predictionId.
       const imageData = imageRes ? await imageRes.json() : null;
+      // Si el usuario subió foto y la subida falló, avisamos (no guardamos sin imagen).
+      if (fotoPropia && imageRes && !imageRes.ok) {
+        throw new Error(imageData?.error || "No se pudo subir tu foto. Inténtalo de nuevo.");
+      }
       let imagenUrl: string | undefined;
       if (imageData?.imagenUrl) {
         imagenUrl = imageData.imagenUrl;
@@ -341,6 +379,34 @@ function CreateInner() {
             onFocus={e => e.target.style.borderColor = "#f9b23b"}
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
         </div>
+
+        {/* Tu foto (opcional): si la sube, se salta la generación IA. No TikTok (genera guion). */}
+        {form.redSocial !== "TikTok" && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tu foto (opcional)</label>
+            <p className="text-xs text-gray-400 mb-3">
+              Si ya tienes una foto, súbela aquí y te ahorras la generación con IA. Si no, generamos una por ti. JPG, PNG o HEIC, máx. 8 MB.
+            </p>
+            {fotoPropia && fotoPreview ? (
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={fotoPreview} alt="Tu foto" className="w-20 h-20 rounded-xl object-cover border-2" style={{ borderColor: "#f9b23b" }} />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-gray-700 truncate">{fotoPropia.name}</p>
+                  <button type="button" onClick={quitarFoto} className="text-sm font-bold" style={{ color: "#dc2743" }}>Quitar</button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => fotoInputRef.current?.click()}
+                className="px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all active:scale-95"
+                style={{ borderColor: "#f9b23b", color: "#f9b23b" }}>
+                📷 Subir mi foto
+              </button>
+            )}
+            {fotoError && <p className="text-xs text-red-600 font-medium mt-2">⚠️ {fotoError}</p>}
+            <input ref={fotoInputRef} type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" onChange={elegirFoto} className="hidden" />
+          </div>
+        )}
 
         {/* Tono (genérico — TikTok usa su propio Tono en su bloque) */}
         {form.redSocial !== "TikTok" && (

@@ -91,6 +91,10 @@ function ResultContent() {
     }
   }, []);
 
+  // ¿La imagen es una foto propia del usuario? (path con prefijo `propia-`).
+  // Si lo es, no se estampa el watermark de IA (EU AI Act).
+  const esFotoPropia = (url?: string | null) => /\/propia-/.test(url || "");
+
   // Cuerpo de la petición de composición a partir del estado actual del editor.
   const composeBody = () => {
     if (!post?.imagen_url) return null;
@@ -100,6 +104,7 @@ function ResultContent() {
       positionX: posX, positionY: posY, fontSize,
       aspectRatio: aspectFor(post.red_social, post.formato),
       textAlign,
+      watermark: !esFotoPropia(post.imagen_url),
     };
   };
 
@@ -163,8 +168,10 @@ function ResultContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
+      // Prefijo `propia-`: marca que es foto del usuario → al descargar/compartir
+      // NO se aplica el watermark de IA (igual que la foto subida en /create).
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const path = `${user.id}/${Date.now()}.${ext}`;
+      const path = `${user.id}/propia-${Date.now()}.${ext}`;
 
       const { error: upErr } = await supabase.storage
         .from("post-images")
@@ -246,6 +253,7 @@ function ResultContent() {
           imageUrl: post.imagen_url,
           headline: textEnabled ? headline : null,
           positionX: posX, positionY: posY, fontSize, aspectRatio: aspect, textAlign,
+          watermark: !esFotoPropia(post.imagen_url),
         }),
       });
       if (!res.ok) throw new Error("compose failed");
