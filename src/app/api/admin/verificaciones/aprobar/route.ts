@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
 
     // 3) Email de aprobación (texto aprobado, firmado por Sebastian)
     if (target.email) {
-      const saludo = target.nombre_entidad?.trim() || "equipo";
       await getResend().emails.send({
         from: FROM_VERIFICACION,
         replyTo: REPLY_TO_VERIFICACION,
@@ -46,7 +45,7 @@ export async function POST(request: NextRequest) {
         subject: "¡Bienvenidos a o2Wave! Plan gratuito ONG pequeña aprobado",
         html: `
           <div style="font-family:Arial,Helvetica,sans-serif;color:#0F0F0F;line-height:1.6;font-size:15px">
-            <p>Hola ${saludo},</p>
+            <p>Hola,</p>
             <p>Soy Sebastian Ferragut, presidente de Generación o2 (Go2). Te escribo personalmente porque vuestra organización es una de las primeras ONGs en confiar en o2Wave desde su lanzamiento en beta. Gracias.</p>
             <p>Hemos revisado los documentos y el plan ONG pequeña gratuito ya está activo en vuestra cuenta. Ya podéis empezar a generar contenido cuando queráis desde <a href="https://o2wave.app" style="color:#93bf30;font-weight:bold">o2wave.app</a>:</p>
             <ul style="padding-left:20px">
