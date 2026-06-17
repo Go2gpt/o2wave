@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { FEATURES, canUseFeature, isPlanActivo, puedeGenerarPostGratis, limitePostsMes, type PerfilGating } from "@/lib/plans";
+import { detectarPremio, construirBloquePremio } from "@/lib/premios";
+import { enriquecerDesdeWikipedia } from "@/lib/wikipedia";
 import type { ContentFormData, GuionTikTok } from "@/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -140,6 +142,22 @@ export async function POST(request: NextRequest) {
       profile?.publico_objetivo && `Público objetivo: ${profile.publico_objetivo}`,
     ].filter(Boolean).join("\n");
 
+    // Plan Estrella (MVP): si el tema menciona un premio conocido, enriquecemos
+    // el prompt con su hashtag/cuentas oficiales y datos de la obra (Wikipedia).
+    // Totalmente resiliente: cualquier fallo deja el flujo normal intacto.
+    let bloquePremio = "";
+    let premioDetectado: string | null = null;
+    try {
+      const premio = await detectarPremio(supabase, tema);
+      if (premio) {
+        premioDetectado = premio.nombre;
+        const wiki = await enriquecerDesdeWikipedia(tema);
+        bloquePremio = construirBloquePremio(premio, wiki);
+      }
+    } catch (e) {
+      console.error("premios enriquecimiento error:", e instanceof Error ? e.message : e);
+    }
+
     // ---------- TikTok: guion estructurado en JSON ----------
     if (redSocial === "TikTok") {
       const duracion = duracionTikTok || "30s";
@@ -160,7 +178,7 @@ PARÁMETROS:
 - Duración total: ${duracion} → usa ${segmentosPara(duracion)}
 - Tono: ${tonoTk} (refléjalo en el vocabulario y la energía del texto)
 - Entorno o ubicación de grabación: ${entorno}
-${contextoUsuario ? `\nCONTEXTO DE LA ENTIDAD:\n${contextoUsuario}\n` : ""}
+${contextoUsuario ? `\nCONTEXTO DE LA ENTIDAD:\n${contextoUsuario}\n` : ""}${bloquePremio ? `${bloquePremio}\n` : ""}
 INSTRUCCIONES:
 - El guion debe caber en la duración indicada.
 - Los planos deben ser PRÁCTICOS para alguien sin equipo (smartphone + luz natural) y deben encajar con el entorno indicado (${entorno}): ambienta las tomas en ese lugar.
@@ -196,11 +214,12 @@ Devuelve EXACTAMENTE esta estructura JSON:
           guion: { ...guion, params: { duracion, tono: tonoTk, entorno } },
           texto: guionToText(guion),
           titular: guion.titular || "",
+          premio: premioDetectado,
         });
       }
       // Fallback: el JSON no se pudo estructurar → devolvemos el texto bruto.
       await contarUsoGratis(supabase, perfilGating);
-      return NextResponse.json({ guion: null, texto: raw.trim(), titular: "" });
+      return NextResponse.json({ guion: null, texto: raw.trim(), titular: "", premio: premioDetectado });
     }
 
     // ---------- Instagram / Facebook: texto plano (como antes) ----------
@@ -219,7 +238,7 @@ Tema: ${tema} | Tono: ${tono}
 ${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${(esWhatsApp || !incluirHashtags) ? "❌ Sin hashtags" : "✅ Con hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
 ${redSocial === "Instagram" ? "Máximo 150 palabras, impacto visual." : ""}
 ${redSocial === "Facebook" ? "Hasta 200 palabras, narrativo." : ""}
-${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}
+${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}${bloquePremio ? `\n${bloquePremio}\n` : ""}
 Texto listo para publicar, sin explicaciones:`;
 
     const response = await client.messages.create({
@@ -242,7 +261,7 @@ Texto listo para publicar, sin explicaciones:`;
     const titular = (tRes.content[0].type === "text" ? tRes.content[0].text : "").trim().replace(/^["'«»]|["'«»]$/g, "");
 
     await contarUsoGratis(supabase, perfilGating);
-    return NextResponse.json({ texto, titular });
+    return NextResponse.json({ texto, titular, premio: premioDetectado });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Error desconocido";
     return NextResponse.json({ error: `Error generando texto: ${msg}` }, { status: 500 });
