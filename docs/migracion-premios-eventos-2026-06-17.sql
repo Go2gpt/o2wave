@@ -40,7 +40,7 @@ VALUES
     ARRAY['goya','goyas','premios goya','premio goya'],
     'Principales premios del cine español, otorgados por la Academia de las Artes y las Ciencias Cinematográficas de España.'),
   ('feroz', 'Premios Feroz', 'cine', 'ES', '#PremiosFeroz', '@premiosferozaicc', '@PremiosFeroz', 'https://premiosferoz.com', 1,
-    ARRAY['feroz','feroces','premios feroz','premio feroz'],
+    ARRAY['premios feroz','premio feroz'],
     'Premios de cine y televisión concedidos por la Asociación de Informadores Cinematográficos de España (AICC).'),
   ('forque', 'Premios José María Forqué', 'cine', 'ES', '#PremiosForqué', '@premiosforque', '@PremiosForque', 'https://www.premiosforque.com', 12,
     ARRAY['forque','forques','premios forque','premio forque','jose maria forque'],
