@@ -69,7 +69,7 @@ export default async function AdminVerificacionesPage({ searchParams }: { search
   let query = admin
     .from("profiles")
     .select("id, email, nombre_entidad, tipo_entidad, nif, presupuesto_anual, trabajadores_remunerados, plan_actual, estado_verificacion, motivo_rechazo, verification_notes, documento_url, created_at, updated_at")
-    .eq("tipo_entidad", "ong")
+    .in("tipo_entidad", ["ong", "ong_pequena", "ong_mediana"])
     .order("updated_at", { ascending: true });
   if (estado !== "todas") query = query.eq("estado_verificacion", estado);
   const { data: perfiles } = await query.returns<PerfilVerif[]>();
