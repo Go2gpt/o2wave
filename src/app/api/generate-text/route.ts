@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const INSTRUCCION_TILDES = `IMPORTANTE: respeta SIEMPRE las tildes y diacríticos del nombre de la entidad y del idioma español. No escribas 'GeneracionO2', escribe 'GeneraciónO2'. No escribas 'Educacion', escribe 'Educación'. La acentuación es parte de la identidad correcta.`;
+const INSTRUCCION_TILDES = `IMPORTANTE: respeta SIEMPRE las tildes y diacríticos del nombre de la entidad y del idioma español. No escribas 'Fundacion', escribe 'Fundación'. No escribas 'Educacion', escribe 'Educación'. La acentuación es parte de la identidad correcta.`;
 
 const NOMBRE_IDIOMA: Record<string, string> = { es: "español castellano", ca: "catalán", en: "inglés" };
 function instruccionIdioma(idioma: string | null | undefined): string {
