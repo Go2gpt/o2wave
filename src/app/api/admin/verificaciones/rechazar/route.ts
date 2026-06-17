@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { getResend, FROM_EMAIL } from "@/lib/resend";
+import { getResend, FROM_VERIFICACION, REPLY_TO_VERIFICACION } from "@/lib/resend";
 import { SITE_URL } from "@/lib/siteUrl";
 
 export async function POST(request: NextRequest) {
@@ -41,25 +41,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No se pudo actualizar el perfil" }, { status: 500 });
     }
 
-    // 3) Email de aviso
+    // 3) Email de rechazo (texto aprobado, firmado por Sebastian). El `motivo`
+    // se guarda en BD para el admin; el cuerpo al usuario es el texto estándar.
     if (target.email) {
       await getResend().emails.send({
-        from: FROM_EMAIL,
+        from: FROM_VERIFICACION,
+        replyTo: REPLY_TO_VERIFICACION,
         to: target.email,
-        subject: "Necesitamos revisar tu verificación en o2Wave",
+        subject: "Sobre tu inscripción al plan gratuito de o2Wave",
         html: `
-          <div style="font-family:Arial,sans-serif;color:#0F0F0F;line-height:1.6">
-            <h2 style="color:#f9b23b;margin-bottom:8px">Tu verificación necesita una revisión</h2>
+          <div style="font-family:Arial,Helvetica,sans-serif;color:#0F0F0F;line-height:1.6;font-size:15px">
             <p>Hola,</p>
-            <p>No hemos podido completar la verificación de tu organización en <strong>o2Wave</strong>.</p>
-            <div style="border-left:3px solid #f9b23b;background:#fff8ef;padding:10px 14px;margin:16px 0">
-              <strong>Motivo:</strong><br/>${motivoLimpio}
-            </div>
-            <p>Puedes subir un documento nuevo entrando en
-            <a href="${SITE_URL}/verificacion" style="color:#93bf30;font-weight:bold">www.o2wave.app/verificacion</a>.</p>
-            <p style="color:#6b7280;font-size:13px;margin-top:24px">El equipo de o2Wave</p>
+            <p>He revisado los documentos enviados y veo que vuestra entidad no cumple alguno de los criterios del plan gratuito ONG pequeña:</p>
+            <ul style="padding-left:20px">
+              <li>Entidad sin ánimo de lucro (CIF G/R/V/N).</li>
+              <li>Presupuesto anual inferior a 50.000€.</li>
+              <li>Máximo 1 trabajador remunerado.</li>
+            </ul>
+            <p>Sin embargo, te queremos tener en o2Wave igualmente. Puedes acceder con:</p>
+            <ul style="padding-left:20px">
+              <li>Empresa Early Bird: 9€/mes durante 12 meses.</li>
+              <li>Empresa Standard: 19€/mes.</li>
+              <li>Empresa Pro: 39€/mes.</li>
+            </ul>
+            <p>Detalles en <a href="${SITE_URL}/plans" style="color:#93bf30;font-weight:bold">o2wave.app/plans</a>.</p>
+            <p>Si quieres seguir con un plan de pago, házmelo saber y te ayudo a configurarlo.</p>
+            <p>Un abrazo,</p>
+            <p style="margin-top:16px"><strong>Sebastian Ferragut</strong><br/>
+            Presidente · Asociación Generación o2 (Go2)</p>
           </div>`,
       });
+      console.log("[email-rechazo] enviado a", target.email);
     }
 
     return NextResponse.json({ ok: true });

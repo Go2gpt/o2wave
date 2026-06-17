@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { getResend, FROM_EMAIL } from "@/lib/resend";
+import { getResend, FROM_VERIFICACION, REPLY_TO_VERIFICACION } from "@/lib/resend";
 import { SITE_URL } from "@/lib/siteUrl";
 
 // Pide aclaración/documentación adicional a la entidad: estado 'necesita_info'
@@ -43,23 +43,26 @@ export async function POST(request: NextRequest) {
     }
 
     if (target.email) {
+      // El cuerpo principal es el mensaje que escribe el admin (notas/motivo);
+      // conservamos sus saltos de línea. Saludo y firma estándar.
+      const cuerpo = mensajeLimpio.replace(/\n/g, "<br/>");
       await getResend().emails.send({
-        from: FROM_EMAIL,
+        from: FROM_VERIFICACION,
+        replyTo: REPLY_TO_VERIFICACION,
         to: target.email,
-        subject: "Necesitamos una aclaración para tu verificación en o2Wave",
+        subject: "Sobre tu inscripción a o2Wave — documentos pendientes",
         html: `
-          <div style="font-family:Arial,sans-serif;color:#0F0F0F;line-height:1.6">
-            <h2 style="color:#f9b23b;margin-bottom:8px">Necesitamos una aclaración</h2>
+          <div style="font-family:Arial,Helvetica,sans-serif;color:#0F0F0F;line-height:1.6;font-size:15px">
             <p>Hola,</p>
-            <p>Estamos revisando la verificación de tu organización en <strong>o2Wave</strong> y necesitamos que nos aclares lo siguiente:</p>
-            <div style="border-left:3px solid #f9b23b;background:#fff8ef;padding:10px 14px;margin:16px 0">
-              ${mensajeLimpio}
-            </div>
-            <p>Puedes responder o subir documentación nueva entrando en
-            <a href="${SITE_URL}/verificacion" style="color:#93bf30;font-weight:bold">www.o2wave.app/verificacion</a>.</p>
-            <p style="color:#6b7280;font-size:13px;margin-top:24px">El equipo de o2Wave</p>
+            <p>${cuerpo}</p>
+            <p>Puedes responder a este correo o subir la documentación entrando en
+            <a href="${SITE_URL}/verificacion" style="color:#93bf30;font-weight:bold">o2wave.app/verificacion</a>.</p>
+            <p>Un abrazo,</p>
+            <p style="margin-top:16px"><strong>Sebastian Ferragut</strong><br/>
+            Presidente · Asociación Generación o2 (Go2)</p>
           </div>`,
       });
+      console.log("[email-aclaracion] enviado a", target.email);
     }
 
     return NextResponse.json({ ok: true });

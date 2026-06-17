@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { getResend, FROM_EMAIL } from "@/lib/resend";
-
-const TIPO_LABEL: Record<string, string> = {
-  ong_pequena: "ONG pequeña",
-  ong_mediana: "ONG mediana",
-  empresa: "Empresa",
-};
+import { getResend, FROM_VERIFICACION, REPLY_TO_VERIFICACION } from "@/lib/resend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,30 +29,42 @@ export async function POST(request: NextRequest) {
         verification_reviewed_by: user.id,
       })
       .eq("id", user_id)
-      .select("email, tipo_entidad")
+      .select("email, nombre_entidad")
       .single();
     if (updErr || !target) {
       console.error("aprobar update error:", updErr);
       return NextResponse.json({ error: "No se pudo actualizar el perfil" }, { status: 500 });
     }
 
-    // 3) Email de aviso
+    // 3) Email de aprobación (texto aprobado, firmado por Sebastian)
     if (target.email) {
-      const tipo = TIPO_LABEL[target.tipo_entidad] || "organización";
+      const saludo = target.nombre_entidad?.trim() || "equipo";
       await getResend().emails.send({
-        from: FROM_EMAIL,
+        from: FROM_VERIFICACION,
+        replyTo: REPLY_TO_VERIFICACION,
         to: target.email,
-        subject: "Tu organización ha sido verificada en o2Wave",
+        subject: "¡Bienvenidos a o2Wave! Plan gratuito ONG pequeña aprobado",
         html: `
-          <div style="font-family:Arial,sans-serif;color:#0F0F0F;line-height:1.6">
-            <h2 style="color:#93bf30;margin-bottom:8px">¡Verificación completada! 🎉</h2>
-            <p>Hola,</p>
-            <p>Hemos verificado tu ${tipo} en <strong>o2Wave</strong>. Tu cuenta ya está activa
-            y puedes acceder a <strong>todas las funciones</strong> de tu plan.</p>
-            <p>Entra y empieza a generar contenido para tu comunidad.</p>
-            <p style="color:#6b7280;font-size:13px;margin-top:24px">La IA que no se nota.<br/>El equipo de o2Wave</p>
+          <div style="font-family:Arial,Helvetica,sans-serif;color:#0F0F0F;line-height:1.6;font-size:15px">
+            <p>Hola ${saludo},</p>
+            <p>Soy Sebastian Ferragut, presidente de Generación o2 (Go2). Te escribo personalmente porque vuestra organización es una de las primeras ONGs en confiar en o2Wave desde su lanzamiento en beta. Gracias.</p>
+            <p>Hemos revisado los documentos y el plan ONG pequeña gratuito ya está activo en vuestra cuenta. Ya podéis empezar a generar contenido cuando queráis desde <a href="https://o2wave.app" style="color:#93bf30;font-weight:bold">o2wave.app</a>:</p>
+            <ul style="padding-left:20px">
+              <li>10 publicaciones al mes con IA (texto + imagen).</li>
+              <li>Publicación en Instagram y Facebook.</li>
+              <li>Calendario de días clave por sector.</li>
+              <li>Estadísticas básicas.</li>
+            </ul>
+            <p>Pequeña petición: ¿podríais probar a generar 1-2 posts esta semana y contarnos qué tal os ha ido? Aún estamos en beta y vuestro feedback es lo que nos ayuda a construir un producto que de verdad os sirva. Cualquier cosa que veáis rara, os cueste o echéis de menos, decírnoslo.</p>
+            <p>Si tenéis cualquier duda sobre cómo funciona algo, respondéis a este correo y os ayudamos.</p>
+            <p>Mil gracias por estar ahí desde el principio.</p>
+            <p>Un abrazo,</p>
+            <p style="margin-top:16px"><strong>Sebastian Ferragut</strong><br/>
+            Presidente · Asociación Generación o2 (Go2)<br/>
+            <a href="https://o2wave.app" style="color:#93bf30">o2wave.app</a></p>
           </div>`,
       });
+      console.log("[email-aprobacion] enviado a", target.email);
     }
 
     return NextResponse.json({ ok: true });

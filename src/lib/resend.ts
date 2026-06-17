@@ -2,6 +2,11 @@ import { Resend } from "resend";
 
 export const FROM_EMAIL = "o2Wave <noreply@generacion-o2.org>";
 
+// Emails de verificación de ONGs: los firma Sebastian (Generación o2). Mismo
+// dominio verificado en Resend (generacion-o2.org), así que está autorizado.
+export const FROM_VERIFICACION = "Sebastian Ferragut · o2Wave <o2wave.app@generacion-o2.org>";
+export const REPLY_TO_VERIFICACION = "o2wave.app@generacion-o2.org";
+
 /**
  * Devuelve un cliente Resend inicializado. Valida la env var en runtime
  * (al llamar), no al importar el módulo, para no romper el build cuando
