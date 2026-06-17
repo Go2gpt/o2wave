@@ -6,7 +6,7 @@ import { SITE_URL } from "@/lib/siteUrl";
 
 export async function POST(request: NextRequest) {
   try {
-    const { user_id, motivo } = await request.json();
+    const { user_id, motivo, notas } = await request.json();
     if (!user_id) return NextResponse.json({ error: "Falta user_id" }, { status: 400 });
     if (!motivo || !motivo.trim()) {
       return NextResponse.json({ error: "El motivo es obligatorio" }, { status: 400 });
@@ -26,7 +26,13 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
     const { data: target, error: updErr } = await admin
       .from("profiles")
-      .update({ estado_verificacion: "rechazada", motivo_rechazo: motivoLimpio })
+      .update({
+        estado_verificacion: "rechazada",
+        motivo_rechazo: motivoLimpio,
+        verification_notes: typeof notas === "string" ? notas : null,
+        verification_reviewed_at: new Date().toISOString(),
+        verification_reviewed_by: user.id,
+      })
       .eq("id", user_id)
       .select("email")
       .single();

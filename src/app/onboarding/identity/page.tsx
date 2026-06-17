@@ -106,6 +106,11 @@ export default function OnboardingIdentityPage() {
   const [estiloVisual, setEstiloVisual] = useState("");
   const [logrosNumeros, setLogrosNumeros] = useState("");
 
+  // Datos declarados de la entidad (solo ONG; usados en la verificación del plan).
+  const [nif, setNif] = useState("");
+  const [presupuestoAnual, setPresupuestoAnual] = useState("");
+  const [trabajadoresRemunerados, setTrabajadoresRemunerados] = useState("");
+
   // Preguntas finales (paso 2)
   const [tema1, setTema1] = useState("");
   const [tema2, setTema2] = useState("");
@@ -160,6 +165,12 @@ export default function OnboardingIdentityPage() {
         temas_prioritarios: temas,
         tipo_publicaciones: tipoPublicaciones || null,
         info_extra: infoExtra || null,
+        // Datos declarados (solo ONG): CIF + presupuesto + nº trabajadores.
+        ...(esEmpresa ? {} : {
+          nif: nif.trim() || null,
+          presupuesto_anual: presupuestoAnual.trim() ? Math.round(Number(presupuestoAnual)) || null : null,
+          trabajadores_remunerados: trabajadoresRemunerados.trim() ? Math.round(Number(trabajadoresRemunerados)) || null : null,
+        }),
         onboarding_complete: true,
       }).eq("id", user.id);
 
@@ -220,6 +231,26 @@ export default function OnboardingIdentityPage() {
             <Campo label="Geografía / ámbito" value={geografia} set={setGeografia} />
             <Campo label="Estilo visual" value={estiloVisual} set={setEstiloVisual} />
             <Campo label="Logros y números clave" value={logrosNumeros} set={setLogrosNumeros} area />
+
+            {/* Datos declarados de la entidad (solo ONG): se usan para verificar
+                el plan gratuito. Podemos pedir documentación acreditativa. */}
+            {!esEmpresa && (
+              <>
+                <Campo label="CIF de la entidad (G/R/V/N)" value={nif} set={setNif} />
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Presupuesto anual (€)</label>
+                  <input type="number" inputMode="numeric" min={0} value={presupuestoAnual}
+                    onChange={(e) => setPresupuestoAnual(e.target.value)} placeholder="Ej: 35000"
+                    className={inputCls} onFocus={onFocus} onBlur={onBlur} />
+                </div>
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Trabajadores remunerados</label>
+                  <input type="number" inputMode="numeric" min={0} value={trabajadoresRemunerados}
+                    onChange={(e) => setTrabajadoresRemunerados(e.target.value)} placeholder="Ej: 1"
+                    className={inputCls} onFocus={onFocus} onBlur={onBlur} />
+                </div>
+              </>
+            )}
 
             <button onClick={() => { setPaso(2); window.scrollTo(0, 0); }}
               className="w-full py-4 rounded-2xl font-bold text-white text-base transition-all active:scale-[0.98]"
