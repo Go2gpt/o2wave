@@ -10,6 +10,14 @@ import { PLANES } from "@/lib/plans";
 import { BETA_ACTIVA } from "@/lib/constants";
 import type { PlanActual, PlanCiclo } from "@/types";
 
+// Requisitos que el usuario debe confirmar ACTIVAMENTE para el plan gratuito.
+const REQUISITOS_GRATIS = [
+  "Es una entidad sin ánimo de lucro legalmente constituida (CIF G/R/V/N).",
+  "El presupuesto anual de la entidad es inferior a 50.000€.",
+  "Operamos principalmente con voluntariado (máximo 1 trabajador remunerado).",
+  "Entiendo que podemos pedir documentación acreditativa en cualquier momento.",
+];
+
 export default function PlansView({ autenticado, esAdmin, grupo, planActual, success, cancelled, empresaSinSub }: {
   autenticado: boolean;
   esAdmin: boolean;
@@ -25,6 +33,9 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
   const [toast, setToast] = useState<ToastState>(null);
   const [promo, setPromo] = useState("");
   const [condicionesAbiertas, setCondicionesAbiertas] = useState(false);
+  const [confirmGratis, setConfirmGratis] = useState(false); // modal de requisitos del plan gratis
+  const [checks, setChecks] = useState<boolean[]>(() => REQUISITOS_GRATIS.map(() => false));
+  const todosMarcados = checks.every(Boolean);
 
   // Bypass temporal por código promocional: aceptamos cualquier código no vacío
   // (sin validación todavía) y dejamos pasar fijando la cookie que lee el middleware.
@@ -57,6 +68,13 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
       setLoading(null);
     }
   };
+
+  // Destino del plan gratuito (registro con el plan preseleccionado).
+  const irARegistroGratis = () =>
+    router.push(`/register?plan=ong_pequena&ciclo=${BETA_ACTIVA ? "mensual" : ciclo}`);
+
+  // Abre el modal de requisitos (resetea los checks).
+  const abrirConfirmGratis = () => { setChecks(REQUISITOS_GRATIS.map(() => false)); setConfirmGratis(true); };
 
   const btnNaranja = "w-full py-3 rounded-xl font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50";
 
@@ -229,7 +247,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
 
                 {/* CTA según modo: visitante / admin / logueado-actual / logueado-otro */}
                 {!autenticado ? (
-                  <button onClick={() => router.push(`/register?plan=${plan.id}&ciclo=${BETA_ACTIVA ? "mensual" : ciclo}`)} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
+                  <button onClick={() => esGratis ? abrirConfirmGratis() : router.push(`/register?plan=${plan.id}&ciclo=${BETA_ACTIVA ? "mensual" : ciclo}`)} className={btnNaranja} style={{ backgroundColor: "#f9b23b" }}>
                     {esGratis ? "Empezar gratis" : "Suscribirme"}
                   </button>
                 ) : esAdmin ? (
@@ -253,6 +271,37 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
         Precios con IVA incluido · Cancela cuando quieras · Pago seguro con Stripe
       </p>
     </div>
+
+    {/* Modal: confirmación activa de requisitos del plan gratuito */}
+    {confirmGratis && (
+      <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4" onClick={() => setConfirmGratis(false)}>
+        <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+          <h3 className="font-black text-gray-900 text-base mb-1">Plan gratuito ONG pequeña</h3>
+          <p className="text-sm text-gray-500 mb-4">Confirma que tu entidad cumple TODOS estos requisitos:</p>
+          <div className="space-y-2.5 mb-5">
+            {REQUISITOS_GRATIS.map((req, i) => (
+              <label key={i} className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" checked={checks[i]}
+                  onChange={(e) => setChecks((c) => c.map((v, j) => (j === i ? e.target.checked : v)))}
+                  className="mt-0.5 w-5 h-5 flex-shrink-0 accent-[#f9b23b]" />
+                <span className="text-sm text-gray-700 leading-snug">{req}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setConfirmGratis(false)}
+              className="flex-1 py-3 rounded-xl font-bold text-sm text-gray-500" style={{ backgroundColor: "#f3f4f6" }}>
+              Cancelar
+            </button>
+            <button type="button" onClick={irARegistroGratis} disabled={!todosMarcados}
+              className="flex-1 py-3 rounded-xl font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-40"
+              style={{ backgroundColor: "#f9b23b" }}>
+              Confirmar y continuar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
