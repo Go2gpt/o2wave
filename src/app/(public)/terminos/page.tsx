@@ -95,6 +95,14 @@ export default function TerminosPage() {
         la cuenta pasará a estado suspendido y se bloqueará la generación de nuevo contenido. El usuario podrá
         restablecer el servicio actualizando su método de pago.
       </p>
+      <p>
+        4.7. <strong>Programa de mención voluntaria con descuento.</strong> El usuario puede activar de forma
+        voluntaria, desde su panel de planes, la opción de que el contenido generado por o2Wave incluya una
+        mención discreta a Generación o2 (asociación sin ánimo de lucro creadora de la herramienta). Si acepta,
+        recibirá un descuento permanente del 10% sobre su cuota mensual mientras la opción esté activada. Puede
+        desactivarla en cualquier momento; el cambio de cuota se reflejará en el siguiente ciclo de facturación.
+        La activación es completamente opcional y no afecta a la funcionalidad ni a la calidad del servicio.
+      </p>
 
       <h2 id="plan-gratuito">5. Plan gratuito para ONGs pequeñas</h2>
       <p>

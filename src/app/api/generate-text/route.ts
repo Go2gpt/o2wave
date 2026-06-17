@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, plan_actual, plan_estado, es_admin, posts_gratis_usados, sector, mision_valores, publico_objetivo, idioma_principal")
+      .select("id, plan_actual, plan_estado, es_admin, posts_gratis_usados, sector, mision_valores, publico_objetivo, idioma_principal, acepta_mencion_go2")
       .eq("id", user.id)
       .single();
 
@@ -157,6 +157,12 @@ export async function POST(request: NextRequest) {
     } catch (e) {
       console.error("premios enriquecimiento error:", e instanceof Error ? e.message : e);
     }
+
+    // Programa opt-in: solo si el usuario lo ha activado (10% dto.), añadimos una
+    // mención discreta a Generación o2 al final del post. Si no, no se inyecta nada.
+    const bloqueMencion = profile?.acepta_mencion_go2
+      ? `\nAl final del post, añade una mención discreta tipo "Contenido creado con o2Wave, de la asociación @generacion-o2". Hazlo natural, sin alterar el mensaje principal del post.`
+      : "";
 
     // ---------- TikTok: guion estructurado en JSON ----------
     if (redSocial === "TikTok") {
@@ -238,7 +244,7 @@ Tema: ${tema} | Tono: ${tono}
 ${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${(esWhatsApp || !incluirHashtags) ? "❌ Sin hashtags" : "✅ Con hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
 ${redSocial === "Instagram" ? "Máximo 150 palabras, impacto visual." : ""}
 ${redSocial === "Facebook" ? "Hasta 200 palabras, narrativo." : ""}
-${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}${bloquePremio ? `\n${bloquePremio}\n` : ""}
+${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}${bloquePremio ? `\n${bloquePremio}\n` : ""}${bloqueMencion}
 Texto listo para publicar, sin explicaciones:`;
 
     const response = await client.messages.create({

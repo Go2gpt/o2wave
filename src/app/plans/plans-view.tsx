@@ -18,11 +18,12 @@ const REQUISITOS_GRATIS = [
   "Entiendo que podemos pedir documentación acreditativa en cualquier momento.",
 ];
 
-export default function PlansView({ autenticado, esAdmin, grupo, planActual, success, cancelled, empresaSinSub }: {
+export default function PlansView({ autenticado, esAdmin, grupo, planActual, aceptaMencion = false, success, cancelled, empresaSinSub }: {
   autenticado: boolean;
   esAdmin: boolean;
   grupo: "ong" | "empresa";
   planActual: PlanActual | null;
+  aceptaMencion?: boolean;
   success: boolean;
   cancelled: boolean;
   empresaSinSub?: boolean;
@@ -33,6 +34,8 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
   const [toast, setToast] = useState<ToastState>(null);
   const [promo, setPromo] = useState("");
   const [condicionesAbiertas, setCondicionesAbiertas] = useState(false);
+  const [mencion, setMencion] = useState(aceptaMencion);     // opt-in mención Go2 (10% dto.)
+  const [mencionLoading, setMencionLoading] = useState(false);
   const [confirmGratis, setConfirmGratis] = useState(false); // modal de requisitos del plan gratis
   const [checks, setChecks] = useState<boolean[]>(() => REQUISITOS_GRATIS.map(() => false));
   const todosMarcados = checks.every(Boolean);
@@ -75,6 +78,30 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
 
   // Abre el modal de requisitos (resetea los checks).
   const abrirConfirmGratis = () => { setChecks(REQUISITOS_GRATIS.map(() => false)); setConfirmGratis(true); };
+
+  // Opt-in mención Go2 (10% dto.): persiste y aplica/quita el cupón en Stripe.
+  const toggleMencion = async () => {
+    if (mencionLoading) return;
+    const nuevo = !mencion;
+    setMencion(nuevo); setMencionLoading(true);
+    try {
+      const res = await fetch("/api/mencion-go2", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activar: nuevo }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "No se pudo guardar");
+      setToast({
+        message: nuevo ? "Activado. El 10% de descuento se aplica en tu próximo ciclo de facturación." : "Mención desactivada.",
+        type: nuevo ? "success" : "info",
+      });
+    } catch (e) {
+      setMencion(!nuevo); // revertir si falla
+      setToast({ message: e instanceof Error ? e.message : "Error", type: "error" });
+    } finally {
+      setMencionLoading(false);
+    }
+  };
 
   const btnNaranja = "w-full py-3 rounded-xl font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50";
 
@@ -266,6 +293,29 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, suc
           );
         })}
       </div>
+
+      {/* Opt-in: mención voluntaria a Generación o2 a cambio de 10% de descuento. */}
+      {autenticado && (
+        <div className="px-5 mt-5">
+          <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: "2px solid #e5e7eb" }}>
+            <button type="button" onClick={toggleMencion} disabled={mencionLoading}
+              className="w-full flex items-start gap-3 text-left disabled:opacity-60">
+              <span className="mt-0.5 w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                style={mencion
+                  ? { backgroundColor: "#93bf30", color: "#fff" }
+                  : { border: "2px solid #d1d5db", color: "transparent" }}>
+                ✓
+              </span>
+              <span className="text-sm text-gray-700 leading-snug">
+                Acepto que mis posts incluyan una mención sutil a Generación o2 (asociación sin ánimo de lucro creadora de o2Wave) a cambio de un 10% de descuento en mi suscripción mensual.
+              </span>
+            </button>
+            <p className="text-[11px] text-gray-400 leading-relaxed mt-2 pl-8">
+              Puedes desactivarlo cuando quieras desde tu perfil. El descuento se aplica al siguiente ciclo de facturación. Los ingresos de o2Wave se destinan a los proyectos sociales de Generación o2.
+            </p>
+          </div>
+        </div>
+      )}
 
       <p className="px-5 pt-4 text-center text-xs text-gray-400">
         Precios con IVA incluido · Cancela cuando quieras · Pago seguro con Stripe

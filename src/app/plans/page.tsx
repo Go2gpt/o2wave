@@ -11,12 +11,14 @@ export default async function PlansPage({ searchParams }: { searchParams: { succ
   let grupo: "ong" | "empresa" = "ong";
   let planActual: PlanActual | null = null;
   let esAdmin = false;
+  let aceptaMencion = false;
   if (user) {
     const { data: profile } = await supabase
-      .from("profiles").select("tipo_entidad, plan_actual, es_admin").eq("id", user.id).single();
+      .from("profiles").select("tipo_entidad, plan_actual, es_admin, acepta_mencion_go2").eq("id", user.id).single();
     grupo = (profile?.tipo_entidad || "").startsWith("ong") ? "ong" : "empresa";
     planActual = (profile?.plan_actual || "ong_pequena") as PlanActual;
     esAdmin = !!profile?.es_admin;
+    aceptaMencion = !!profile?.acepta_mencion_go2;
   }
 
   return (
@@ -25,6 +27,7 @@ export default async function PlansPage({ searchParams }: { searchParams: { succ
       esAdmin={esAdmin}
       grupo={grupo}
       planActual={planActual}
+      aceptaMencion={aceptaMencion}
       success={searchParams?.success === "1"}
       cancelled={searchParams?.cancelled === "1"}
       empresaSinSub={searchParams?.empresa_sin_sub === "1"}
