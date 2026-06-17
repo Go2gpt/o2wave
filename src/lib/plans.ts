@@ -6,13 +6,16 @@ import type { PlanActual, PlanCiclo } from "@/types";
 export const FEATURES: Record<string, string[]> = {
   ong_pequena: ["instagram", "facebook", "whatsapp", "text_image", "dias_clave", "stats_basic"],
   ong_mediana: ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
-  earlybird:   ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
-  standard:    ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
+  earlybird:   ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced"],
+  standard:    ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced"],
   pro:         ["instagram", "facebook", "whatsapp", "tiktok", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados", "multi_marca", "api_access"],
 };
 
 /** Posts gratuitos al mes para ong_pequena (reset el día 1 de cada mes). */
 export const LIMITE_POSTS_GRATIS = 10;
+
+/** Posts/mes para Standard y Earlybird (Standard a precio reducido). */
+export const LIMITE_POSTS_STANDARD = 30;
 
 /** Perfil mínimo para el gating. El plan vive en `plan_actual` (null → ong_pequena). */
 export interface PerfilGating {
@@ -43,21 +46,27 @@ export function isPlanActivo(profile: PerfilGating | null): boolean {
   return !["suspendida", "past_due", "unpaid"].includes(estado);
 }
 
-/** ¿Puede generar otro post? Planes con posts_ilimitados o admin → sí; ong_pequena → bajo el límite mensual. */
+/**
+ * ¿Puede generar otro post este mes? Pro/ONG mediana y admin → ilimitado;
+ * Standard/Earlybird → bajo 30/mes; ong_pequena (free) y resto → bajo 10/mes.
+ */
 export function puedeGenerarPostGratis(profile: PerfilGating | null): boolean {
   if (!profile) return false;
   if (profile.es_admin) return true;
   const plan = profile.plan_actual ?? "ong_pequena";
-  if (FEATURES[plan]?.includes("posts_ilimitados")) return true;
-  return (profile.posts_gratis_usados ?? 0) < LIMITE_POSTS_GRATIS;
+  if (FEATURES[plan]?.includes("posts_ilimitados")) return true; // pro, ong_mediana
+  const usados = profile.posts_gratis_usados ?? 0;
+  if (plan === "standard" || plan === "earlybird") return usados < LIMITE_POSTS_STANDARD;
+  return usados < LIMITE_POSTS_GRATIS;
 }
 
-/** Límite de posts/mes según plan. Infinity = ilimitado (admin o posts_ilimitados). */
+/** Límite de posts/mes según plan. Infinity = ilimitado (admin, pro, ONG mediana). */
 export function limitePostsMes(profile: PerfilGating | null): number {
   if (!profile) return LIMITE_POSTS_GRATIS;
   if (profile.es_admin) return Infinity;
   const plan = profile.plan_actual ?? "ong_pequena";
   if (FEATURES[plan]?.includes("posts_ilimitados")) return Infinity;
+  if (plan === "standard" || plan === "earlybird") return LIMITE_POSTS_STANDARD;
   return LIMITE_POSTS_GRATIS;
 }
 

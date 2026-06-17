@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { FEATURES, LIMITE_POSTS_GRATIS, canUseFeature, isPlanActivo, puedeGenerarPostGratis, type PerfilGating } from "@/lib/plans";
+import { FEATURES, canUseFeature, isPlanActivo, puedeGenerarPostGratis, limitePostsMes, type PerfilGating } from "@/lib/plans";
 import type { ContentFormData, GuionTikTok } from "@/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -128,7 +128,8 @@ export async function POST(request: NextRequest) {
       .from("profiles").select("plan_actual, es_admin, posts_gratis_usados").eq("id", user.id).single();
     const pUso = pFresh ?? profile; // respaldo si la relectura falla
     if (!puedeGenerarPostGratis(pUso)) {
-      return NextResponse.json({ error: "limite_gratis_alcanzado", mensaje: `Has usado tus ${LIMITE_POSTS_GRATIS} posts gratuitos de este mes. Mejora tu plan para seguir generando.` }, { status: 429 });
+      const limite = limitePostsMes(pUso);
+      return NextResponse.json({ error: "limite_gratis_alcanzado", mensaje: `Has alcanzado el límite de tu plan (${limite} posts/mes). Mejora tu plan para seguir generando.` }, { status: 429 });
     }
     const perfilGating = { id: user.id, plan_actual: pUso?.plan_actual ?? null, es_admin: pUso?.es_admin ?? null };
 
