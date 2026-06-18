@@ -82,20 +82,30 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
 /**
  * Genera imagen con Google Gemini 2.5 Flash Image (Nano Banana), API v1beta.
  * Aspect ratio nativo por red (4:5 / 9:16 / 16:9 / 1:1); la resolución va auto.
- * Devuelve el Buffer (PNG/JPEG decodificado de inline_data) o null (→ fallback FLUX).
+ * Si `foto` viene, se envía como inline_data (image+text→image): integra la
+ * persona de la foto en la escena del prompt. Devuelve el Buffer o null.
  */
-export async function generarImagenGemini(prompt: string, aspect: string, deadlineMs = 50000): Promise<Buffer | null> {
+export async function generarImagenGemini(
+  prompt: string,
+  aspect: string,
+  deadlineMs = 50000,
+  foto?: { buffer: Buffer; mime: string },
+): Promise<Buffer | null> {
   const key = process.env.GOOGLE_AI_API_KEY;
   if (!key) { console.error("imageGen: sin GOOGLE_AI_API_KEY"); return null; }
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), deadlineMs);
   try {
+    // Con foto: la imagen va PRIMERO en parts, luego el texto de la escena.
+    const reqParts = foto
+      ? [{ inline_data: { mime_type: foto.mime, data: foto.buffer.toString("base64") } }, { text: prompt }]
+      : [{ text: prompt }];
     // v1beta: es donde existen responseModalities + imageConfig (en v1 dan 400).
     const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent", {
       method: "POST",
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: reqParts }],
         generationConfig: {
           responseModalities: ["IMAGE"],
           imageConfig: { aspectRatio: aspect }, // sin imageSize: la resolución va auto según aspect
@@ -126,6 +136,22 @@ export async function generarImagenGemini(prompt: string, aspect: string, deadli
   } finally {
     clearTimeout(t);
   }
+}
+
+/**
+ * Pro/Estrella: integra la cara del usuario en una escena IA con Gemini (Nano
+ * Banana, image+text→image). `escena` es el tema del usuario. NO hay fallback a
+ * FLUX (no integra cara): si Gemini falla, devolvemos null y el usuario reintenta.
+ */
+export async function generarImagenIntegrada(
+  escena: string,
+  foto: { buffer: Buffer; mime: string },
+  aspect: string,
+  deadlineMs = 60000,
+): Promise<{ buffer: Buffer; fuente: string } | null> {
+  const prompt = `Integra a la persona de la foto EXACTAMENTE como aparece (mantén su cara, peinado, ropa y rasgos idénticos) en la siguiente escena: ${escena}. Estilo fotográfico realista, sin texto ni logos.`;
+  const buf = await generarImagenGemini(prompt, aspect, deadlineMs, foto);
+  return buf ? { buffer: buf, fuente: "gemini-2.5-flash-image:integrada" } : null;
 }
 
 /** Fallback: Replicate FLUX 1.1 pro (crea predicción, hace polling y descarga). Devuelve Buffer o null. */

@@ -92,9 +92,10 @@ function CreateInner() {
   const [bloqueoMsg, setBloqueoMsg] = useState<string | null>(null);  // mensaje del servidor (402/429)
   const [genSegs, setGenSegs] = useState(0);   // segundos transcurridos durante la generación
   const genTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [fotoPropia, setFotoPropia] = useState<File | null>(null);     // foto del usuario → se salta la generación IA
+  const [fotoPropia, setFotoPropia] = useState<File | null>(null);     // foto del usuario
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [fotoError, setFotoError] = useState("");
+  const [modoFoto, setModoFoto] = useState<"propia" | "integrada">("propia"); // cómo usar la foto
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -126,6 +127,8 @@ function CreateInner() {
   const limitePosts = gating ? limitePostsMes(gating) : Infinity;
   const postsUsados = gating?.posts_gratis_usados ?? 0;
   const limiteAlcanzado = gating ? !puedeGenerarPostGratis(gating) : false;
+  // "Integrar mi cara": solo planes de pago (no gratuito) o admin.
+  const puedeIntegrar = !!gating && (gating.es_admin === true || (!!gating.plan_actual && gating.plan_actual !== "ong_pequena"));
 
   const set = <K extends keyof ContentFormData>(k: K, v: ContentFormData[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -146,7 +149,7 @@ function CreateInner() {
   };
   const quitarFoto = () => {
     if (fotoPreview) URL.revokeObjectURL(fotoPreview);
-    setFotoPropia(null); setFotoPreview(null); setFotoError("");
+    setFotoPropia(null); setFotoPreview(null); setFotoError(""); setModoFoto("propia");
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -160,11 +163,20 @@ function CreateInner() {
     genTimer.current = setInterval(() => setGenSegs((s) => s + 1), 1000);
 
     try {
-      // Imagen: TikTok no lleva. Si el usuario subió su foto → la subimos
-      // (multipart) y NOS SALTAMOS la generación IA (ahorra coste). Si no →
-      // generamos con IA como hasta ahora.
+      // Imagen: TikTok no lleva. 3 modos:
+      //  - foto + "integrada" (plan de pago) → Gemini integra la cara en la escena.
+      //  - foto + "propia" → se usa tal cual (sin IA, ahorra coste).
+      //  - sin foto → IA pura desde el prompt.
+      const integrar = !!fotoPropia && modoFoto === "integrada" && puedeIntegrar;
+      const modoImagen: "ia" | "propia" | "integrada" = integrar ? "integrada" : fotoPropia ? "propia" : "ia";
       const imageReq = (() => {
         if (form.redSocial === "TikTok") return Promise.resolve(null);
+        if (integrar) {
+          const fd = new FormData();
+          fd.append("payload", JSON.stringify({ formData: form }));
+          fd.append("foto", fotoPropia as File);
+          return fetch("/api/generate-image", { method: "POST", body: fd });
+        }
         if (fotoPropia) {
           const fd = new FormData();
           fd.append("foto", fotoPropia);
@@ -196,9 +208,9 @@ function CreateInner() {
       // subida (imagen limpia; el titular se hornea al descargar). Mantenemos el
       // polling como compatibilidad por si algún flujo devolviera predictionId.
       const imageData = imageRes ? await imageRes.json() : null;
-      // Si el usuario subió foto y la subida falló, avisamos (no guardamos sin imagen).
+      // Si el usuario subió foto y la subida/integración falló, avisamos (no guardamos sin imagen).
       if (fotoPropia && imageRes && !imageRes.ok) {
-        throw new Error(imageData?.error || "No se pudo subir tu foto. Inténtalo de nuevo.");
+        throw new Error(imageData?.mensaje || imageData?.error || "No se pudo procesar tu foto. Inténtalo de nuevo.");
       }
       let imagenUrl: string | undefined;
       if (imageData?.imagenUrl) {
@@ -224,6 +236,11 @@ function CreateInner() {
       };
 
       const { data: saved } = await supabase.from("generated_posts").insert(postData).select().single();
+
+      // modo_imagen (analítica): best-effort, no rompe si la columna no existe aún.
+      if (saved?.id && !esTikTok && modoImagen !== "ia") {
+        await supabase.from("generated_posts").update({ modo_imagen: modoImagen }).eq("id", saved.id).then(() => {}, () => {});
+      }
 
       // Navigate to result; pasamos el titular sugerido por query (para el editor).
       const titular = textData.titular || form.tema;
@@ -403,6 +420,39 @@ function CreateInner() {
                 📷 Subir mi foto
               </button>
             )}
+            {/* ¿Cómo usar la foto? (solo cuando hay foto subida) */}
+            {fotoPropia && (
+              <div className="mt-4 space-y-2">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">¿Cómo quieres usar tu foto?</p>
+                <button type="button" onClick={() => setModoFoto("propia")}
+                  className="w-full flex items-start gap-3 text-left p-3 rounded-xl border-2 transition-all"
+                  style={modoFoto === "propia" ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef" } : { borderColor: "#e5e7eb" }}>
+                  <span className="text-lg">🖼️</span>
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-800">Usar mi foto tal cual</span>
+                    <span className="block text-xs text-gray-400">Gratis e instantáneo, sin IA.</span>
+                  </span>
+                </button>
+                <button type="button" disabled={!puedeIntegrar}
+                  onClick={() => puedeIntegrar && setModoFoto("integrada")}
+                  className="w-full flex items-start gap-3 text-left p-3 rounded-xl border-2 transition-all disabled:opacity-60"
+                  style={modoFoto === "integrada" && puedeIntegrar ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef" } : { borderColor: "#e5e7eb" }}>
+                  <span className="text-lg">🎨</span>
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-800">
+                      Integrar mi cara en una escena IA {!puedeIntegrar && <span className="text-gray-400">🔒</span>}
+                    </span>
+                    <span className="block text-xs text-gray-400">
+                      {puedeIntegrar ? "La IA te coloca en la escena de tu tema (~10s)." : "Disponible en los planes de pago."}
+                    </span>
+                  </span>
+                </button>
+                {!puedeIntegrar && (
+                  <Link href="/plans" className="inline-block text-xs font-bold" style={{ color: "#f9b23b" }}>Ver planes →</Link>
+                )}
+              </div>
+            )}
+
             {fotoError && <p className="text-xs text-red-600 font-medium mt-2">⚠️ {fotoError}</p>}
             <input ref={fotoInputRef} type="file" accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif" onChange={elegirFoto} className="hidden" />
           </div>

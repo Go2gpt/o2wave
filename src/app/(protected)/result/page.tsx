@@ -423,6 +423,14 @@ function ResultContent() {
               </div>
             )}
 
+            {/* Badge: imagen con la cara del usuario integrada por IA (prefijo integrada-). */}
+            {post.imagen_url && /\/integrada-/.test(post.imagen_url) && (
+              <span className="absolute top-2 left-2 text-[11px] font-bold px-2 py-1 rounded-full text-white pointer-events-none"
+                style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+                ✨ Tu cara integrada
+              </span>
+            )}
+
             {/* Overlay del titular (preview que imita el horneado) */}
             {post.imagen_url && textEnabled && headline.trim() && (
               <>
