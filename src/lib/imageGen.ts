@@ -80,9 +80,9 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
 }
 
 /**
- * Genera imagen con Google Gemini 2.5 Flash Image (Nano Banana). Aspect ratio
- * nativo por red (4:5 / 9:16 / 16:9 / 1:1) y resolución 2K. Devuelve el Buffer
- * (PNG/JPEG decodificado de inline_data) o null si falla (→ fallback FLUX).
+ * Genera imagen con Google Gemini 2.5 Flash Image (Nano Banana), API v1beta.
+ * Aspect ratio nativo por red (4:5 / 9:16 / 16:9 / 1:1); la resolución va auto.
+ * Devuelve el Buffer (PNG/JPEG decodificado de inline_data) o null (→ fallback FLUX).
  */
 export async function generarImagenGemini(prompt: string, aspect: string, deadlineMs = 50000): Promise<Buffer | null> {
   const key = process.env.GOOGLE_AI_API_KEY;
@@ -90,14 +90,15 @@ export async function generarImagenGemini(prompt: string, aspect: string, deadli
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), deadlineMs);
   try {
-    const res = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-image:generateContent", {
+    // v1beta: es donde existen responseModalities + imageConfig (en v1 dan 400).
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent", {
       method: "POST",
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           responseModalities: ["IMAGE"],
-          imageConfig: { aspectRatio: aspect, imageSize: "2K" },
+          imageConfig: { aspectRatio: aspect }, // sin imageSize: la resolución va auto según aspect
         },
       }),
       signal: ctrl.signal,
