@@ -79,6 +79,54 @@ export async function generarImagenOpenAI(prompt: string, aspect: string): Promi
   return null;
 }
 
+/**
+ * Genera imagen con Google Gemini 2.5 Flash Image (Nano Banana). Aspect ratio
+ * nativo por red (4:5 / 9:16 / 16:9 / 1:1) y resolución 2K. Devuelve el Buffer
+ * (PNG/JPEG decodificado de inline_data) o null si falla (→ fallback FLUX).
+ */
+export async function generarImagenGemini(prompt: string, aspect: string, deadlineMs = 50000): Promise<Buffer | null> {
+  const key = process.env.GOOGLE_AI_API_KEY;
+  if (!key) { console.error("imageGen: sin GOOGLE_AI_API_KEY"); return null; }
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), deadlineMs);
+  try {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-image:generateContent", {
+      method: "POST",
+      headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+          imageConfig: { aspectRatio: aspect, imageSize: "2K" },
+        },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      // Logueamos el body COMPLETO para diagnosticar en Vercel si el shape falla.
+      console.error(`imageGen gemini ${res.status}: ${(await res.text()).slice(0, 600)}`);
+      return null;
+    }
+    const data = await res.json();
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
+    for (const p of parts) {
+      const inline = p?.inlineData ?? p?.inline_data;
+      const b64 = inline?.data as string | undefined;
+      if (b64) {
+        console.log(`imageGen: Gemini OK (aspect ${aspect}, ${inline?.mimeType ?? inline?.mime_type ?? "image"})`);
+        return Buffer.from(b64, "base64");
+      }
+    }
+    console.error("imageGen gemini: respuesta sin imagen:", JSON.stringify(data).slice(0, 500));
+    return null;
+  } catch (e) {
+    console.error("imageGen gemini error:", e instanceof Error ? e.message : e);
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 /** Fallback: Replicate FLUX 1.1 pro (crea predicción, hace polling y descarga). Devuelve Buffer o null. */
 export async function generarImagenReplicate(prompt: string, aspect: string, deadlineMs = 55000): Promise<Buffer | null> {
   const token = process.env.REPLICATE_API_TOKEN;
@@ -115,14 +163,15 @@ export async function generarImagenReplicate(prompt: string, aspect: string, dea
 }
 
 /**
- * Genera imagen con la mejor calidad disponible: OpenAI gpt-image-2 primero;
- * si falla (sin key, timeout, rate-limit, 5xx, etc.) cae a Replicate FLUX 1.1 pro.
+ * Genera imagen con la mejor calidad disponible: Google Gemini 2.5 Flash Image
+ * (Nano Banana) primero; si falla (sin key, timeout, rate-limit, 5xx, shape de
+ * config inválido, etc.) cae a Replicate FLUX 1.1 pro (con aspect ratio correcto).
  * Devuelve el Buffer de la imagen LIMPIA (sin titular) o null.
  */
 export async function generarImagenIA(prompt: string, aspect: string, deadlineMs = 55000): Promise<{ buffer: Buffer; fuente: string } | null> {
-  const openai = await generarImagenOpenAI(prompt, aspect);
-  if (openai) return { buffer: openai.buffer, fuente: `openai:${openai.modelo}` };
-  console.warn("imageGen: OpenAI no devolvió imagen → fallback a Replicate FLUX");
+  const gemini = await generarImagenGemini(prompt, aspect);
+  if (gemini) return { buffer: gemini, fuente: "gemini-2.5-flash-image" };
+  console.warn("imageGen: Gemini no devolvió imagen → fallback a Replicate FLUX");
   const flux = await generarImagenReplicate(prompt, aspect, deadlineMs);
   return flux ? { buffer: flux, fuente: "replicate:flux-1.1-pro" } : null;
 }
