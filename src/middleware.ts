@@ -71,6 +71,7 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith("/onboarding") &&
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api") &&
+    !pathname.startsWith("/reset-password") && // recuperación: dejar resetear aunque haya sesión
     !LEGAL_ROUTES.some((r) => pathname.startsWith(r))
   ) {
     const { data: profile, error: profileError } = await supabase
