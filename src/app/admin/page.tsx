@@ -44,6 +44,12 @@ export default async function AdminPage() {
             description="Revisa y aprueba la documentación de las entidades."
             badge={pendientes > 0 ? `${pendientes} pendiente${pendientes === 1 ? "" : "s"}` : "Todo al día"}
           />
+          <AdminCard
+            href="/admin/cuentas"
+            icon="👥"
+            title="Gestión de cuentas"
+            description="Todas las cuentas: buscar, suspender, eliminar y verificar."
+          />
         </div>
       </div>
     </main>

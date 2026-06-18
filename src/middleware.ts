@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/reset-password", "/auth", "/onboarding", "/privacidad", "/terminos", "/cookies", "/plans"];
+const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/reset-password", "/auth", "/onboarding", "/privacidad", "/terminos", "/cookies", "/plans", "/suspendida"];
 const AUTH_ROUTES = ["/login", "/register", "/welcome"];
 const LEGAL_ROUTES = ["/privacidad", "/terminos", "/cookies"];
 
@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
   ) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("onboarding_complete, tipo_entidad, estado_verificacion, plan_estado, es_admin")
+      .select("onboarding_complete, tipo_entidad, estado_verificacion, plan_estado, es_admin, cuenta_suspendida")
       .eq("id", session.user.id)
       .single();
 
@@ -84,6 +84,11 @@ export async function middleware(request: NextRequest) {
     // tras el login), NO expulsamos al usuario; en la siguiente navegación,
     // con las cookies ya consolidadas, el gate vuelve a evaluarse.
     if (!profileError && profile) {
+      // Gate de suspensión: cuenta suspendida → /suspendida (sin acceso al resto).
+      if (profile.cuenta_suspendida && !pathname.startsWith("/suspendida")) {
+        return redirectTo("/suspendida");
+      }
+
       if (!profile.onboarding_complete) {
         return redirectTo("/onboarding/web");
       }
