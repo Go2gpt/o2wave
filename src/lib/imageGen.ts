@@ -100,6 +100,7 @@ export async function generarImagenGemini(
     const reqParts = foto
       ? [{ inline_data: { mime_type: foto.mime, data: foto.buffer.toString("base64") } }, { text: prompt }]
       : [{ text: prompt }];
+    if (foto) console.log("imageGen integrada — prompt enviado a Gemini:", prompt);
     // v1beta: es donde existen responseModalities + imageConfig (en v1 dan 400).
     const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent", {
       method: "POST",
@@ -151,7 +152,15 @@ export async function generarImagenIntegrada(
   aspect: string,
   deadlineMs = 60000,
 ): Promise<{ buffer: Buffer; fuente: string } | null> {
-  const prompt = `Integra a la persona de la foto EXACTAMENTE como aparece (mantén su cara, peinado, ropa y rasgos idénticos) en la siguiente escena: ${escena}. Estilo fotográfico realista, sin texto ni logos.`;
+  const prompt = `Generate a photorealistic image. Take the person from the provided photo and place them EXACTLY as they appear (preserve their face, glasses, hairstyle, beard, ethnicity, age and clothing IDENTICAL to the photo — no alterations to their identity) into the following scene:
+
+${escena}
+
+Compose the scene with rich detail: realistic lighting appropriate to the location, depth of field, accurate background elements, props, and atmosphere that match the description. The person must be naturally integrated (correct shadows, perspective and scale).
+
+Output style: high-quality photorealistic photograph, 85mm lens, natural color grading, no AI artifacts, no plastic skin, no over-saturation.
+
+CRITICAL: Do NOT return the original photo unchanged. The background and environment MUST be the new scene described above.`;
   const buf = await generarImagenGemini(prompt, aspect, deadlineMs, foto);
   return buf ? { buffer: buf, fuente: "gemini-2.5-flash-image:integrada" } : null;
 }
