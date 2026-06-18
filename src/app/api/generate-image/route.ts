@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { construirImagePromptEN, generarImagenIA, generarImagenIntegrada } from "@/lib/imageGen";
+import { resolverDemoPerfil } from "@/lib/perfilDemo";
 import type { ContentFormData } from "@/types";
 
 export const maxDuration = 300;
@@ -86,9 +87,19 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------- Modo IA puro: desde prompt (JSON) ----------
-    const { formData } = await request.json() as { formData: ContentFormData };
+    const body = await request.json() as { formData: ContentFormData; demo_profile?: unknown };
+    const formData = body.formData;
     const aspect = aspectDe(formData);
-    const prompt = await construirImagePromptEN(formData.tema, formData.tipoOrganizacion);
+
+    // Perfil de demo (solo admin): en Neutral mandamos el tema tal cual (sin el
+    // reescrito editorial), para demostrar prompts limpios sin sesgo temático.
+    const { data: prof } = await supabase.from("profiles").select("es_admin").eq("id", user.id).single();
+    const demoPerfil = resolverDemoPerfil(body.demo_profile, prof?.es_admin);
+    if (demoPerfil) console.log(`generate-image: demo_profile = ${demoPerfil}`);
+    const prompt = demoPerfil === "neutral"
+      ? `${formData.tema}. Fotografía realista, sin texto ni logos.`
+      : await construirImagePromptEN(formData.tema, formData.tipoOrganizacion);
+
     const gen = await generarImagenIA(prompt, aspect);
     if (!gen) return NextResponse.json({ error: "No se pudo generar la imagen" }, { status: 502 });
     console.log(`generate-image: modo_imagen = ia (${gen.fuente}, aspect ${aspect})`);

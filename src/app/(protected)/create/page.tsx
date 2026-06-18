@@ -97,6 +97,12 @@ function CreateInner() {
   const [fotoError, setFotoError] = useState("");
   const [modoFoto, setModoFoto] = useState<"propia" | "integrada">("propia"); // cómo usar la foto
   const fotoInputRef = useRef<HTMLInputElement>(null);
+  // Perfil de demo (solo admin). Default Neutral en cada carga (no se restaura).
+  const [demoPerfil, setDemoPerfil] = useState<"neutral" | "ong" | "empresa" | "creator">("neutral");
+  const cambiarDemo = (v: "neutral" | "ong" | "empresa" | "creator") => {
+    setDemoPerfil(v);
+    try { sessionStorage.setItem("demo_profile", v); } catch { /* noop */ }
+  };
 
   useEffect(() => {
     (async () => {
@@ -169,6 +175,8 @@ function CreateInner() {
       //  - sin foto → IA pura desde el prompt.
       const integrar = !!fotoPropia && modoFoto === "integrada" && puedeIntegrar;
       const modoImagen: "ia" | "propia" | "integrada" = integrar ? "integrada" : fotoPropia ? "propia" : "ia";
+      // Perfil de demo: solo se envía si el usuario es admin (el backend lo ignora si no).
+      const demoExtra = gating?.es_admin ? { demo_profile: demoPerfil } : {};
       const imageReq = (() => {
         if (form.redSocial === "TikTok") return Promise.resolve(null);
         if (integrar) {
@@ -182,12 +190,12 @@ function CreateInner() {
           fd.append("foto", fotoPropia);
           return fetch("/api/upload-foto", { method: "POST", body: fd });
         }
-        return fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form }) });
+        return fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form, ...demoExtra }) });
       })();
 
       // Generate text and image in parallel
       const [textRes, imageRes] = await Promise.all([
-        fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }),
+        fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, ...demoExtra }) }),
         imageReq,
       ]);
 
@@ -276,6 +284,32 @@ function CreateInner() {
       <div className="px-5 pb-2">
         <h1 className="text-xl font-bold text-gray-900">Crear contenido</h1>
       </div>
+
+      {/* Selector "Demo como" — solo admin (feature interna para demos). */}
+      {gating?.es_admin && (
+        <div className="px-5 mb-3">
+          <div className="bg-white rounded-2xl p-3 shadow-sm" style={{ border: "2px dashed #e5e7eb" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Demo como</span>
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0F0F0F", color: "#fff" }}>ADMIN</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto sm:flex-wrap pb-1">
+              {([
+                ["neutral", "🎯 Neutral"],
+                ["ong", "🤝 ONG"],
+                ["empresa", "🏢 Empresa"],
+                ["creator", "🎨 Creator"],
+              ] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => cambiarDemo(val)}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-full border-2 text-xs font-semibold transition-all"
+                  style={demoPerfil === val ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" } : { borderColor: "#e5e7eb", color: "#6b7280" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleGenerate} className="px-5 space-y-4 pb-4">
         {/* Nombre */}

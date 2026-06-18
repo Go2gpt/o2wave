@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase-server";
 import { FEATURES, canUseFeature, isPlanActivo, puedeGenerarPostGratis, limitePostsMes, type PerfilGating } from "@/lib/plans";
 import { detectarPremio, construirBloquePremio } from "@/lib/premios";
 import { enriquecerDesdeWikipedia } from "@/lib/wikipedia";
+import { resolverDemoPerfil, rolDemoTexto } from "@/lib/perfilDemo";
 import type { ContentFormData, GuionTikTok } from "@/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -101,7 +102,9 @@ function guionToText(g: Omit<GuionTikTok, "params">): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const formData: ContentFormData = await request.json();
+    const body = await request.json();
+    const formData: ContentFormData = body;
+    const demoProfileRaw = body?.demo_profile;
     const { nombreOrganizacion, tipoOrganizacion, redSocial, formatoInstagram,
             entornoTikTok, duracionTikTok, tonoTikTok, tema, tono,
             incluirHashtags, incluirEmojis } = formData;
@@ -135,8 +138,14 @@ export async function POST(request: NextRequest) {
     }
     const perfilGating = { id: user.id, plan_actual: pUso?.plan_actual ?? null, es_admin: pUso?.es_admin ?? null };
 
-    // Contexto del usuario (sector/misión/público) para enriquecer la generación.
-    const contextoUsuario = [
+    // Perfil de demo (solo admin): override del sesgo temático para demostraciones.
+    const demoPerfil = resolverDemoPerfil(demoProfileRaw, profile?.es_admin);
+    if (demoPerfil) console.log(`generate-text: demo_profile = ${demoPerfil}`);
+    const neutro = demoPerfil === "neutral";
+
+    // Contexto del usuario (sector/misión/público). En modo Neutral no se añade
+    // (el admin demuestra un prompt limpio, sin sesgo de la entidad real).
+    const contextoUsuario = neutro ? "" : [
       profile?.sector && `Sector: ${profile.sector}`,
       profile?.mision_valores && `Misión: ${profile.mision_valores}`,
       profile?.publico_objetivo && `Público objetivo: ${profile.publico_objetivo}`,
@@ -148,7 +157,7 @@ export async function POST(request: NextRequest) {
     let bloquePremio = "";
     let premioDetectado: string | null = null;
     try {
-      const premio = await detectarPremio(supabase, tema);
+      const premio = neutro ? null : await detectarPremio(supabase, tema);
       if (premio) {
         premioDetectado = premio.nombre;
         const wiki = await enriquecerDesdeWikipedia(tema);
@@ -170,7 +179,7 @@ export async function POST(request: NextRequest) {
       const tonoTk = tonoTikTok || "Cercano";
       const entorno = entornoTikTok || "no especificado";
 
-      const system = `Eres un guionista experto en vídeos cortos para TikTok orientados al tercer sector y PYMEs.
+      const system = `Eres un guionista experto en vídeos cortos para TikTok.${demoPerfil ? ` ${rolDemoTexto(demoPerfil)}` : " Orientados al tercer sector y PYMEs."}
 Creas guiones prácticos y grabables con un smartphone y luz natural, sin equipo profesional.
 Respondes SIEMPRE y ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin markdown.
 ${INSTRUCCION_TILDES}
@@ -229,7 +238,8 @@ Devuelve EXACTAMENTE esta estructura JSON:
     }
 
     // ---------- Instagram / Facebook: texto plano (como antes) ----------
-    const system = `Eres un experto en comunicación para el tercer sector y PYMEs.
+    const rolLinea = demoPerfil ? rolDemoTexto(demoPerfil) : "Eres un experto en comunicación para el tercer sector y PYMEs.";
+    const system = `${rolLinea}
 Genera contenido auténtico, directo y efectivo para redes sociales.
 Adapta el tono y formato exactamente a la red social indicada.
 Responde SOLO con el contenido generado, sin explicaciones adicionales.
@@ -239,8 +249,7 @@ ${reglaIdioma(profile?.idioma_principal)}`;
 
     const esWhatsApp = redSocial === "WhatsApp";
     const prompt = `Contenido para ${redSocial}${formatoInstagram ? ` (${formatoInstagram})` : ""}:
-Entidad: ${nombreOrganizacion} (${tipoOrganizacion})
-Tema: ${tema} | Tono: ${tono}
+${neutro ? "" : `Entidad: ${nombreOrganizacion} (${tipoOrganizacion})\n`}Tema: ${tema} | Tono: ${tono}
 ${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${(esWhatsApp || !incluirHashtags) ? "❌ Sin hashtags" : "✅ Con hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
 ${redSocial === "Instagram" ? "Máximo 150 palabras, impacto visual." : ""}
 ${redSocial === "Facebook" ? "Hasta 200 palabras, narrativo." : ""}
