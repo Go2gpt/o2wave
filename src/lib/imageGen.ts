@@ -107,7 +107,9 @@ export async function generarImagenGemini(
       body: JSON.stringify({
         contents: [{ parts: reqParts }],
         generationConfig: {
-          responseModalities: ["IMAGE"],
+          // Con foto de input (image+text→image) Gemini exige TEXT+IMAGE; si no,
+          // solo IMAGE. Sin TEXT en el modo integración devuelve finishReason NO_IMAGE.
+          responseModalities: foto ? ["TEXT", "IMAGE"] : ["IMAGE"],
           imageConfig: { aspectRatio: aspect }, // sin imageSize: la resolución va auto según aspect
         },
       }),
