@@ -288,12 +288,17 @@ function CreateInner() {
       {/* Selector "Demo como" — solo admin (feature interna para demos). */}
       {gating?.es_admin && (
         <div className="px-5 mb-3">
+          <style>{`
+            .demo-chips-row{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px;}
+            .demo-chips-row::-webkit-scrollbar{display:none;}
+            @media(min-width:640px){.demo-chips-row{flex-wrap:wrap;overflow-x:visible;}}
+          `}</style>
           <div className="bg-white rounded-2xl p-3 shadow-sm" style={{ border: "2px dashed #e5e7eb" }}>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Demo como</span>
               <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0F0F0F", color: "#fff" }}>ADMIN</span>
             </div>
-            <div className="flex gap-2 overflow-x-auto sm:flex-wrap pb-1">
+            <div className="demo-chips-row">
               {([
                 ["neutral", "🎯 Neutral"],
                 ["ong", "🤝 ONG"],
