@@ -11,7 +11,7 @@ import type { PlanActual, PlanCiclo } from "@/types";
 export const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL || "o2wave.app@generacion-o2.org";
 
 /** Dirección de contacto mostrada a los usuarios dentro de los emails ("escríbenos a…"). */
-export const ADMIN_EMAIL = "suscripciones@generacion-o2.org";
+export const ADMIN_EMAIL = "soporte@generacion-o2.org";
 
 /* --------------------------------- helpers --------------------------------- */
 
