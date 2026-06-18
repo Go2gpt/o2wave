@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getResend, FROM_EMAIL } from "@/lib/resend";
 import { SITE_URL } from "@/lib/siteUrl";
-
-const ADMIN_NOTIFY_EMAIL = "contactoweb@generacion-o2.org";
+import { NOTIFICATION_EMAIL } from "@/lib/emails";
 
 const TIPO_LABEL: Record<string, string> = {
   ong_pequena: "ONG pequeña",
@@ -35,7 +34,7 @@ export async function POST() {
     try {
       await getResend().emails.send({
         from: FROM_EMAIL,
-        to: ADMIN_NOTIFY_EMAIL,
+        to: NOTIFICATION_EMAIL,
         subject: "Nueva verificación pendiente en o2Wave",
         html: `
           <div style="font-family:Arial,sans-serif;color:#0F0F0F;line-height:1.6">

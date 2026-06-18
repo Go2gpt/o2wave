@@ -3,7 +3,14 @@ import { SITE_URL } from "@/lib/siteUrl";
 import { planMeta } from "@/lib/plans";
 import type { PlanActual, PlanCiclo } from "@/types";
 
-/** Buzón interno de avisos de suscripción (constante; no env var). */
+/**
+ * Buzón interno donde llegan TODAS las notificaciones internas de o2Wave
+ * (nuevos registros/verificaciones, suscripciones, bajas, cobros fallidos).
+ * Configurable con NOTIFICATION_EMAIL para cambiarlo sin redeploy.
+ */
+export const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL || "o2wave.app@generacion-o2.org";
+
+/** Dirección de contacto mostrada a los usuarios dentro de los emails ("escríbenos a…"). */
 export const ADMIN_EMAIL = "suscripciones@generacion-o2.org";
 
 /* --------------------------------- helpers --------------------------------- */
@@ -145,7 +152,7 @@ export async function enviarAdminNueva(p: { nombre: string; email: string; plan:
     ["ID Stripe", p.stripeCustomerId || "—"],
     ["Fecha", fmtFecha(p.fechaISO)],
   ])}`;
-  await enviar(ADMIN_EMAIL, `🎉 Nueva suscripción: ${np} — ${p.email}`, html, "admin-nueva");
+  await enviar(NOTIFICATION_EMAIL, `🎉 Nueva suscripción: ${np} — ${p.email}`, html, "admin-nueva");
 }
 
 export async function enviarAdminBaja(p: { nombre: string; email: string; plan: PlanActual; ciclo: PlanCiclo; fechaInicioISO: string | null; stripeCustomerId: string }): Promise<void> {
@@ -156,7 +163,7 @@ export async function enviarAdminBaja(p: { nombre: string; email: string; plan: 
     ["Llevaba suscrito desde", fmtFecha(p.fechaInicioISO)],
     ["ID Stripe", p.stripeCustomerId || "—"],
   ])}`;
-  await enviar(ADMIN_EMAIL, `👋 Baja: ${np} — ${p.email}`, html, "admin-baja");
+  await enviar(NOTIFICATION_EMAIL, `👋 Baja: ${np} — ${p.email}`, html, "admin-baja");
 }
 
 export async function enviarAdminFallo(p: { nombre: string; email: string; plan: PlanActual; ciclo: PlanCiclo; motivo: string; fechaReintentoISO: string | null; stripeCustomerId: string }): Promise<void> {
@@ -169,5 +176,5 @@ export async function enviarAdminFallo(p: { nombre: string; email: string; plan:
     ["Próximo reintento de Stripe", fmtFecha(p.fechaReintentoISO)],
     ["ID Stripe", p.stripeCustomerId || "—"],
   ])}<p style="font-family:Arial,sans-serif;color:#6b7280;font-size:13px">Stripe lo reintentará automáticamente. Si tras varios intentos sigue fallando, la suscripción quedará suspendida y el usuario recibirá el aviso correspondiente.</p>`;
-  await enviar(ADMIN_EMAIL, `⚠️ Cobro fallido: ${p.email} — ${importeTexto(p.plan, p.ciclo)}`, html, "admin-fallo");
+  await enviar(NOTIFICATION_EMAIL, `⚠️ Cobro fallido: ${p.email} — ${importeTexto(p.plan, p.ciclo)}`, html, "admin-fallo");
 }
