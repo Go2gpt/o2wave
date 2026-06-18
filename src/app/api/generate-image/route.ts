@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
     if (ct.includes("multipart/form-data")) {
       const fd = await request.formData();
       const payload = fd.get("payload");
-      const formData = JSON.parse(typeof payload === "string" ? payload : "{}") as ContentFormData;
+      const parsed = typeof payload === "string" ? JSON.parse(payload) : {};
+      // El cliente envía { formData: form }; desanidamos (tolerante a ambas formas).
+      const formData = (parsed.formData ?? parsed) as ContentFormData;
       const foto = fd.get("foto");
       if (!(foto instanceof File)) return NextResponse.json({ error: "Falta la foto" }, { status: 400 });
 
