@@ -9,6 +9,10 @@ import { calcularProximos, type DiaClave } from "@/lib/categorias";
 import Logo from "@/components/Logo";
 import Avatar from "@/components/Avatar";
 import GenerarPackButton from "./GenerarPackButton";
+import NovedadesPopup from "@/components/NovedadesPopup";
+
+// URL del roadmap (blog). TODO: confirmar la URL final con Sebas.
+const ROADMAP_URL = "https://www.o2wave.app/blog/roadmap";
 
 // El pack se envía LUNES 09:00 (Europa/Madrid). Devuelve el próximo lunes desde
 // `desde`; si hoy es lunes, devuelve el de la semana siguiente.
@@ -123,8 +127,26 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   const RED_ICONS: Record<string, string> = { Instagram: "📸", Facebook: "👥", TikTok: "🎵", WhatsApp: "💬" };
 
+  // Popup de novedades v1: solo si el flag es explícitamente false (= migración
+  // aplicada y el usuario aún no lo ha visto). undefined (pre-migración) → no se muestra.
+  const mostrarNovedades = profile?.popup_novedades_v1_visto === false;
+
   return (
     <div className="max-w-lg mx-auto">
+      {mostrarNovedades && (
+        <NovedadesPopup
+          columna="popup_novedades_v1_visto"
+          titulo="Nuevo en o2Wave"
+          subtitulo="3 mejoras esta semana pedidas por usuarios reales"
+          items={[
+            { icono: "🪪", titulo: "Registro con DNI, NIE o Pasaporte", descripcion: "No solo CIF: ahora entran autónomos y residentes." },
+            { icono: "🔍", titulo: "Genera el texto desde tu foto (Premium)", descripcion: "La IA mira tu foto y escribe el post por ti." },
+            { icono: "🌐", titulo: "Posts en español, catalán o inglés", descripcion: "Elige el idioma de cada publicación." },
+          ]}
+          ctaPrincipal={{ label: "Probar ahora", href: "/create" }}
+          ctaSecundario={{ label: "Ver el roadmap", href: ROADMAP_URL }}
+        />
+      )}
       {/* Header */}
       <div className="px-5 pt-8 pb-4 flex items-center justify-between">
         <Logo size="md" />
