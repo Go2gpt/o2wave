@@ -139,9 +139,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           titulo="Esta semana, 3 mejoras que nos pediste tú"
           subtitulo="Más formas de registrarte, posts a partir de una foto, y los 3 idiomas que más usas."
           items={[
-            { icono: "🪪", titulo: "Más documentos al registrarte", descripcion: "DNI, NIE, Pasaporte y NIF/CIF" },
+            { icono: "🪪", titulo: "Más documentos al registrarte", descripcion: "DNI, NIE, Pasaporte y NIF/CIF (todos los planes)" },
             { icono: "📸", titulo: "Foto → post automático", descripcion: "Sube una imagen y la IA escribe lo que ve (planes de pago)" },
-            { icono: "🌐", titulo: "Elige idioma por post", descripcion: "Español, català o english, con hashtags nativos" },
+            { icono: "🌐", titulo: "Elige idioma por post", descripcion: "Español, català o english, con hashtags nativos (todos los planes)" },
           ]}
           ctaPrincipal={{ label: "Probar ahora", href: "/create" }}
           ctaSecundario={{ label: "Ver el roadmap", href: ROADMAP_URL }}
