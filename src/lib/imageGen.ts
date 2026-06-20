@@ -14,6 +14,22 @@ Ejemplos del patrón:
 
 Responde SOLO con el prompt en inglés, una sola línea, sin comillas ni explicaciones.`;
 
+/**
+ * Cláusula de identidad para el prompt de imagen, según profile.genero. Solo se
+ * aplica cuando la IA genera personas desde cero (no en "integrar cara", que ya
+ * tiene la foto). Devuelve "" si no procede.
+ */
+export function clausulaGenero(genero: string | null | undefined): string {
+  switch (genero) {
+    case "hombre": return " If people appear, depict a man, male identity.";
+    case "mujer": return " If people appear, depict a woman, female identity.";
+    case "persona_trans": return " If people appear, depict a transgender person, respecting their self-identified gender expression.";
+    case "no_binario": return " If people appear, depict a non-binary person, androgynous identity.";
+    case "equipo_mixto": return " If people appear, depict a diverse mixed group of people, varied identities.";
+    default: return ""; // prefiero_no_decir / null → sin cambios
+  }
+}
+
 /** Genera un prompt de imagen en inglés fotorrealista a partir del tema. Tolerante: fallback a plantilla. */
 export async function construirImagePromptEN(tema: string, tipo?: string | null): Promise<string> {
   const fallback = `Photograph related to "${tema}", documentary editorial style, photorealistic, natural lighting, shallow depth of field, no text, no letters, no logos, no watermarks`;

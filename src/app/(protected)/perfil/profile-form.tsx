@@ -29,6 +29,7 @@ export interface ProfileData {
   estilo_visual: string | null;
   geografia: string | null;
   idioma_principal: string | null;
+  genero: string | null;
   hashtags_sugeridos: string[] | null;
   logros_numeros: string | null;
   info_extra: string | null;
@@ -69,6 +70,7 @@ interface Editable {
   estilo_visual: string;
   geografia: string;
   idioma_principal: string;
+  genero: string;
   hashtags_sugeridos: string[];
   logros_numeros: string;
   info_extra: string;
@@ -79,6 +81,15 @@ const TIPO_LABEL: Record<string, string> = {
   ong_pequena: "ONG pequeña", ong_mediana: "ONG mediana", empresa: "Empresa",
 };
 const IDIOMAS = [{ v: "es", l: "Español" }, { v: "ca", l: "Català" }, { v: "en", l: "English" }];
+const GENEROS = [
+  { v: "", l: "Sin especificar" },
+  { v: "hombre", l: "Hombre" },
+  { v: "mujer", l: "Mujer" },
+  { v: "persona_trans", l: "Persona trans" },
+  { v: "no_binario", l: "No binario" },
+  { v: "equipo_mixto", l: "Equipo / colectivo" },
+  { v: "prefiero_no_decir", l: "Prefiero no decir" },
+];
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 const inputCls = "w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors";
 const onF = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => (e.target.style.borderColor = "#f9b23b");
@@ -132,6 +143,7 @@ export default function ProfileForm({
     estilo_visual: initial.estilo_visual || "",
     geografia: initial.geografia || "",
     idioma_principal: initial.idioma_principal || "es",
+    genero: initial.genero || "",
     hashtags_sugeridos: initial.hashtags_sugeridos || [],
     logros_numeros: initial.logros_numeros || "",
     info_extra: initial.info_extra || "",
@@ -215,6 +227,9 @@ export default function ProfileForm({
     };
     const { error } = await supabase.from("profiles").update(payload).eq("id", initial.id);
     if (error) { setSaving(false); setToast({ message: `Error: ${error.message}`, type: "error" }); return; }
+
+    // genero: best-effort aparte (no rompe el guardado si la columna no existe aún).
+    await supabase.from("profiles").update({ genero: form.genero || null }).eq("id", initial.id).then(() => {}, () => {});
 
     // Categorías de interés: reemplazar el conjunto (borrar + insertar).
     if (catsDirty) {
@@ -349,6 +364,15 @@ export default function ProfileForm({
               {IDIOMAS.map((i) => <option key={i.v} value={i.v}>{i.l}</option>)}
             </select>
             <p className="text-[11px] text-gray-400 mt-1.5">Tus posts se generarán en este idioma por defecto. Puedes cambiarlo para un post concreto desde la pantalla de crear.</p>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">¿Cómo te identificas? (para imágenes IA coherentes)</label>
+            <select value={form.genero} onChange={(e) => set("genero", e.target.value)}
+              className={inputCls} onFocus={onF} onBlur={onB}>
+              {GENEROS.map((g) => <option key={g.v} value={g.v}>{g.l}</option>)}
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1.5">Solo se usa para que la IA genere imágenes coherentes contigo cuando aparecen personas. No se comparte con nadie.</p>
           </div>
 
           <div>

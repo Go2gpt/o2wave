@@ -111,7 +111,7 @@ function LoginForm() {
 
         <p className="text-center text-xs text-gray-400 mt-5">
           ¿No tienes cuenta?{" "}
-          <Link href="/register" className="font-semibold" style={{ color: "#93bf30" }}>Crear cuenta gratis</Link>
+          <Link href="/register" className="font-semibold" style={{ color: "#93bf30" }}>Crear cuenta</Link>
         </p>
       </div>
     </div>
