@@ -74,3 +74,42 @@ export function validarNIF(nif: string): NifResult {
 
   return { valido: false, mensaje: "Formato no reconocido. Introduce un NIF, NIE o CIF válido." };
 }
+
+export type TipoDocumento = "CIF" | "DNI" | "NIE" | "PASAPORTE" | "INVALIDO";
+
+// Prefijos de CIF de entidades SIN ÁNIMO DE LUCRO (AEAT): G (asociaciones y
+// fundaciones), N (entidades extranjeras), R (congregaciones e instituciones
+// religiosas), V (otros sin personalidad jurídica / órganos).
+const CIF_NO_LUCRO = "GNRV";
+
+/**
+ * Detecta el tipo de documento. CIF/DNI/NIE se validan con dígito de control;
+ * el pasaporte es laxo (5-20 alfanuméricos) y solo se considera si NO encaja
+ * como CIF/DNI/NIE válidos.
+ */
+export function detectarTipoDocumento(input: string): TipoDocumento {
+  const v = normalizarNIF(input);
+  if (!v) return "INVALIDO";
+  const r = validarNIF(v);
+  if (r.valido && r.tipo) return r.tipo;
+  if (/^[A-Z0-9]{5,20}$/.test(v)) return "PASAPORTE";
+  return "INVALIDO";
+}
+
+/**
+ * Valida el documento según el plan:
+ * - soloCifNoLucro=true (plan ONG gratuito): SOLO CIF de entidad sin ánimo de
+ *   lucro (prefijo G/N/R/V).
+ * - soloCifNoLucro=false (resto de planes): CIF / DNI / NIE / Pasaporte.
+ */
+export function validarDocumento(input: string, soloCifNoLucro: boolean): { valido: boolean; tipo?: TipoDocumento; mensaje?: string } {
+  const v = normalizarNIF(input);
+  if (soloCifNoLucro) {
+    const r = validarNIF(v);
+    if (r.valido && r.tipo === "CIF" && CIF_NO_LUCRO.includes(v[0])) return { valido: true, tipo: "CIF" };
+    return { valido: false, mensaje: "El plan ONG gratuito requiere CIF de entidad sin ánimo de lucro. Si eres autónomo o empresa con ánimo de lucro, mira los planes de pago." };
+  }
+  const tipo = detectarTipoDocumento(v);
+  if (tipo === "INVALIDO") return { valido: false, mensaje: "Documento no válido. Introduce un CIF, DNI, NIE o pasaporte." };
+  return { valido: true, tipo };
+}

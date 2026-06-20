@@ -13,10 +13,16 @@ async function persistirNifSiFalta(supabase: SupabaseClient) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const nifMeta = (user.user_metadata?.nif as string | undefined)?.trim();
-    if (!nifMeta) return;
-    const { data: profile } = await supabase.from("profiles").select("nif").eq("id", user.id).single();
-    if (profile && !profile.nif) {
-      await supabase.from("profiles").update({ nif: nifMeta }).eq("id", user.id);
+    if (nifMeta) {
+      const { data: profile } = await supabase.from("profiles").select("nif").eq("id", user.id).single();
+      if (profile && !profile.nif) {
+        await supabase.from("profiles").update({ nif: nifMeta }).eq("id", user.id);
+      }
+    }
+    // tipo_documento: best-effort (la columna puede no existir aún → el catch lo absorbe).
+    const tipoDocMeta = (user.user_metadata?.tipo_documento as string | undefined)?.trim();
+    if (tipoDocMeta) {
+      await supabase.from("profiles").update({ tipo_documento: tipoDocMeta }).eq("id", user.id).then(() => {}, () => {});
     }
   } catch { /* noop: el NIF no es crítico para completar el login */ }
 }

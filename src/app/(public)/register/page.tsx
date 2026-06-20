@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
-import { validarNIF, normalizarNIF } from "@/lib/nif";
+import { normalizarNIF, detectarTipoDocumento, validarDocumento } from "@/lib/nif";
 import { guardarPlanPendiente } from "@/lib/checkoutRedirect";
 import PasswordInput from "@/components/PasswordInput";
 import PasswordRequisitos, { passwordValido } from "@/components/PasswordRequisitos";
@@ -73,8 +73,7 @@ export default function RegisterPage() {
     guardarPlanPendiente(plan, params.get("ciclo"));
   }, []);
 
-  const esEmpresa = tipo === "empresa";
-  // Todos los tipos (ONG y empresa) tienen NIF/CIF y deben aportarlo.
+  // Todos los tipos aportan documento de identificación.
   const pideNif = true;
   const DUP_MSG = "Este NIF ya está registrado en o2Wave. Si crees que es un error, contacta con nosotros.";
 
@@ -96,10 +95,13 @@ export default function RegisterPage() {
     const fechaAcept = esGratisPlan && aceptaGratis ? new Date().toISOString() : null;
 
     let nifNorm: string | null = null;
+    let tipoDoc: string | null = null;
     if (pideNif) {
-      const v = validarNIF(nif);
-      if (!v.valido) { setNifError(v.mensaje || "NIF no válido"); return; }
+      // ONG gratuita → solo CIF sin ánimo de lucro; resto → CIF/DNI/NIE/Pasaporte.
+      const v = validarDocumento(nif, esGratisPlan);
+      if (!v.valido) { setNifError(v.mensaje || "Documento no válido"); return; }
       nifNorm = normalizarNIF(nif);
+      tipoDoc = v.tipo ?? null;
     }
 
     setLoading(true);
@@ -120,6 +122,7 @@ export default function RegisterPage() {
           data: {
             tipo_entidad: tipo,
             nif: nifNorm,
+            tipo_documento: tipoDoc,
             acepto_condiciones_plan_gratuito: esGratisPlan ? aceptaGratis : false,
             fecha_aceptacion_plan_gratuito: fechaAcept,
           },
@@ -145,6 +148,8 @@ export default function RegisterPage() {
           if (esErrorNifDuplicado(`${upErr.code} ${upErr.message}`)) { setNifError(DUP_MSG); return; }
           throw upErr;
         }
+        // tipo_documento: best-effort (no rompe el registro si la columna no existe aún).
+        if (tipoDoc) await supabase.from("profiles").update({ tipo_documento: tipoDoc }).eq("id", data.session.user.id).then(() => {}, () => {});
         router.push("/onboarding/web");
       } else {
         setEmailSent(true);
@@ -273,26 +278,30 @@ export default function RegisterPage() {
           {pideNif && (
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                {esEmpresa ? "CIF de la empresa" : "NIF de la entidad"}
+                {esGratisPlan ? "CIF de la entidad" : "Documento de identificación (NIF / DNI / NIE / Pasaporte)"}
               </label>
               <input type="text" value={nif} onChange={e => { setNif(e.target.value.toUpperCase()); setNifError(""); }}
-                placeholder={esEmpresa ? "Ej: B12345678" : "Ej: G12345678"} required
+                placeholder={esGratisPlan ? "Ej: G12345678" : "Ej: G12345678 / 12345678A / X1234567A / Z1234567"} required
                 className="w-full border-2 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors"
                 style={{ borderColor: nifError ? "#f9b23b" : "#f3f4f6" }}
                 onFocus={e => e.target.style.borderColor = nifError ? "#f9b23b" : selectedColor}
                 onBlur={e => {
                   // Feedback inmediato: valida al salir del campo (si hay algo escrito).
                   if (nif.trim()) {
-                    const v = validarNIF(nif);
-                    setNifError(v.valido ? "" : (v.mensaje || "NIF no válido"));
+                    const v = validarDocumento(nif, esGratisPlan);
+                    setNifError(v.valido ? "" : (v.mensaje || "Documento no válido"));
+                    e.target.style.borderColor = v.valido ? "#f3f4f6" : "#f9b23b";
+                  } else {
+                    e.target.style.borderColor = "#f3f4f6";
                   }
-                  e.target.style.borderColor = (nif.trim() && !validarNIF(nif).valido) ? "#f9b23b" : "#f3f4f6";
                 }} />
               {nifError ? (
                 <p className="text-[11px] font-medium mt-1.5" style={{ color: "#f9b23b" }}>⚠️ {nifError}</p>
+              ) : nif.trim() && detectarTipoDocumento(nif) !== "INVALIDO" ? (
+                <p className="text-[11px] font-medium mt-1.5" style={{ color: "#93bf30" }}>✓ {detectarTipoDocumento(nif)} detectado</p>
               ) : (
                 <p className="text-[11px] text-gray-400 mt-1.5">
-                  {esEmpresa ? "Necesario para identificar tu empresa." : "Necesario para verificar tu entidad sin ánimo de lucro."}
+                  {esGratisPlan ? "Necesario para verificar tu entidad sin ánimo de lucro." : "Necesario para emisión de facturas correctas."}
                 </p>
               )}
             </div>
