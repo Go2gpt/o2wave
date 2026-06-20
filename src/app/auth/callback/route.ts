@@ -24,6 +24,14 @@ async function persistirNifSiFalta(supabase: SupabaseClient) {
     if (tipoDocMeta) {
       await supabase.from("profiles").update({ tipo_documento: tipoDocMeta }).eq("id", user.id).then(() => {}, () => {});
     }
+    // idioma_principal elegido en el registro: lo fijamos si el perfil aún no lo tiene puesto.
+    const idiomaMeta = (user.user_metadata?.idioma_principal as string | undefined)?.trim();
+    if (idiomaMeta && ["es", "ca", "en"].includes(idiomaMeta)) {
+      const { data: prof } = await supabase.from("profiles").select("idioma_principal").eq("id", user.id).single();
+      if (prof && (!prof.idioma_principal || prof.idioma_principal === "es")) {
+        await supabase.from("profiles").update({ idioma_principal: idiomaMeta }).eq("id", user.id).then(() => {}, () => {});
+      }
+    }
   } catch { /* noop: el NIF no es crítico para completar el login */ }
 }
 

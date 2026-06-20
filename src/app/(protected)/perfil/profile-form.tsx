@@ -78,7 +78,7 @@ interface Editable {
 const TIPO_LABEL: Record<string, string> = {
   ong_pequena: "ONG pequeña", ong_mediana: "ONG mediana", empresa: "Empresa",
 };
-const IDIOMAS = [{ v: "es", l: "Español" }, { v: "en", l: "Inglés" }, { v: "ca", l: "Catalán" }];
+const IDIOMAS = [{ v: "es", l: "Español" }, { v: "ca", l: "Català" }, { v: "en", l: "English" }];
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 const inputCls = "w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors";
 const onF = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => (e.target.style.borderColor = "#f9b23b");
@@ -343,11 +343,12 @@ export default function ProfileForm({
           <TextField label="Geografía / ámbito" value={form.geografia} onChange={(v) => set("geografia", v)} />
 
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Idioma principal</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Idioma por defecto de tus publicaciones</label>
             <select value={form.idioma_principal} onChange={(e) => set("idioma_principal", e.target.value)}
               className={inputCls} onFocus={onF} onBlur={onB}>
               {IDIOMAS.map((i) => <option key={i.v} value={i.v}>{i.l}</option>)}
             </select>
+            <p className="text-[11px] text-gray-400 mt-1.5">Tus posts se generarán en este idioma por defecto. Puedes cambiarlo para un post concreto desde la pantalla de crear.</p>
           </div>
 
           <div>

@@ -157,7 +157,8 @@ export default function OnboardingIdentityPage() {
         servicios_programas: serviciosProgramas || null,
         causas_o_productos: causasOProductos || null,
         colores_marca: textToArr(coloresMarca),
-        idioma_principal: idiomaPrincipal || null,
+        // No sobrescribir el idioma elegido en el registro si aquí viene vacío.
+        ...(idiomaPrincipal.trim() ? { idioma_principal: idiomaPrincipal.trim() } : {}),
         hashtags_sugeridos: textToArr(hashtagsSugeridos),
         geografia: geografia || null,
         estilo_visual: estiloVisual || null,

@@ -109,8 +109,12 @@ function CreateInner() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("nombre_entidad, tipo_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados").eq("id", user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("nombre_entidad, tipo_entidad, es_admin, plan_actual, plan_estado, posts_gratis_usados, idioma_principal").eq("id", user.id).single();
       setGating({ plan_actual: profile?.plan_actual, plan_estado: profile?.plan_estado, es_admin: profile?.es_admin, posts_gratis_usados: profile?.posts_gratis_usados });
+      // El selector de idioma arranca con el idioma por defecto del perfil (editable por post).
+      if (profile?.idioma_principal === "es" || profile?.idioma_principal === "ca" || profile?.idioma_principal === "en") {
+        setIdiomaPost(profile.idioma_principal);
+      }
       // El tipo de la entidad viene del perfil (fuente única), no de un selector.
       setForm((f) => ({
         ...f,

@@ -62,6 +62,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [aceptaGratis, setAceptaGratis] = useState(false);
+  const [idioma, setIdioma] = useState<"es" | "ca" | "en">("es"); // idioma principal del cliente
 
   // Preselecciona el tipo según ?plan= (viene de /plans) y guarda el plan/ciclo
   // de pago pendiente para retomar el checkout tras el onboarding. Fallback: ong_pequena.
@@ -71,6 +72,9 @@ export default function RegisterPage() {
     const tipoMapeado = plan ? PLAN_A_TIPO[plan] : undefined;
     if (tipoMapeado) setTipo(tipoMapeado);
     guardarPlanPendiente(plan, params.get("ciclo"));
+    // Preselección del idioma según el navegador (ca/en → ese; resto → es).
+    const lang = (navigator.language || "").slice(0, 2).toLowerCase();
+    setIdioma(lang === "ca" ? "ca" : lang === "en" ? "en" : "es");
   }, []);
 
   // Todos los tipos aportan documento de identificación.
@@ -123,6 +127,7 @@ export default function RegisterPage() {
             tipo_entidad: tipo,
             nif: nifNorm,
             tipo_documento: tipoDoc,
+            idioma_principal: idioma,
             acepto_condiciones_plan_gratuito: esGratisPlan ? aceptaGratis : false,
             fecha_aceptacion_plan_gratuito: fechaAcept,
           },
@@ -140,6 +145,7 @@ export default function RegisterPage() {
           email,
           tipo_entidad: tipo,
           nif: nifNorm,
+          idioma_principal: idioma,
           plan: "free",
           acepto_condiciones_plan_gratuito: esGratisPlan ? aceptaGratis : false,
           fecha_aceptacion_plan_gratuito: fechaAcept,
@@ -306,6 +312,22 @@ export default function RegisterPage() {
               )}
             </div>
           )}
+
+          {/* Idioma principal del cliente (obligatorio, preseleccionado por navegador). */}
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+              ¿En qué idioma sueles publicar?
+            </label>
+            <div className="flex gap-2">
+              {([["es", "Español"], ["ca", "Català"], ["en", "English"]] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setIdioma(val)}
+                  className="flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all"
+                  style={idioma === val ? { borderColor: selectedColor, backgroundColor: "#fff8ef", color: selectedColor } : { borderColor: "#e5e7eb", color: "#6b7280" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {error && (
             <div className="rounded-xl p-3 bg-red-50 border border-red-100">
