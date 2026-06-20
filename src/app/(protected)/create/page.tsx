@@ -95,7 +95,7 @@ function CreateInner() {
   const [fotoPropia, setFotoPropia] = useState<File | null>(null);     // foto del usuario
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [fotoError, setFotoError] = useState("");
-  const [modoFoto, setModoFoto] = useState<"propia" | "integrada">("propia"); // cómo usar la foto
+  const [modoFoto, setModoFoto] = useState<"propia" | "integrada" | "vision">("propia"); // cómo usar la foto
   const fotoInputRef = useRef<HTMLInputElement>(null);
   // Perfil de demo (solo admin). Default Neutral en cada carga (no se restaura).
   const [demoPerfil, setDemoPerfil] = useState<"neutral" | "ong" | "empresa" | "creator">("neutral");
@@ -158,9 +158,13 @@ function CreateInner() {
     setFotoPropia(null); setFotoPreview(null); setFotoError(""); setModoFoto("propia");
   };
 
+  // En modo visión el tema es opcional (la IA lo infiere de la foto).
+  const temaOpcional = !!fotoPropia && modoFoto === "vision" && puedeIntegrar;
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.nombreOrganizacion.trim() || !form.tema.trim()) return;
+    if (!form.nombreOrganizacion.trim()) return;
+    if (!form.tema.trim() && !temaOpcional) return;
     if (limiteAlcanzado) return;
     setError("");
     setLoading(true);
@@ -169,11 +173,13 @@ function CreateInner() {
     genTimer.current = setInterval(() => setGenSegs((s) => s + 1), 1000);
 
     try {
-      // Imagen: TikTok no lleva. 3 modos:
-      //  - foto + "integrada" (plan de pago) → Gemini integra la cara en la escena.
-      //  - foto + "propia" → se usa tal cual (sin IA, ahorra coste).
+      // Imagen: TikTok no lleva. Modos con foto:
+      //  - "integrada" (pago) → Gemini integra la cara en la escena.
+      //  - "vision" (pago) → foto tal cual + texto generado analizando la imagen.
+      //  - "propia" → foto tal cual (sin IA).
       //  - sin foto → IA pura desde el prompt.
       const integrar = !!fotoPropia && modoFoto === "integrada" && puedeIntegrar;
+      const vision = !!fotoPropia && modoFoto === "vision" && puedeIntegrar;
       const modoImagen: "ia" | "propia" | "integrada" = integrar ? "integrada" : fotoPropia ? "propia" : "ia";
       // Perfil de demo: solo se envía si el usuario es admin (el backend lo ignora si no).
       const demoExtra = gating?.es_admin ? { demo_profile: demoPerfil } : {};
@@ -186,6 +192,7 @@ function CreateInner() {
           return fetch("/api/generate-image", { method: "POST", body: fd });
         }
         if (fotoPropia) {
+          // propia y visión: la imagen del post es la foto tal cual.
           const fd = new FormData();
           fd.append("foto", fotoPropia);
           return fetch("/api/upload-foto", { method: "POST", body: fd });
@@ -193,11 +200,18 @@ function CreateInner() {
         return fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ formData: form, ...demoExtra }) });
       })();
 
+      // Texto: en modo visión va multipart con la imagen (análisis); si no, JSON.
+      const textReq = vision
+        ? (() => {
+            const fd = new FormData();
+            fd.append("payload", JSON.stringify({ formData: form, modo_vision: true, ...demoExtra }));
+            fd.append("imagen", fotoPropia as File);
+            return fetch("/api/generate-text", { method: "POST", body: fd });
+          })()
+        : fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, ...demoExtra }) });
+
       // Generate text and image in parallel
-      const [textRes, imageRes] = await Promise.all([
-        fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, ...demoExtra }) }),
-        imageReq,
-      ]);
+      const [textRes, imageRes] = await Promise.all([textReq, imageReq]);
 
       const textData = await textRes.json();
       // Gating del servidor: plan suspendido (402), feature no disponible (403), límite gratis (429).
@@ -428,9 +442,11 @@ function CreateInner() {
 
         {/* Tema */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">¿Sobre qué publicar?</label>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">¿Sobre qué publicar?{temaOpcional ? " (opcional)" : ""}</label>
           <textarea value={form.tema} onChange={e => set("tema", e.target.value)}
-            rows={3} placeholder="Describe el tema o mensaje que quieres comunicar..." required
+            rows={3}
+            placeholder={temaOpcional ? "(opcional) Añade un ángulo o déjalo vacío para que la IA decida desde la foto" : "Describe el tema o mensaje que quieres comunicar..."}
+            required={!temaOpcional}
             className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none resize-none transition-colors"
             onFocus={e => e.target.style.borderColor = "#f9b23b"}
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
@@ -483,6 +499,20 @@ function CreateInner() {
                     </span>
                     <span className="block text-xs text-gray-400">
                       {puedeIntegrar ? "La IA te coloca en la escena de tu tema (~10s)." : "Disponible en los planes de pago."}
+                    </span>
+                  </span>
+                </button>
+                <button type="button" disabled={!puedeIntegrar}
+                  onClick={() => puedeIntegrar && setModoFoto("vision")}
+                  className="w-full flex items-start gap-3 text-left p-3 rounded-xl border-2 transition-all disabled:opacity-60"
+                  style={modoFoto === "vision" && puedeIntegrar ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef" } : { borderColor: "#e5e7eb" }}>
+                  <span className="text-lg">🔍</span>
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-800">
+                      Generar texto desde mi foto {!puedeIntegrar && <span className="text-gray-400">🔒</span>}
+                    </span>
+                    <span className="block text-xs text-gray-400">
+                      {puedeIntegrar ? "La IA analiza tu foto y escribe el post. El tema es opcional." : "Disponible en los planes de pago."}
                     </span>
                   </span>
                 </button>
@@ -557,7 +587,7 @@ function CreateInner() {
             🔒 Límite alcanzado · Mejora tu plan
           </Link>
         ) : (
-          <button type="submit" disabled={!form.nombreOrganizacion.trim() || !form.tema.trim()}
+          <button type="submit" disabled={!form.nombreOrganizacion.trim() || (!form.tema.trim() && !temaOpcional)}
             className="w-full py-4 rounded-2xl font-bold text-white text-base disabled:opacity-40 transition-all active:scale-[0.98]"
             style={{ backgroundColor: "#f9b23b" }}>
             Generar contenido

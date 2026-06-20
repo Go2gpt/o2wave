@@ -102,9 +102,23 @@ function guionToText(g: Omit<GuionTikTok, "params">): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const formData: ContentFormData = body;
+    // Acepta JSON (normal) o multipart (modo visión: trae una imagen).
+    const ct = request.headers.get("content-type") || "";
+    let body: Record<string, unknown>;
+    let imagenBuf: Buffer | null = null;
+    let imagenMime = "";
+    if (ct.includes("multipart/form-data")) {
+      const fd = await request.formData();
+      const payload = fd.get("payload");
+      body = JSON.parse(typeof payload === "string" ? payload : "{}");
+      const f = fd.get("imagen");
+      if (f instanceof File) { imagenBuf = Buffer.from(await f.arrayBuffer()); imagenMime = f.type || ""; }
+    } else {
+      body = await request.json();
+    }
+    const formData: ContentFormData = (body.formData ?? body) as ContentFormData;
     const demoProfileRaw = body?.demo_profile;
+    const modoVisionReq = body?.modo_vision === true && !!imagenBuf;
     const { nombreOrganizacion, tipoOrganizacion, redSocial, formatoInstagram,
             entornoTikTok, duracionTikTok, tonoTikTok, tema, tono,
             incluirHashtags, incluirEmojis } = formData;
@@ -127,6 +141,31 @@ export async function POST(request: NextRequest) {
     if (!canUseFeature(profile, featRed)) {
       return NextResponse.json({ error: "feature_no_disponible", mensaje: `${redSocial} no está disponible en tu plan. Mejora tu plan para usarlo.`, feature: featRed }, { status: 403 });
     }
+
+    // Modo visión (PREMIUM): generar el texto a partir de la imagen. Solo planes
+    // de pago (no ong_pequena) o admin. Convertimos HEIC a JPEG (Claude no lo lee).
+    const esPago = !!profile?.es_admin || (!!profile?.plan_actual && profile.plan_actual !== "ong_pequena");
+    const modoVision = modoVisionReq && esPago;
+    if (modoVisionReq && !esPago) {
+      return NextResponse.json({ error: "feature_no_disponible", mensaje: "Generar texto desde tu foto está disponible en los planes de pago." }, { status: 403 });
+    }
+    if (modoVision && imagenBuf) {
+      const ascii = imagenBuf.toString("ascii", 4, 12).toLowerCase();
+      if (imagenMime === "image/heic" || imagenMime === "image/heif" || (imagenBuf.toString("ascii", 4, 8) === "ftyp" && /heic|heif|mif1|hev/.test(ascii))) {
+        try {
+          const heicConvert = (await import("heic-convert")).default;
+          imagenBuf = Buffer.from(await heicConvert({ buffer: imagenBuf, format: "JPEG", quality: 0.9 }));
+          imagenMime = "image/jpeg";
+        } catch (e) {
+          console.error("generate-text visión: HEIC falló:", e instanceof Error ? e.message : e);
+          return NextResponse.json({ error: "No pudimos leer tu foto HEIC. Usa JPEG o PNG." }, { status: 400 });
+        }
+      }
+      if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(imagenMime)) {
+        return NextResponse.json({ error: "Formato de imagen no válido para análisis (usa JPEG, PNG o HEIC)." }, { status: 400 });
+      }
+    }
+    console.log(`generate-text: modo_vision = ${modoVision ? "activo" : "inactivo"}, imagen_recibida = ${!!imagenBuf}`);
     // Reset del contador si toca (día 1 de mes) y relectura del valor fresco.
     await supabase.rpc("reset_posts_gratis_if_due", { p_user_id: user.id });
     const { data: pFresh } = await supabase
@@ -248,19 +287,29 @@ ${instruccionIdioma(profile?.idioma_principal)}
 ${reglaIdioma(profile?.idioma_principal)}`;
 
     const esWhatsApp = redSocial === "WhatsApp";
+    const bloqueVision = modoVision
+      ? `\nIMPORTANTE: tienes una FOTO adjunta. Observa la imagen y comunica lo que se ve (productos, ambiente, detalles relevantes) de forma coherente con la voz de marca.${tema?.trim() ? ` Combínalo con este ángulo del usuario: ${tema}.` : " El usuario no ha dado tema: infiérelo de la imagen."}\n`
+      : "";
     const prompt = `Contenido para ${redSocial}${formatoInstagram ? ` (${formatoInstagram})` : ""}:
-${neutro ? "" : `Entidad: ${nombreOrganizacion} (${tipoOrganizacion})\n`}Tema: ${tema} | Tono: ${tono}
+${neutro ? "" : `Entidad: ${nombreOrganizacion} (${tipoOrganizacion})\n`}${tema?.trim() ? `Tema: ${tema} | ` : ""}Tono: ${tono}
 ${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${(esWhatsApp || !incluirHashtags) ? "❌ Sin hashtags" : "✅ Con hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
 ${redSocial === "Instagram" ? "Máximo 150 palabras, impacto visual." : ""}
 ${redSocial === "Facebook" ? "Hasta 200 palabras, narrativo." : ""}
-${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}${bloquePremio ? `\n${bloquePremio}\n` : ""}${bloqueMencion}
+${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}${bloqueVision}${bloquePremio ? `\n${bloquePremio}\n` : ""}${bloqueMencion}
 Texto listo para publicar, sin explicaciones:`;
 
+    // En modo visión, el contenido del mensaje incluye la imagen (multimodal).
+    const userContent = modoVision && imagenBuf
+      ? [
+          { type: "image" as const, source: { type: "base64" as const, media_type: imagenMime as "image/jpeg" | "image/png" | "image/webp" | "image/gif", data: imagenBuf.toString("base64") } },
+          { type: "text" as const, text: prompt },
+        ]
+      : prompt;
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: userContent }],
     });
     const texto = response.content[0].type === "text" ? response.content[0].text : "";
 
