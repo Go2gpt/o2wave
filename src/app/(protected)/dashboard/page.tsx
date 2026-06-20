@@ -11,8 +11,8 @@ import Avatar from "@/components/Avatar";
 import GenerarPackButton from "./GenerarPackButton";
 import NovedadesPopup from "@/components/NovedadesPopup";
 
-// URL del roadmap (blog). TODO: confirmar la URL final con Sebas.
-const ROADMAP_URL = "https://www.o2wave.app/blog/roadmap";
+// URL del roadmap (blog de Generación o2).
+const ROADMAP_URL = "https://generacion-o2.org/hacia-donde-va-o2wave-roadmap-2026/";
 
 // El pack se envía LUNES 09:00 (Europa/Madrid). Devuelve el próximo lunes desde
 // `desde`; si hoy es lunes, devuelve el de la semana siguiente.
@@ -136,12 +136,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       {mostrarNovedades && (
         <NovedadesPopup
           columna="popup_novedades_v1_visto"
-          titulo="Nuevo en o2Wave"
-          subtitulo="3 mejoras esta semana pedidas por usuarios reales"
+          titulo="Esta semana, 3 mejoras que nos pediste tú"
+          subtitulo="Más formas de registrarte, posts a partir de una foto, y los 3 idiomas que más usas."
           items={[
-            { icono: "🪪", titulo: "Registro con DNI, NIE o Pasaporte", descripcion: "No solo CIF: ahora entran autónomos y residentes." },
-            { icono: "🔍", titulo: "Genera el texto desde tu foto (Premium)", descripcion: "La IA mira tu foto y escribe el post por ti." },
-            { icono: "🌐", titulo: "Posts en español, catalán o inglés", descripcion: "Elige el idioma de cada publicación." },
+            { icono: "🪪", titulo: "Más documentos al registrarte", descripcion: "DNI, NIE, Pasaporte y NIF/CIF" },
+            { icono: "📸", titulo: "Foto → post automático", descripcion: "Sube una imagen y la IA escribe lo que ve (planes de pago)" },
+            { icono: "🌐", titulo: "Elige idioma por post", descripcion: "Español, català o english, con hashtags nativos" },
           ]}
           ctaPrincipal={{ label: "Probar ahora", href: "/create" }}
           ctaSecundario={{ label: "Ver el roadmap", href: ROADMAP_URL }}
