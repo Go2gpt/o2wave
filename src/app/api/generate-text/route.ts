@@ -15,7 +15,7 @@ const INSTRUCCION_TILDES = `IMPORTANTE: respeta SIEMPRE las tildes y diacrítico
 const NOMBRE_IDIOMA: Record<string, string> = { es: "español castellano", ca: "catalán", en: "inglés" };
 function instruccionIdioma(idioma: string | null | undefined): string {
   const nombre = NOMBRE_IDIOMA[idioma || ""] ?? "español castellano";
-  return `IMPORTANTE: el idioma del contenido (texto, hashtags, guion, titular) debe ser ESTRICTAMENTE ${nombre}. NO mezcles palabras de otros idiomas (catalán/español/inglés). Si el nombre de la entidad o un término técnico es inalterable, déjalo, pero el resto del texto y los hashtags deben ser ${nombre} puro.`;
+  return `IMPORTANTE: el idioma del contenido (texto, hashtags, guion, titular) debe ser ESTRICTAMENTE ${nombre}, con fraseo natural e idiomático de hablantes nativos. NO mezcles palabras de otros idiomas (catalán/español/inglés). Si el nombre de la entidad o un término técnico es inalterable, déjalo, pero el resto del texto y los hashtags deben ser ${nombre} puro.`;
 }
 
 // Regla de calidad de redacción. Literal en español (caso por defecto); variante
@@ -166,6 +166,13 @@ export async function POST(request: NextRequest) {
       }
     }
     console.log(`generate-text: modo_vision = ${modoVision ? "activo" : "inactivo"}, imagen_recibida = ${!!imagenBuf}`);
+
+    // Idioma de salida (por post): es (default) | ca | en. El selector siempre
+    // envía valor; si no, cae al idioma del perfil y, por último, español.
+    const idioma = (typeof body?.idioma === "string" && ["es", "ca", "en"].includes(body.idioma as string))
+      ? (body.idioma as string)
+      : (profile?.idioma_principal || "es");
+    console.log(`generate-text: idioma = ${idioma}`);
     // Reset del contador si toca (día 1 de mes) y relectura del valor fresco.
     await supabase.rpc("reset_posts_gratis_if_due", { p_user_id: user.id });
     const { data: pFresh } = await supabase
@@ -222,8 +229,8 @@ export async function POST(request: NextRequest) {
 Creas guiones prácticos y grabables con un smartphone y luz natural, sin equipo profesional.
 Respondes SIEMPRE y ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin markdown.
 ${INSTRUCCION_TILDES}
-${instruccionIdioma(profile?.idioma_principal)}
-${reglaIdioma(profile?.idioma_principal)}`;
+${instruccionIdioma(idioma)}
+${reglaIdioma(idioma)}`;
 
       const prompt = `Crea un guion de TikTok para "${nombreOrganizacion}" (${tipoOrganizacion}).
 
@@ -283,8 +290,8 @@ Genera contenido auténtico, directo y efectivo para redes sociales.
 Adapta el tono y formato exactamente a la red social indicada.
 Responde SOLO con el contenido generado, sin explicaciones adicionales.
 ${INSTRUCCION_TILDES}
-${instruccionIdioma(profile?.idioma_principal)}
-${reglaIdioma(profile?.idioma_principal)}`;
+${instruccionIdioma(idioma)}
+${reglaIdioma(idioma)}`;
 
     const esWhatsApp = redSocial === "WhatsApp";
     const bloqueVision = modoVision
@@ -319,7 +326,7 @@ Texto listo para publicar, sin explicaciones:`;
       max_tokens: 40,
       messages: [{
         role: "user",
-        content: `Dame un titular muy corto (máximo 8 palabras), impactante y en castellano, para superponer sobre una imagen de redes sociales de "${nombreOrganizacion}" sobre: ${tema}. Responde SOLO con el titular, sin comillas ni explicaciones.`,
+        content: `Dame un titular muy corto (máximo 8 palabras), impactante y en ${NOMBRE_IDIOMA[idioma] || "español castellano"}, para superponer sobre una imagen de redes sociales de "${nombreOrganizacion}"${tema?.trim() ? ` sobre: ${tema}` : " (infiere el tema del contenido del post)"}. Responde SOLO con el titular, sin comillas ni explicaciones.`,
       }],
     });
     const titular = (tRes.content[0].type === "text" ? tRes.content[0].text : "").trim().replace(/^["'«»]|["'«»]$/g, "");

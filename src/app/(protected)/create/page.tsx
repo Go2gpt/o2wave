@@ -96,6 +96,7 @@ function CreateInner() {
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [fotoError, setFotoError] = useState("");
   const [modoFoto, setModoFoto] = useState<"propia" | "integrada" | "vision">("propia"); // cómo usar la foto
+  const [idiomaPost, setIdiomaPost] = useState<"es" | "ca" | "en">("es"); // idioma de salida del texto
   const fotoInputRef = useRef<HTMLInputElement>(null);
   // Perfil de demo (solo admin). Default Neutral en cada carga (no se restaura).
   const [demoPerfil, setDemoPerfil] = useState<"neutral" | "ong" | "empresa" | "creator">("neutral");
@@ -204,11 +205,11 @@ function CreateInner() {
       const textReq = vision
         ? (() => {
             const fd = new FormData();
-            fd.append("payload", JSON.stringify({ formData: form, modo_vision: true, ...demoExtra }));
+            fd.append("payload", JSON.stringify({ formData: form, modo_vision: true, idioma: idiomaPost, ...demoExtra }));
             fd.append("imagen", fotoPropia as File);
             return fetch("/api/generate-text", { method: "POST", body: fd });
           })()
-        : fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, ...demoExtra }) });
+        : fetch("/api/generate-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, idioma: idiomaPost, ...demoExtra }) });
 
       // Generate text and image in parallel
       const [textRes, imageRes] = await Promise.all([textReq, imageReq]);
@@ -450,6 +451,19 @@ function CreateInner() {
             className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none resize-none transition-colors"
             onFocus={e => e.target.style.borderColor = "#f9b23b"}
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />
+          {/* Idioma de publicación (todos los usuarios). Default ES. */}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Idioma de publicación</label>
+            <div className="flex gap-2">
+              {([["es", "ES"], ["ca", "CA"], ["en", "EN"]] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setIdiomaPost(val)}
+                  className="px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all"
+                  style={pill(idiomaPost === val)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Tu foto (opcional): si la sube, se salta la generación IA. No TikTok (genera guion). */}
