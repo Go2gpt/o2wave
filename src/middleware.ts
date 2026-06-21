@@ -107,15 +107,14 @@ export async function middleware(request: NextRequest) {
         return redirectTo("/verificacion");
       }
 
-      // Bloqueo duro: una empresa sin suscripción activa no accede al servicio.
-      // Whitelist: planes, perfil y verificación; /api y /onboarding ya quedan
-      // fuera de este bloque. Admin pasa siempre. Bypass temporal por código promo
-      // (cookie cosmética hasta tener el sistema real de códigos).
+      // Bloqueo duro: empresa o particular sin suscripción activa no accede al
+      // servicio (mismo comportamiento). Whitelist: planes, perfil y verificación;
+      // /api y /onboarding ya quedan fuera. Admin pasa siempre. Bypass por promo.
       const subActiva = profile.plan_estado === "activa" || profile.plan_estado === "trial";
       const promoBypass = request.cookies.get("o2_promo_bypass")?.value === "1";
       const enWhitelist = ["/plans", "/perfil", "/verificacion"].some((r) => pathname.startsWith(r));
       if (
-        profile.tipo_entidad === "empresa" &&
+        (profile.tipo_entidad === "empresa" || profile.tipo_entidad === "particular") &&
         !profile.es_admin &&
         !subActiva &&
         !promoBypass &&

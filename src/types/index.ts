@@ -5,7 +5,8 @@ export type TipoEntidad =
   | "autonomo"
   | "ong_pequena"
   | "ong_mediana"
-  | "empresa";
+  | "empresa"
+  | "particular";
 export type RedSocial = "Instagram" | "Facebook" | "TikTok" | "WhatsApp";
 export type FormatoInstagram = "Post 1080×1080" | "Story 9:16";
 export type Tono = "Motivador" | "Informativo" | "Cercano" | "Urgente";

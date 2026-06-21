@@ -33,12 +33,23 @@ const BLOQUES = [
       { id: "empresa", label: "Desde 9€/mes" },
     ],
   },
+  {
+    titulo: "Particular",
+    subtitulo: "Persona individual.",
+    emoji: "👤",
+    color: "#f9b23b",
+    bg: "#fff8ef",
+    opciones: [
+      { id: "particular", label: "Desde 9€/mes" },
+    ],
+  },
 ];
 
 const TIPO_COLOR: Record<string, string> = {
   ong_pequena: "#93bf30",
   ong_mediana: "#93bf30",
   empresa: "#f9b23b",
+  particular: "#f9b23b",
 };
 
 // Mapea el plan elegido en /plans al tipo de entidad del registro.
