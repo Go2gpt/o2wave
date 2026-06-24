@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
     const idioma = (typeof body?.idioma === "string" && ["es", "ca", "en"].includes(body.idioma as string))
       ? (body.idioma as string)
       : (profile?.idioma_principal || "es");
-    console.log(`generate-text: idioma = ${idioma}`);
+    console.log(`generate-text: idioma = ${idioma}, red = ${featRed}`);
     // Reset del contador si toca (día 1 de mes) y relectura del valor fresco.
     await supabase.rpc("reset_posts_gratis_if_due", { p_user_id: user.id });
     const { data: pFresh } = await supabase
@@ -302,6 +302,11 @@ ${neutro ? "" : `Entidad: ${nombreOrganizacion} (${tipoOrganizacion})\n`}${tema?
 ${contextoUsuario ? `\n${contextoUsuario}\n` : ""}${(esWhatsApp || !incluirHashtags) ? "❌ Sin hashtags" : "✅ Con hashtags"} | ${incluirEmojis ? "✅ Con emojis" : "❌ Sin emojis"}
 ${redSocial === "Instagram" ? "Máximo 150 palabras, impacto visual." : ""}
 ${redSocial === "Facebook" ? "Hasta 200 palabras, narrativo." : ""}
+${redSocial === "LinkedIn" ? `Publicación para LinkedIn, registro PROFESIONAL (adapta el tono "${tono}" dentro de ese registro):
+- Longitud 700-1500 caracteres (LinkedIn permite hasta 3000); ni corto tipo IG ni telegráfico.
+- Primer renglón fuerte (gancho), luego 2-3 párrafos cortos separados por línea en blanco, y una llamada a la acción al final.
+- Tono profesional y narrativo. Emojis: mejor ninguno; como mucho 2-3 sutiles si aportan.
+- Termina con 3-5 hashtags relevantes para LinkedIn (NO genéricos), en el idioma indicado. Ejemplos por contexto: #Liderazgo #Emprendimiento #ImpactoSocial #ComunicaciónDigital #TercerSector (o sus equivalentes en el idioma).` : ""}
 ${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}${bloqueVision}${bloquePremio ? `\n${bloquePremio}\n` : ""}${bloqueMencion}
 Texto listo para publicar, sin explicaciones:`;
 

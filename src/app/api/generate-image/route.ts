@@ -20,7 +20,7 @@ function esHeic(buffer: Buffer, mime: string): boolean {
 
 function aspectDe(formData: ContentFormData): string {
   return formData.redSocial === "Instagram" ? (formData.formatoInstagram === "Story 9:16" ? "9:16" : "4:5")
-    : formData.redSocial === "Facebook" ? "16:9" : "1:1";
+    : formData.redSocial === "Facebook" || formData.redSocial === "LinkedIn" ? "16:9" : "1:1";
 }
 
 // Genera la imagen del post (modo 'ia' = Gemini/FLUX desde prompt) o, si llega
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     const gen = await generarImagenIA(prompt, aspect);
     if (!gen) return NextResponse.json({ error: "No se pudo generar la imagen" }, { status: 502 });
-    console.log(`generate-image: modo_imagen = ia (${gen.fuente}, aspect ${aspect})`);
+    console.log(`generate-image: modo_imagen = ia (${gen.fuente}, red ${formData.redSocial}, aspect ${aspect})`);
 
     const filePath = `${user.id}/post-${Date.now()}.png`;
     const { error: upErr } = await supabase.storage.from("post-images").upload(filePath, gen.buffer, { contentType: "image/png", upsert: false });

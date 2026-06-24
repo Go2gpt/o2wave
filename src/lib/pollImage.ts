@@ -28,5 +28,6 @@ export async function pollForImage(
 export function aspectFor(redSocial: string, formato?: string | null): string {
   if (redSocial === "Instagram") return formato === "Story 9:16" ? "9:16" : "4:5"; // Post 4:5 (feed)
   if (redSocial === "Facebook") return "16:9";
+  if (redSocial === "LinkedIn") return "16:9"; // post LinkedIn (~1200×630 → 16:9, lo más cercano soportado)
   return "1:1"; // WhatsApp y resto
 }
