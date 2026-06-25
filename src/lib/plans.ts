@@ -116,6 +116,30 @@ export function planMeta(id: PlanActual): PlanMeta | undefined {
   return PLANES.find((p) => p.id === id);
 }
 
+/**
+ * Planes visibles para un grupo de cuenta. Empresa y particular comparten los
+ * MISMOS productos de Stripe (earlybird/standard/pro): solo cambia el nombre
+ * mostrado (ver nombrePlanPorGrupo), no el precio ni el price ID.
+ */
+export function planesParaGrupo(grupo: "ong" | "empresa" | "particular"): PlanMeta[] {
+  return grupo === "ong"
+    ? PLANES.filter((p) => p.para === "ong")
+    : PLANES.filter((p) => p.para === "empresa");
+}
+
+/** Nombre visible del plan para particulares (mismo producto, etiqueta distinta). */
+const NOMBRE_PARTICULAR: Record<string, string> = {
+  earlybird: "Particular Early Bird",
+  standard: "Particular Standard",
+  pro: "Particular Pro",
+};
+
+/** Nombre del plan adaptado al grupo de cuenta. Particular → "Particular …". */
+export function nombrePlanPorGrupo(plan: PlanMeta, grupo: "ong" | "empresa" | "particular"): string {
+  if (grupo === "particular") return NOMBRE_PARTICULAR[plan.id] ?? plan.nombre;
+  return plan.nombre;
+}
+
 /** Variable de entorno que contiene el price ID para un plan+ciclo. */
 const ENV_KEY: Record<string, string> = {
   ong_mediana_mensual: "STRIPE_PRICE_ONG_MEDIANA_MENSUAL",

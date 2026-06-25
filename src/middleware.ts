@@ -120,7 +120,8 @@ export async function middleware(request: NextRequest) {
         !promoBypass &&
         !enWhitelist
       ) {
-        return redirectTo("/plans?empresa_sin_sub=1");
+        const qs = profile.tipo_entidad === "particular" ? "particular_sin_sub=1" : "empresa_sin_sub=1";
+        return redirectTo(`/plans?${qs}`);
       }
     }
   }

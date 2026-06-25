@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
-import { PLANES } from "@/lib/plans";
+import { planesParaGrupo, nombrePlanPorGrupo } from "@/lib/plans";
+import { COPY_SIN_SUB, type GrupoCuenta } from "@/lib/copys-por-tipo";
 import { BETA_ACTIVA } from "@/lib/constants";
 import type { PlanActual, PlanCiclo } from "@/types";
 
@@ -18,18 +19,22 @@ const REQUISITOS_GRATIS = [
   "Entiendo que podemos pedir documentación acreditativa en cualquier momento.",
 ];
 
-export default function PlansView({ autenticado, esAdmin, grupo, planActual, aceptaMencion = false, success, cancelled, empresaSinSub }: {
+export default function PlansView({ autenticado, esAdmin, grupo, planActual, aceptaMencion = false, success, cancelled, empresaSinSub, particularSinSub }: {
   autenticado: boolean;
   esAdmin: boolean;
-  grupo: "ong" | "empresa";
+  grupo: GrupoCuenta;
   planActual: PlanActual | null;
   aceptaMencion?: boolean;
   success: boolean;
   cancelled: boolean;
   empresaSinSub?: boolean;
+  particularSinSub?: boolean;
 }) {
   const router = useRouter();
   const [ciclo, setCiclo] = useState<PlanCiclo>("mensual");
+  // Visitante (no logueado): tabs para elegir qué planes ver. Logueado: su grupo.
+  const [grupoVista, setGrupoVista] = useState<GrupoCuenta>("ong");
+  const grupoEfectivo: GrupoCuenta = autenticado ? grupo : grupoVista;
   const [loading, setLoading] = useState<PlanActual | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
   const [promo, setPromo] = useState("");
@@ -54,8 +59,8 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
     else if (cancelled) setToast({ message: "Has cancelado el proceso de pago.", type: "info" });
   }, [success, cancelled]);
 
-  // Visitante: ve todos los planes. Logueado: solo los de su grupo (ong/empresa).
-  const planes = autenticado ? PLANES.filter((p) => p.para === grupo) : PLANES;
+  // Planes según el grupo efectivo (logueado: su tipo; visitante: tab elegida).
+  const planes = planesParaGrupo(grupoEfectivo);
 
   const suscribir = async (plan: PlanActual) => {
     setLoading(plan);
@@ -125,12 +130,12 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
         </header>
       )}
 
-      {/* Bloqueo empresa sin suscripción: aviso + código promocional */}
-      {empresaSinSub && (
+      {/* Bloqueo (empresa/particular) sin suscripción: aviso + código promocional */}
+      {(empresaSinSub || particularSinSub) && (
         <div className="mx-5 mb-4 mt-2 rounded-2xl p-4" style={{ backgroundColor: "#fff8ef", border: "1px solid #f9d9a8" }}>
           <p className="text-sm font-bold" style={{ color: "#b9791a" }}>Activa tu suscripción para continuar</p>
           <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-            Las empresas necesitan una suscripción activa para acceder al servicio. Si tienes un código promocional, ingrésalo aquí.
+            {(particularSinSub ? COPY_SIN_SUB.particular : COPY_SIN_SUB.empresa)} Si tienes un código promocional, ingrésalo aquí.
           </p>
           <div className="flex gap-2 mt-3">
             <input value={promo} onChange={(e) => setPromo(e.target.value)} placeholder="Código promocional"
@@ -146,7 +151,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
 
       <div className="px-5 pb-3 pt-2">
         <h1 className="text-xl font-bold text-gray-900">{autenticado ? "Planes" : "Elige tu plan"}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">El que mejor se adapta a tu organización o empresa.</p>
+        <p className="text-sm text-gray-500 mt-0.5">El que mejor se adapta a tu organización, empresa o perfil.</p>
         {/* Banner de lanzamiento (beta) */}
         {BETA_ACTIVA && (
           <div className="mt-3 rounded-xl px-3 py-2 text-sm font-medium" style={{ backgroundColor: "#f0f7e6", color: "#3f6212" }}>
@@ -154,6 +159,23 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
           </div>
         )}
       </div>
+
+      {/* Visitante: selector de tipo de cuenta (cada uno ve sus planes). */}
+      {!autenticado && (
+        <div className="px-5 mb-3">
+          <div className="flex bg-gray-100 rounded-full p-1">
+            {([["ong", "ONG"], ["empresa", "Empresa"], ["particular", "Particular"]] as [GrupoCuenta, string][]).map(([g, label]) => (
+              <button key={g} type="button" onClick={() => setGrupoVista(g)}
+                className="flex-1 py-2 rounded-full text-sm font-bold transition-all"
+                style={grupoVista === g
+                  ? { backgroundColor: "#fff", color: "#f9b23b", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }
+                  : { color: "#9ca3af" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Toggle mensual / anual ("Anual" deshabilitado durante la beta) */}
       <div className="px-5 mb-4">
@@ -205,7 +227,7 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
               )}
               <div className="p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <p className="font-black text-gray-900">{plan.nombre}</p>
+                  <p className="font-black text-gray-900">{nombrePlanPorGrupo(plan, grupoEfectivo)}</p>
                   <div className="text-right">
                     {esGratis ? (
                       <p className="text-2xl font-black" style={{ color }}>Gratis</p>

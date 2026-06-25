@@ -8,6 +8,7 @@ import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { pollForImage } from "@/lib/pollImage";
 import { canUseFeature, puedeGenerarPostGratis, limitePostsMes, type PerfilGating } from "@/lib/plans";
+import { grupoCuenta, COPY_CREATE } from "@/lib/copys-por-tipo";
 import type { ContentFormData, TipoEntidad, RedSocial, FormatoInstagram, Tono } from "@/types";
 
 const TONOS: Tono[] = ["Motivador", "Informativo", "Cercano", "Urgente"];
@@ -341,10 +342,10 @@ function CreateInner() {
         {/* Nombre */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-            {form.tipoOrganizacion === "empresa" ? "Nombre de tu empresa" : "Nombre de tu organización"}
+            {COPY_CREATE.nombreLabel[grupoCuenta(form.tipoOrganizacion)]}
           </label>
           <input value={form.nombreOrganizacion} onChange={e => set("nombreOrganizacion", e.target.value)}
-            placeholder={form.tipoOrganizacion === "empresa" ? "Ej: Zapatos Rodríguez" : "Ej: Fundación Futuro Verde"} required
+            placeholder={COPY_CREATE.nombrePlaceholder[grupoCuenta(form.tipoOrganizacion)]} required
             className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none transition-colors"
             onFocus={e => e.target.style.borderColor = "#f9b23b"}
             onBlur={e => e.target.style.borderColor = "#f3f4f6"} />

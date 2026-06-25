@@ -7,6 +7,7 @@ import Spinner from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
 import { irACheckoutODashboard, descartarPlanPendiente } from "@/lib/checkoutRedirect";
+import { grupoCuenta, COPY_IDENTITY, type GrupoCuenta } from "@/lib/copys-por-tipo";
 
 interface Analysis {
   nombre?: string | null;
@@ -73,7 +74,7 @@ export default function OnboardingIdentityPage() {
   const [loaded, setLoaded] = useState(false);
   const [suficiente, setSuficiente] = useState(true);
   const [hayPlanPendiente, setHayPlanPendiente] = useState(false);
-  const [esEmpresa, setEsEmpresa] = useState(false);
+  const [grupo, setGrupo] = useState<GrupoCuenta>("ong");
   const gratisRef = useRef(false); // true → opt-out "empezar gratis", se salta el checkout
 
   // ¿El usuario venía de /plans con un plan de pago? → mostrar opt-out al finalizar.
@@ -81,13 +82,13 @@ export default function OnboardingIdentityPage() {
     try { setHayPlanPendiente(!!localStorage.getItem("plan_pendiente_checkout")); } catch { /* noop */ }
   }, []);
 
-  // Tipo de entidad (empresa vs ONG) para adaptar los textos.
+  // Tipo de cuenta (ong/empresa/particular) para adaptar los textos y campos.
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
-      setEsEmpresa(data?.tipo_entidad === "empresa");
+      setGrupo(grupoCuenta(data?.tipo_entidad));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -167,11 +168,11 @@ export default function OnboardingIdentityPage() {
         tipo_publicaciones: tipoPublicaciones || null,
         info_extra: infoExtra || null,
         // Datos declarados (solo ONG): CIF + presupuesto + nº trabajadores.
-        ...(esEmpresa ? {} : {
+        ...(grupo === "ong" ? {
           nif: nif.trim() || null,
           presupuesto_anual: presupuestoAnual.trim() ? Math.round(Number(presupuestoAnual)) || null : null,
           trabajadores_remunerados: trabajadoresRemunerados.trim() ? Math.round(Number(trabajadoresRemunerados)) || null : null,
-        }),
+        } : {}),
         onboarding_complete: true,
       }).eq("id", user.id);
 
@@ -211,7 +212,7 @@ export default function OnboardingIdentityPage() {
           <>
             <div>
               <h1 className="text-xl font-bold text-gray-900 mb-1">
-                {suficiente ? "Esto es lo que hemos detectado" : (esEmpresa ? "Cuéntanos sobre tu empresa" : "Cuéntanos sobre tu organización")}
+                {suficiente ? "Esto es lo que hemos detectado" : COPY_IDENTITY.h1NoSuficiente[grupo]}
               </h1>
               <p className="text-sm text-gray-500">
                 {suficiente
@@ -220,7 +221,7 @@ export default function OnboardingIdentityPage() {
               </p>
             </div>
 
-            <Campo label="Nombre de la entidad" value={nombre} set={setNombre} />
+            <Campo label={COPY_IDENTITY.nombreLabel[grupo]} value={nombre} set={setNombre} />
             <Campo label="Sector" value={sector} set={setSector} />
             <Campo label="Misión y valores" value={misionValores} set={setMisionValores} area />
             <Campo label="Público objetivo" value={publicoObjetivo} set={setPublicoObjetivo} area />
@@ -235,7 +236,7 @@ export default function OnboardingIdentityPage() {
 
             {/* Datos declarados de la entidad (solo ONG): se usan para verificar
                 el plan gratuito. Podemos pedir documentación acreditativa. */}
-            {!esEmpresa && (
+            {grupo === "ong" && (
               <>
                 <Campo label="CIF de la entidad (G/R/V/N)" value={nif} set={setNif} />
                 <div className="bg-gray-50 rounded-2xl p-4">

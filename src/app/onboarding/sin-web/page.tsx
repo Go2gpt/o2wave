@@ -8,6 +8,7 @@ import ProgressBar from "@/components/ProgressBar";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
 import { irACheckoutODashboard, descartarPlanPendiente } from "@/lib/checkoutRedirect";
+import { grupoCuenta, COPY_SIN_WEB, type GrupoCuenta } from "@/lib/copys-por-tipo";
 
 interface Analysis {
   nombre?: string | null;
@@ -51,20 +52,20 @@ export default function OnboardingSinWebPage() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [saving, setSaving] = useState(false);
   const [hayPlanPendiente, setHayPlanPendiente] = useState(false);
-  const [esEmpresa, setEsEmpresa] = useState(false);
+  const [grupo, setGrupo] = useState<GrupoCuenta>("ong");
 
   // ¿El usuario venía de /plans con un plan de pago? → mostrar opt-out en el paso 4.
   useEffect(() => {
     try { setHayPlanPendiente(!!localStorage.getItem("plan_pendiente_checkout")); } catch { /* noop */ }
   }, []);
 
-  // Tipo de entidad (empresa vs ONG) para adaptar los textos del wizard.
+  // Tipo de cuenta (ong/empresa/particular) para adaptar los textos del wizard.
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from("profiles").select("tipo_entidad").eq("id", user.id).single();
-      setEsEmpresa(data?.tipo_entidad === "empresa");
+      setGrupo(grupoCuenta(data?.tipo_entidad));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -198,17 +199,11 @@ export default function OnboardingSinWebPage() {
           <>
             <div className="mb-6">
               <h1 className="text-xl font-bold text-gray-900 mb-2">Empezamos por lo básico</h1>
-              <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>{esEmpresa
-                ? "Dedica 1 minuto y la IA aprenderá a comunicar como tu empresa, no como una IA genérica."
-                : "Dedica 1 minuto y la IA aprenderá a comunicar como tu organización, no como una IA genérica."}</p>
+              <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>{COPY_SIN_WEB.paso1Sub[grupo]}</p>
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{esEmpresa
-              ? "En una frase, ¿a qué se dedica tu empresa?"
-              : "En una frase, ¿a qué se dedica tu organización?"}</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{COPY_SIN_WEB.paso1Label[grupo]}</label>
             <textarea value={frase} onChange={(e) => setFrase(e.target.value)} rows={3}
-              placeholder={esEmpresa
-                ? "Ej: agencia de viajes especializada en escapadas rurales en España."
-                : "Ej: ayudamos a personas en exclusión social en Barcelona"}
+              placeholder={COPY_SIN_WEB.paso1Placeholder[grupo]}
               className={inputCls} onFocus={onF} onBlur={onB} />
             <button onClick={() => { setPaso(2); window.scrollTo(0, 0); }} disabled={frase.trim().length < 4}
               className="w-full mt-5 py-4 rounded-2xl font-bold text-white text-base disabled:opacity-50 transition-all active:scale-[0.98]"
@@ -223,10 +218,10 @@ export default function OnboardingSinWebPage() {
               <h1 className="text-xl font-bold text-gray-900 mb-2">Tu voz real</h1>
               <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>Cuanto más nos cuentes ahora, menos tendrás que editar después.</p>
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{esEmpresa
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{grupo === "empresa"
               ? "Pega aquí 2-3 posts recientes de tus redes sociales (LinkedIn, Instagram, Facebook…)"
               : "Pega aquí 2-3 posts recientes de tus redes (Instagram, Facebook, LinkedIn…)"}</label>
-            <p className="text-xs text-gray-400 mb-2">{esEmpresa
+            <p className="text-xs text-gray-400 mb-2">{grupo === "empresa"
               ? "Copia el texto de tus mejores posts. Sin imágenes ni hashtags."
               : "Copia el texto de tus mejores posts. Sin imágenes ni hashtags, solo el texto. La IA aprenderá tu tono."}</p>
             <textarea value={posts} onChange={(e) => setPosts(e.target.value)} rows={9}
@@ -245,12 +240,8 @@ export default function OnboardingSinWebPage() {
               <h1 className="text-xl font-bold text-gray-900 mb-2">Tu identidad pública</h1>
               <p className="text-sm font-semibold" style={{ color: "#f9b23b" }}>Un último empujón. Promesa: tu app aprenderá tu voz, no será una IA genérica.</p>
             </div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{esEmpresa
-              ? "Pega tu bio o descripción de la empresa"
-              : "Pega tu bio o descripción de la organización"}</label>
-            <p className="text-xs text-gray-400 mb-2">{esEmpresa
-              ? "La que tienes en LinkedIn, Instagram, Facebook o tu firma de email."
-              : "La que tienes en Instagram, Facebook o LinkedIn. O cualquier descripción corta que uses."}</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{COPY_SIN_WEB.paso3Label[grupo]}</label>
+            <p className="text-xs text-gray-400 mb-2">{COPY_SIN_WEB.paso3Sub[grupo]}</p>
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={5}
               placeholder="Pega aquí tu bio…" className={inputCls} onFocus={onF} onBlur={onB} />
             <button onClick={analizar}
@@ -271,7 +262,7 @@ export default function OnboardingSinWebPage() {
             <div className="space-y-3">
               {analysis.mision_valores && (
                 <div className="bg-gray-50 rounded-2xl p-4">
-                  <p className="text-sm font-bold text-gray-800 mb-1">{esEmpresa ? "🎯 Tu actividad" : "🎯 Tu propósito"}</p>
+                  <p className="text-sm font-bold text-gray-800 mb-1">{COPY_SIN_WEB.paso4Actividad[grupo]}</p>
                   <p className="text-sm text-gray-600 leading-relaxed">{analysis.mision_valores}</p>
                 </div>
               )}
