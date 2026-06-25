@@ -85,3 +85,45 @@ export const COPY_SIN_SUB: PorGrupo = {
   empresa: "Las empresas necesitan una suscripción activa para acceder al servicio.",
   particular: "Tu cuenta necesita una suscripción activa para acceder al servicio.",
 };
+
+/* ------------------------------- Ficha /perfil ------------------------------ */
+
+/**
+ * Etiquetas de cada campo/bloque de /perfil por grupo. La ficha de un
+ * particular habla de "ti y tu contenido", no de marca corporativa.
+ */
+export const PERFIL_LABELS: Record<string, PorGrupo> = {
+  // Bloques (títulos de sección)
+  bloqueMarca: { ong: "Datos de la marca", empresa: "Datos de la marca", particular: "Sobre ti y tu contenido" },
+  // Campos
+  mision:       { ong: "Misión y valores", empresa: "Misión y valores", particular: "Tu propósito" },
+  publico:      { ong: "Público objetivo", empresa: "Público objetivo", particular: "A quién te diriges" },
+  servicios:    { ong: "Servicios o programas", empresa: "Servicios", particular: "Servicios o programas" },
+  causas:       { ong: "Causas", empresa: "Productos", particular: "Causas o productos" },
+  temas:        { ong: "Temas prioritarios", empresa: "Temas prioritarios", particular: "Temas que te interesan" },
+  tipoPubli:    { ong: "Tipo de publicaciones", empresa: "Tipo de publicaciones", particular: "Tipo de posts que quieres crear" },
+  estiloVisual: { ong: "Estilo visual de marca", empresa: "Estilo visual de marca", particular: "Estilo visual de tus posts" },
+  geografia:    { ong: "Geografía / ámbito", empresa: "Geografía / ámbito", particular: "Desde dónde publicas" },
+  logros:       { ong: "Logros y números", empresa: "Logros y números", particular: "Logros y números" },
+  colores:      { ong: "Colores de marca (1-5)", empresa: "Colores de marca (1-5)", particular: "Tu paleta de color (1-5)" },
+  documento:    { ong: "CIF", empresa: "CIF / NIF", particular: "Documento (DNI / NIE / Pasaporte)" },
+};
+
+/** Campos del perfil que NO se muestran (ni se envían al prompt) a un particular. */
+const PERFIL_OCULTOS_PARTICULAR = new Set(["servicios", "causas", "logros"]);
+
+/** ¿Se muestra este campo de /perfil para el grupo dado? */
+export function mostrarCampoEnPerfil(campo: string, grupo: GrupoCuenta): boolean {
+  if (grupo === "particular" && PERFIL_OCULTOS_PARTICULAR.has(campo)) return false;
+  return true;
+}
+
+/** Etiqueta de un campo de /perfil para el grupo dado. */
+export function labelCampoPerfil(campo: string, grupo: GrupoCuenta): string {
+  return PERFIL_LABELS[campo]?.[grupo] ?? campo;
+}
+
+/** Título de un bloque de /perfil para el grupo dado. */
+export function tituloBloquePerfil(bloque: string, grupo: GrupoCuenta): string {
+  return PERFIL_LABELS[bloque]?.[grupo] ?? bloque;
+}

@@ -12,17 +12,13 @@ import InstallButton from "@/components/InstallButton";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
 import { CATEGORIA_LABEL, categoriasParaTipo } from "@/lib/categorias";
-import { grupoCuenta } from "@/lib/copys-por-tipo";
+import { grupoCuenta, labelCampoPerfil, tituloBloquePerfil, mostrarCampoEnPerfil } from "@/lib/copys-por-tipo";
 
-// Copys del bloque "Datos de la …" ramificados por tipo de cuenta.
+// Copys del bloque "Datos de la …" (cabecera) ramificados por tipo de cuenta.
 const COPY_DATOS: Record<string, { titulo: string; nombre: string; placeholder?: string }> = {
   ong: { titulo: "Datos de la entidad", nombre: "Nombre de la entidad" },
   empresa: { titulo: "Datos de la empresa", nombre: "Nombre de la empresa" },
   particular: { titulo: "Tus datos", nombre: "Tu nombre o marca personal", placeholder: "Ej: Sebastián Ferragut" },
-};
-// "Misión y valores" suena a ONG para un particular.
-const LABEL_MISION: Record<string, string> = {
-  ong: "Misión y valores", empresa: "Misión y valores", particular: "Propósito y valores",
 };
 
 export interface ProfileData {
@@ -212,7 +208,7 @@ export default function ProfileForm({
   const copyDatos = COPY_DATOS[grupo];
 
   const handleSave = async () => {
-    if (!form.nombre_entidad.trim()) { setToast({ message: "El nombre de la entidad es obligatorio.", type: "error" }); return; }
+    if (!form.nombre_entidad.trim()) { setToast({ message: "El nombre es obligatorio.", type: "error" }); return; }
     const colsInvalidos = form.colores_marca.some((c) => !HEX.test(c));
     if (colsInvalidos) { setToast({ message: "Algún color no es un hex válido (#RRGGBB).", type: "error" }); return; }
 
@@ -353,22 +349,27 @@ export default function ProfileForm({
           </section>
         )}
 
-        {/* Sección 2 — Datos de la marca */}
+        {/* Sección 2 — Datos de la marca / Sobre ti y tu contenido */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold text-gray-800">Datos de la marca</h2>
-          <AreaField label={LABEL_MISION[grupo]} value={form.mision_valores} onChange={(v) => set("mision_valores", v)} max={500} />
-          <AreaField label="Público objetivo" value={form.publico_objetivo} onChange={(v) => set("publico_objetivo", v)} max={300} />
-          <AreaField label="Servicios o programas" value={form.servicios_programas} onChange={(v) => set("servicios_programas", v)} max={300} />
-          <AreaField label="Causas o productos" value={form.causas_o_productos} onChange={(v) => set("causas_o_productos", v)} max={300} />
+          <h2 className="text-sm font-bold text-gray-800">{tituloBloquePerfil("bloqueMarca", grupo)}</h2>
+          <AreaField label={labelCampoPerfil("mision", grupo)} value={form.mision_valores} onChange={(v) => set("mision_valores", v)} max={500} />
+          <AreaField label={labelCampoPerfil("publico", grupo)} value={form.publico_objetivo} onChange={(v) => set("publico_objetivo", v)} max={300} />
+          {/* B2B: servicios/causas se ocultan a particulares (no se borra la data). */}
+          {mostrarCampoEnPerfil("servicios", grupo) && (
+            <AreaField label={labelCampoPerfil("servicios", grupo)} value={form.servicios_programas} onChange={(v) => set("servicios_programas", v)} max={300} />
+          )}
+          {mostrarCampoEnPerfil("causas", grupo) && (
+            <AreaField label={labelCampoPerfil("causas", grupo)} value={form.causas_o_productos} onChange={(v) => set("causas_o_productos", v)} max={300} />
+          )}
 
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Temas prioritarios</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{labelCampoPerfil("temas", grupo)}</label>
             <ChipsInput value={form.temas_prioritarios} onChange={(v) => set("temas_prioritarios", v)} placeholder="Añadir tema" />
           </div>
 
-          <TextField label="Tipo de publicaciones" value={form.tipo_publicaciones} onChange={(v) => set("tipo_publicaciones", v)} />
-          <TextField label="Estilo visual" value={form.estilo_visual} onChange={(v) => set("estilo_visual", v)} />
-          <TextField label="Geografía / ámbito" value={form.geografia} onChange={(v) => set("geografia", v)} />
+          <TextField label={labelCampoPerfil("tipoPubli", grupo)} value={form.tipo_publicaciones} onChange={(v) => set("tipo_publicaciones", v)} />
+          <TextField label={labelCampoPerfil("estiloVisual", grupo)} value={form.estilo_visual} onChange={(v) => set("estilo_visual", v)} />
+          <TextField label={labelCampoPerfil("geografia", grupo)} value={form.geografia} onChange={(v) => set("geografia", v)} />
 
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Idioma por defecto de tus publicaciones</label>
@@ -393,12 +394,15 @@ export default function ProfileForm({
             <ChipsInput value={form.hashtags_sugeridos} onChange={(v) => set("hashtags_sugeridos", v)} placeholder="#hashtag" />
           </div>
 
-          <AreaField label="Logros y números" value={form.logros_numeros} onChange={(v) => set("logros_numeros", v)} max={300} />
+          {/* B2B: logros/números se ocultan a particulares (no se borra la data). */}
+          {mostrarCampoEnPerfil("logros", grupo) && (
+            <AreaField label={labelCampoPerfil("logros", grupo)} value={form.logros_numeros} onChange={(v) => set("logros_numeros", v)} max={300} />
+          )}
           <AreaField label="Información extra" value={form.info_extra} onChange={(v) => set("info_extra", v)} max={500} />
 
-          {/* Colores de marca */}
+          {/* Paleta de color */}
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Colores de marca (1-5)</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{labelCampoPerfil("colores", grupo)}</label>
             <div className="space-y-2">
               {form.colores_marca.map((c, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -509,7 +513,7 @@ export default function ProfileForm({
             <p className="text-[11px] text-gray-400 mt-1">Si necesitas cambiar el tipo de cuenta, contacta con soporte.</p>
           </div>
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">NIF / CIF</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{labelCampoPerfil("documento", grupo)}</p>
             <p className="text-sm font-semibold text-gray-800 font-mono">{initial.nif || "—"}</p>
             <p className="text-[11px] text-gray-400 mt-1">Si tu NIF es incorrecto, contacta con soporte.</p>
           </div>

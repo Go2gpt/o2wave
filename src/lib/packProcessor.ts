@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { composeImage } from "@/lib/composeImage";
 import { generarImagenIA } from "@/lib/imageGen";
 import { quitarHashtags } from "@/lib/formatText";
+import { grupoCuenta } from "@/lib/copys-por-tipo";
 import type { PackDia, PackFuente, GuionTikTok } from "@/types";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -82,14 +83,16 @@ function enteDe(p: PerfilPack): string {
 
 function contextoDe(p: PerfilPack): string {
   const temas = Array.isArray(p.temas_prioritarios) ? p.temas_prioritarios.join(", ") : "";
+  // Particular: omitir campos B2B (servicios/causas/logros) aunque tengan valor en BBDD.
+  const esParticular = grupoCuenta(p.tipo_entidad) === "particular";
   return [
     p.sector && `Sector: ${p.sector}`,
     p.mision_valores && `Misión y valores: ${p.mision_valores}`,
     p.publico_objetivo && `Público objetivo: ${p.publico_objetivo}`,
-    p.servicios_programas && `Servicios/programas: ${p.servicios_programas}`,
-    p.causas_o_productos && `Causas/productos: ${p.causas_o_productos}`,
+    !esParticular && p.servicios_programas && `Servicios/programas: ${p.servicios_programas}`,
+    !esParticular && p.causas_o_productos && `Causas/productos: ${p.causas_o_productos}`,
     temas && `Temas prioritarios: ${temas}`,
-    p.logros_numeros && `Logros/números: ${p.logros_numeros}`,
+    !esParticular && p.logros_numeros && `Logros/números: ${p.logros_numeros}`,
   ].filter(Boolean).join("\n");
 }
 
