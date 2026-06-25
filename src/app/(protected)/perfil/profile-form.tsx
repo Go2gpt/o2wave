@@ -12,6 +12,18 @@ import InstallButton from "@/components/InstallButton";
 import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
 import { CATEGORIA_LABEL, categoriasParaTipo } from "@/lib/categorias";
+import { grupoCuenta } from "@/lib/copys-por-tipo";
+
+// Copys del bloque "Datos de la …" ramificados por tipo de cuenta.
+const COPY_DATOS: Record<string, { titulo: string; nombre: string; placeholder?: string }> = {
+  ong: { titulo: "Datos de la entidad", nombre: "Nombre de la entidad" },
+  empresa: { titulo: "Datos de la empresa", nombre: "Nombre de la empresa" },
+  particular: { titulo: "Tus datos", nombre: "Tu nombre o marca personal", placeholder: "Ej: Sebastián Ferragut" },
+};
+// "Misión y valores" suena a ONG para un particular.
+const LABEL_MISION: Record<string, string> = {
+  ong: "Misión y valores", empresa: "Misión y valores", particular: "Propósito y valores",
+};
 
 export interface ProfileData {
   id: string;
@@ -78,7 +90,7 @@ interface Editable {
 }
 
 const TIPO_LABEL: Record<string, string> = {
-  ong_pequena: "ONG pequeña", ong_mediana: "ONG mediana", empresa: "Empresa",
+  ong_pequena: "ONG pequeña", ong_mediana: "ONG mediana", empresa: "Empresa", particular: "Particular",
 };
 const IDIOMAS = [{ v: "es", l: "Español" }, { v: "ca", l: "Català" }, { v: "en", l: "English" }];
 const GENEROS = [
@@ -96,13 +108,13 @@ const onF = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSe
 const onB = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => (e.target.style.borderColor = "#f3f4f6");
 
 // Definidos a nivel de módulo para no perder el foco de los inputs en cada render.
-function TextField({ label, value, onChange, max, hint }: {
-  label: string; value: string; onChange: (v: string) => void; max?: number; hint?: string;
+function TextField({ label, value, onChange, max, hint, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; max?: number; hint?: string; placeholder?: string;
 }) {
   return (
     <div>
       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">{label}</label>
-      <input value={value} maxLength={max} onChange={(e) => onChange(e.target.value)} className={`${inputCls} truncate`} onFocus={onF} onBlur={onB} />
+      <input value={value} maxLength={max} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={`${inputCls} truncate`} onFocus={onF} onBlur={onB} />
       {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
     </div>
   );
@@ -196,7 +208,8 @@ export default function ProfileForm({
     mostrarEspana !== mostrarDiasEspana ||
     packDirty;
 
-  const esEmpresa = initial.tipo_entidad === "empresa";
+  const grupo = grupoCuenta(initial.tipo_entidad);
+  const copyDatos = COPY_DATOS[grupo];
 
   const handleSave = async () => {
     if (!form.nombre_entidad.trim()) { setToast({ message: "El nombre de la entidad es obligatorio.", type: "error" }); return; }
@@ -294,10 +307,10 @@ export default function ProfileForm({
       </div>
 
       <div className="px-5 space-y-6">
-        {/* Sección 1 — Datos de la entidad / empresa */}
+        {/* Sección 1 — Datos de la entidad / empresa / particular */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold text-gray-800">{esEmpresa ? "Datos de la empresa" : "Datos de la entidad"}</h2>
-          <TextField label={esEmpresa ? "Nombre de la empresa" : "Nombre de la entidad"} value={form.nombre_entidad} onChange={(v) => set("nombre_entidad", v)} max={100} />
+          <h2 className="text-sm font-bold text-gray-800">{copyDatos.titulo}</h2>
+          <TextField label={copyDatos.nombre} placeholder={copyDatos.placeholder} value={form.nombre_entidad} onChange={(v) => set("nombre_entidad", v)} max={100} />
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Email</label>
             <input value={initial.email} disabled className={`${inputCls} bg-gray-50 text-gray-400 cursor-not-allowed`} />
@@ -343,7 +356,7 @@ export default function ProfileForm({
         {/* Sección 2 — Datos de la marca */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
           <h2 className="text-sm font-bold text-gray-800">Datos de la marca</h2>
-          <AreaField label="Misión y valores" value={form.mision_valores} onChange={(v) => set("mision_valores", v)} max={500} />
+          <AreaField label={LABEL_MISION[grupo]} value={form.mision_valores} onChange={(v) => set("mision_valores", v)} max={500} />
           <AreaField label="Público objetivo" value={form.publico_objetivo} onChange={(v) => set("publico_objetivo", v)} max={300} />
           <AreaField label="Servicios o programas" value={form.servicios_programas} onChange={(v) => set("servicios_programas", v)} max={300} />
           <AreaField label="Causas o productos" value={form.causas_o_productos} onChange={(v) => set("causas_o_productos", v)} max={300} />
@@ -500,7 +513,7 @@ export default function ProfileForm({
             <p className="text-sm font-semibold text-gray-800 font-mono">{initial.nif || "—"}</p>
             <p className="text-[11px] text-gray-400 mt-1">Si tu NIF es incorrecto, contacta con soporte.</p>
           </div>
-          {!esEmpresa && (
+          {grupo === "ong" && (
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Verificación</p>
               <span className="inline-block text-xs font-bold px-3 py-1 rounded-full"
