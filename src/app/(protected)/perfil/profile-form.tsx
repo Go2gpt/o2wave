@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase";
 import { normalizarMarca } from "@/lib/formatText";
 import { CATEGORIA_LABEL, categoriasParaTipo } from "@/lib/categorias";
 import { grupoCuenta, labelCampoPerfil, tituloBloquePerfil, mostrarCampoEnPerfil } from "@/lib/copys-por-tipo";
+import type { ProyectoPropio, Colaboracion, TipoRelacion } from "@/types";
 
 // Copys del bloque "Datos de la …" (cabecera) ramificados por tipo de cuenta.
 const COPY_DATOS: Record<string, { titulo: string; nombre: string; placeholder?: string }> = {
@@ -44,6 +45,10 @@ export interface ProfileData {
   pack_semanal_activo: boolean | null;
   pack_dias_semana: number | null;
   redes_activas: string[] | null;
+  proyectos_propios: ProyectoPropio[] | null;
+  colaboraciones: Colaboracion[] | null;
+  novedad_semanal_texto: string | null;
+  novedad_semanal_activa: boolean | null;
   es_admin: boolean | null;
   stripe_customer_id: string | null;
   plan_actual: string | null;
@@ -83,7 +88,18 @@ interface Editable {
   logros_numeros: string;
   info_extra: string;
   colores_marca: string[];
+  proyectos_propios: ProyectoPropio[];
+  colaboraciones: Colaboracion[];
+  novedad_semanal_texto: string;
+  novedad_semanal_activa: boolean;
 }
+
+/** Entradas vacías para los repeaters. */
+const PROYECTO_VACIO: ProyectoPropio = { nombre: "", cifra_clave: "", resumen_visual: "", framing_correcto: "", matiz: "" };
+const COLAB_VACIA: Colaboracion = {
+  entidad: "", url: "", proyecto: "", pais: "", framing_correcto: "", framing_prohibido: "",
+  cifra_clave: "", descripcion_imagen_base: "", tipo_relacion: "colaboracion", recurrente: false,
+};
 
 const TIPO_LABEL: Record<string, string> = {
   ong_pequena: "ONG pequeña", ong_mediana: "ONG mediana", empresa: "Empresa", particular: "Particular",
@@ -130,6 +146,92 @@ function AreaField({ label, value, onChange, max }: {
   );
 }
 
+// Campo compacto para las tarjetas de los repeaters.
+function RField({ label, value, onChange, area, placeholder, max }: {
+  label: string; value: string; onChange: (v: string) => void; area?: boolean; placeholder?: string; max?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</label>
+      {area
+        ? <textarea value={value} maxLength={max} rows={2} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={`${inputCls} resize-none`} onFocus={onF} onBlur={onB} />
+        : <input value={value} maxLength={max} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={inputCls} onFocus={onF} onBlur={onB} />}
+    </div>
+  );
+}
+
+// Cabecera de tarjeta con reordenar (↑/↓) y eliminar.
+function CardControles({ i, n, onUp, onDown, onDel }: {
+  i: number; n: number; onUp: () => void; onDown: () => void; onDel: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs font-bold text-gray-500">#{i + 1}</span>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={onUp} disabled={i === 0} aria-label="Subir"
+          className="px-2 py-1 text-sm rounded-lg border border-gray-200 disabled:opacity-30">↑</button>
+        <button type="button" onClick={onDown} disabled={i === n - 1} aria-label="Bajar"
+          className="px-2 py-1 text-sm rounded-lg border border-gray-200 disabled:opacity-30">↓</button>
+        <button type="button" onClick={onDel} className="px-2 py-1 text-xs font-semibold rounded-lg border border-gray-200 text-red-500">Eliminar</button>
+      </div>
+    </div>
+  );
+}
+
+function ProyectosRepeater({ items, onChange }: { items: ProyectoPropio[]; onChange: (v: ProyectoPropio[]) => void }) {
+  const upd = (i: number, patch: Partial<ProyectoPropio>) => onChange(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const move = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= items.length) return; const c = [...items]; [c[i], c[j]] = [c[j], c[i]]; onChange(c); };
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div key={i} className="rounded-xl border-2 border-gray-100 p-3 space-y-2">
+          <CardControles i={i} n={items.length} onUp={() => move(i, -1)} onDown={() => move(i, 1)} onDel={() => onChange(items.filter((_, j) => j !== i))} />
+          <RField label="Nombre" value={it.nombre} onChange={(v) => upd(i, { nombre: v })} placeholder="Ej: Reciclaje de papel Hospital Sagrat Cor" />
+          <RField label="Cifra clave (opcional)" value={it.cifra_clave || ""} onChange={(v) => upd(i, { cifra_clave: v })} placeholder="Ej: 324 toneladas CO₂/año" />
+          <RField label="Resumen visual" value={it.resumen_visual} onChange={(v) => upd(i, { resumen_visual: v })} area placeholder="Qué se ve en una foto de este proyecto" />
+          <RField label="Framing correcto" value={it.framing_correcto} onChange={(v) => upd(i, { framing_correcto: v })} area placeholder="Cómo debe hablar la IA de este proyecto" />
+          <RField label="Matiz (opcional)" value={it.matiz || ""} onChange={(v) => upd(i, { matiz: v })} area placeholder="Advertencias: qué NUNCA decir (ej. no decir 'nuestro edificio')" />
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...items, { ...PROYECTO_VACIO }])} className="text-xs font-semibold" style={{ color: "#f9b23b" }}>+ Añadir proyecto propio</button>
+    </div>
+  );
+}
+
+function ColaboracionesRepeater({ items, onChange }: { items: Colaboracion[]; onChange: (v: Colaboracion[]) => void }) {
+  const upd = (i: number, patch: Partial<Colaboracion>) => onChange(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const move = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= items.length) return; const c = [...items]; [c[i], c[j]] = [c[j], c[i]]; onChange(c); };
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div key={i} className="rounded-xl border-2 border-gray-100 p-3 space-y-2">
+          <CardControles i={i} n={items.length} onUp={() => move(i, -1)} onDown={() => move(i, 1)} onDel={() => onChange(items.filter((_, j) => j !== i))} />
+          <RField label="Entidad" value={it.entidad} onChange={(v) => upd(i, { entidad: v })} placeholder="Ej: AMIC" />
+          <RField label="URL (opcional)" value={it.url || ""} onChange={(v) => upd(i, { url: v })} placeholder="https://…" />
+          <RField label="Proyecto" value={it.proyecto} onChange={(v) => upd(i, { proyecto: v })} placeholder="Ej: Apadrinamiento en Guinea-Bissau" />
+          <RField label="País" value={it.pais} onChange={(v) => upd(i, { pais: v })} placeholder="Ej: Guinea-Bissau" />
+          <RField label="Framing correcto" value={it.framing_correcto} onChange={(v) => upd(i, { framing_correcto: v })} area placeholder="Da crédito a la entidad original, tercera persona" />
+          <RField label="Framing prohibido" value={it.framing_prohibido} onChange={(v) => upd(i, { framing_prohibido: v })} area placeholder="Frases a evitar, separadas por |" />
+          <RField label="Cifra clave (opcional)" value={it.cifra_clave || ""} onChange={(v) => upd(i, { cifra_clave: v })} placeholder="Ej: 20 €/mes por niño" />
+          <RField label="Descripción imagen base (inglés)" value={it.descripcion_imagen_base} onChange={(v) => upd(i, { descripcion_imagen_base: v })} area placeholder="Escena visual base para las imágenes de esta colaboración" />
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tipo de relación</label>
+            <select value={it.tipo_relacion} onChange={(e) => upd(i, { tipo_relacion: e.target.value as TipoRelacion })} className={inputCls} onFocus={onF} onBlur={onB}>
+              <option value="colaboracion">Colaboración</option>
+              <option value="apoyo_puntual">Apoyo puntual</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={it.recurrente} onChange={(e) => upd(i, { recurrente: e.target.checked })} className="w-4 h-4" style={{ accentColor: "#f9b23b" }} />
+            <span className="text-sm text-gray-700">Recurrente (prioritaria en el pack semanal)</span>
+          </label>
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...items, { ...COLAB_VACIA }])} className="text-xs font-semibold" style={{ color: "#f9b23b" }}>+ Añadir colaboración</button>
+    </div>
+  );
+}
+
 export default function ProfileForm({
   initial, categoriasIniciales, mostrarDiasEspana,
 }: {
@@ -156,6 +258,10 @@ export default function ProfileForm({
     logros_numeros: initial.logros_numeros || "",
     info_extra: initial.info_extra || "",
     colores_marca: (initial as ProfileData & { colores_marca?: string[] }).colores_marca || [],
+    proyectos_propios: Array.isArray(initial.proyectos_propios) ? initial.proyectos_propios : [],
+    colaboraciones: Array.isArray(initial.colaboraciones) ? initial.colaboraciones : [],
+    novedad_semanal_texto: initial.novedad_semanal_texto || "",
+    novedad_semanal_activa: initial.novedad_semanal_activa ?? false,
   };
 
   const [form, setForm] = useState<Editable>(initEditable);
@@ -239,6 +345,19 @@ export default function ProfileForm({
 
     // genero: best-effort aparte (no rompe el guardado si la columna no existe aún).
     await supabase.from("profiles").update({ genero: form.genero || null }).eq("id", initial.id).then(() => {}, () => {});
+
+    // Proyectos/colaboraciones/novedad: best-effort aparte (columnas de la
+    // migración v2.4; si aún no se aplicó, no rompe el guardado del resto).
+    await supabase.from("profiles").update({
+      proyectos_propios: form.proyectos_propios
+        .filter((x) => x.nombre.trim())
+        .map((x) => ({ ...x, cifra_clave: x.cifra_clave?.trim() || null, matiz: x.matiz?.trim() || null })),
+      colaboraciones: form.colaboraciones
+        .filter((x) => x.entidad.trim())
+        .map((x) => ({ ...x, url: x.url?.trim() || null, cifra_clave: x.cifra_clave?.trim() || null })),
+      novedad_semanal_texto: form.novedad_semanal_texto.trim() || null,
+      novedad_semanal_activa: form.novedad_semanal_activa,
+    }).eq("id", initial.id).then(() => {}, () => {});
 
     // Categorías de interés: reemplazar el conjunto (borrar + insertar).
     if (catsDirty) {
@@ -356,7 +475,12 @@ export default function ProfileForm({
           <AreaField label={labelCampoPerfil("publico", grupo)} value={form.publico_objetivo} onChange={(v) => set("publico_objetivo", v)} max={300} />
           {/* B2B: servicios/causas se ocultan a particulares (no se borra la data). */}
           {mostrarCampoEnPerfil("servicios", grupo) && (
-            <AreaField label={labelCampoPerfil("servicios", grupo)} value={form.servicios_programas} onChange={(v) => set("servicios_programas", v)} max={300} />
+            <div>
+              <AreaField label={`${labelCampoPerfil("servicios", grupo)} (obsoleto)`} value={form.servicios_programas} onChange={(v) => set("servicios_programas", v)} max={300} />
+              <p className="text-[11px] mt-1" style={{ color: "#b9791a" }}>
+                Este campo se eliminará en próximas versiones. Migra tu contenido a las secciones «Proyectos propios» y «Colaboraciones» de abajo.
+              </p>
+            </div>
           )}
           {mostrarCampoEnPerfil("causas", grupo) && (
             <AreaField label={labelCampoPerfil("causas", grupo)} value={form.causas_o_productos} onChange={(v) => set("causas_o_productos", v)} max={300} />
@@ -422,6 +546,29 @@ export default function ProfileForm({
             )}
           </div>
         </section>
+
+        {/* Proyectos propios + Colaboraciones (ONG/empresa; no aplica a particular) */}
+        {grupo !== "particular" && (
+          <>
+            <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+              <div>
+                <h2 className="text-sm font-bold text-gray-800">Proyectos propios de tu entidad</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Lo que ejecuta tu entidad. La IA los presenta en primera persona («nuestro proyecto…»).</p>
+              </div>
+              <ProyectosRepeater items={form.proyectos_propios} onChange={(v) => set("proyectos_propios", v)} />
+            </section>
+
+            <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+              <div>
+                <h2 className="text-sm font-bold text-gray-800">Colaboraciones con otras entidades</h2>
+                <p className="text-xs mt-0.5" style={{ color: "#b9791a" }}>
+                  Aquí van proyectos ajenos donde tu entidad apoya sin ejecutar. La IA los tratará en tercera persona con crédito a la entidad original.
+                </p>
+              </div>
+              <ColaboracionesRepeater items={form.colaboraciones} onChange={(v) => set("colaboraciones", v)} />
+            </section>
+          </>
+        )}
 
         {/* Sección — Mis categorías de interés */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
@@ -496,6 +643,28 @@ export default function ProfileForm({
                   })}
                 </div>
               </div>
+
+              {/* Novedad de la semana: si está activa, el pack incluye 1 proyecto propio. */}
+              <div className="pt-1 border-t border-gray-100">
+                <button type="button" onClick={() => set("novedad_semanal_activa", !form.novedad_semanal_activa)}
+                  className="w-full flex items-center justify-between">
+                  <div className="text-left pr-3">
+                    <p className="text-sm font-semibold text-gray-700">¿Tienes una novedad esta semana?</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Si la activas, el pack incluirá 1 post de un proyecto propio con este hito. Si no, no se publican proyectos propios.</p>
+                  </div>
+                  <div className="w-11 h-6 rounded-full relative transition-all flex-shrink-0"
+                    style={{ backgroundColor: form.novedad_semanal_activa ? "#f9b23b" : "#e5e7eb" }}>
+                    <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow transition-all"
+                      style={{ left: form.novedad_semanal_activa ? "calc(100% - 22px)" : "2px" }} />
+                  </div>
+                </button>
+                {form.novedad_semanal_activa && (
+                  <textarea value={form.novedad_semanal_texto} maxLength={200} rows={2}
+                    onChange={(e) => set("novedad_semanal_texto", e.target.value)}
+                    placeholder="Ej: Piel Mariposa acaba de recaudar 3.000 € en su último desfile"
+                    className={`${inputCls} resize-none mt-2`} onFocus={onF} onBlur={onB} />
+                )}
+              </div>
             </>
           )}
 
@@ -515,7 +684,7 @@ export default function ProfileForm({
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{labelCampoPerfil("documento", grupo)}</p>
             <p className="text-sm font-semibold text-gray-800 font-mono">{initial.nif || "—"}</p>
-            <p className="text-[11px] text-gray-400 mt-1">Si tu NIF es incorrecto, contacta con soporte.</p>
+            <p className="text-[11px] text-gray-400 mt-1">Si tu documento es incorrecto, contacta con soporte.</p>
           </div>
           {grupo === "ong" && (
             <div>

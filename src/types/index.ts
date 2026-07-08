@@ -36,6 +36,28 @@ export interface Profile {
   posts_gratis_usados?: number | null;
 }
 
+// --- Proyectos propios vs colaboraciones (v2.4) ---
+export interface ProyectoPropio {
+  nombre: string;
+  cifra_clave: string | null;
+  resumen_visual: string;
+  framing_correcto: string;
+  matiz: string | null;
+}
+export type TipoRelacion = "colaboracion" | "apoyo_puntual";
+export interface Colaboracion {
+  entidad: string;
+  url: string | null;
+  proyecto: string;
+  pais: string;
+  framing_correcto: string;
+  framing_prohibido: string;
+  cifra_clave: string | null;
+  descripcion_imagen_base: string;
+  tipo_relacion: TipoRelacion;
+  recurrente: boolean;
+}
+
 export interface BrandIdentity {
   id: string;
   user_id: string;
