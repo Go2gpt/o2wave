@@ -50,6 +50,12 @@ export default async function AdminPage() {
             title="Gestión de cuentas"
             description="Todas las cuentas: buscar, suspender, eliminar y verificar."
           />
+          <AdminCard
+            href="/admin/autopost"
+            icon="📣"
+            title="Auto-publicación (Fase 1a)"
+            description="Cuentas internas Generación o2: conectar redes, revisar y programar posts."
+          />
         </div>
       </div>
     </main>
