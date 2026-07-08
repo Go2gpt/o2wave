@@ -4,7 +4,7 @@ import { composeImage } from "@/lib/composeImage";
 import { generarImagenIA } from "@/lib/imageGen";
 import { quitarHashtags } from "@/lib/formatText";
 import { grupoCuenta } from "@/lib/copys-por-tipo";
-import type { PackDia, PackFuente, GuionTikTok } from "@/types";
+import type { PackDia, PackFuente, GuionTikTok, ProyectoPropio, Colaboracion } from "@/types";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-4-6";
@@ -75,6 +75,10 @@ interface PerfilPack {
   sector: string | null;
   idioma_principal: string | null;
   genero: string | null;
+  proyectos_propios: ProyectoPropio[] | null;
+  colaboraciones: Colaboracion[] | null;
+  novedad_semanal_texto: string | null;
+  novedad_semanal_activa: boolean | null;
 }
 
 /** "empresa" u "organización" según el tipo, para textos de los prompts. */
@@ -86,15 +90,40 @@ function contextoDe(p: PerfilPack): string {
   const temas = Array.isArray(p.temas_prioritarios) ? p.temas_prioritarios.join(", ") : "";
   // Particular: omitir campos B2B (servicios/causas/logros) aunque tengan valor en BBDD.
   const esParticular = grupoCuenta(p.tipo_entidad) === "particular";
+  const proyectos = Array.isArray(p.proyectos_propios) ? p.proyectos_propios : [];
+  const colabs = Array.isArray(p.colaboraciones) ? p.colaboraciones : [];
+  // Si ya hay modelo estructurado (v2.4), no volcamos el textarea libre
+  // servicios/causas (deprecated): evita que la IA se atribuya lo que no ejecuta.
+  const tieneEstructura = proyectos.length > 0 || colabs.length > 0;
   return [
     p.sector && `Sector: ${p.sector}`,
     p.mision_valores && `Misión y valores: ${p.mision_valores}`,
     p.publico_objetivo && `Público objetivo: ${p.publico_objetivo}`,
-    !esParticular && p.servicios_programas && `Servicios/programas: ${p.servicios_programas}`,
-    !esParticular && p.causas_o_productos && `Causas/productos: ${p.causas_o_productos}`,
+    (!esParticular && !tieneEstructura) && p.servicios_programas && `Servicios/programas: ${p.servicios_programas}`,
+    (!esParticular && !tieneEstructura) && p.causas_o_productos && `Causas/productos: ${p.causas_o_productos}`,
     temas && `Temas prioritarios: ${temas}`,
     !esParticular && p.logros_numeros && `Logros/números: ${p.logros_numeros}`,
+    proyectos.length > 0 && `Proyectos propios (solo como REFERENCIA de contexto; NO te los atribuyas salvo que el post trate explícitamente de uno): ${proyectos.map((x) => x.nombre).join(", ")}`,
   ].filter(Boolean).join("\n");
+}
+
+/* --- Fuentes de actualidad por categoría (inspiración temática, NO citar) --- */
+const FUENTES_GRUPOS: { claves: string[]; fuentes: string }[] = [
+  { claves: ["infancia", "niñ", "menor"], fuentes: "UNICEF, Save the Children, Aldeas Infantiles, Fundación ANAR" },
+  { claves: ["mayor", "depend", "anciano", "tercera edad"], fuentes: "Fundación Amigos de los Mayores, IMSERSO, Fundación Grandes Amigos" },
+  { claves: ["lgbt", "divers", "trans", "género", "orgullo", "sexual"], fuentes: "ILGA-Europe, FELGTBI+, Observatorio contra la LGTBIfobia, Fundación Triángulo" },
+  { claves: ["sosten", "medio ambiente", "clima", "recicl", "co2", "co₂", "ecolog", "residuo"], fuentes: "Ecoembes, WWF España, Greenpeace, Ministerio para la Transición Ecológica, IPCC" },
+  { claves: ["refug", "derechos humanos", "asilo", "migra"], fuentes: "ACNUR, Amnistía Internacional, CEAR" },
+  { claves: ["mujer", "igualdad", "violencia de género"], fuentes: "ONU Mujeres, Instituto de la Mujer, Delegación del Gobierno contra la Violencia de Género" },
+  { claves: ["salud", "sanit", "médic", "hospital"], fuentes: "Redacción Médica, El Médico Interactivo, Consalud" },
+  { claves: ["voluntariado", "tercer sector", "catalu", "cataluña"], fuentes: "Plataforma del Voluntariado, Taula del Tercer Sector Social de Catalunya, La Confederación" },
+];
+
+/** Devuelve las fuentes de referencia relevantes al perfil (o un set genérico). */
+function fuentesPara(p: PerfilPack, cats: string[]): string {
+  const heno = `${(p.temas_prioritarios || []).join(" ")} ${p.sector || ""} ${p.causas_o_productos || ""} ${p.mision_valores || ""} ${cats.join(" ")}`.toLowerCase();
+  const sel = FUENTES_GRUPOS.filter((g) => g.claves.some((k) => heno.includes(k))).map((g) => g.fuentes);
+  return sel.length ? Array.from(new Set(sel)).join("; ") : "UNICEF, WWF España, ACNUR, ONU Mujeres, Plataforma del Voluntariado";
 }
 
 /** Temas sugeridos por IA basados en la actividad real (no efemérides genéricas). */
@@ -185,16 +214,16 @@ Return ONLY the description, one paragraph, no quotes, no preamble.`;
   }
 }
 
+interface OpcionesTexto { instruccion?: string; imgCtx?: { pais?: string | null; base?: string | null }; }
+
 /** Genera titular + texto + hashtags (Instagram/Facebook) y, aparte, la descripción visual. */
-async function generarTextoRed(
-  p: PerfilPack, tema: string, red: string, imgCtx?: { pais?: string | null; base?: string | null },
-): Promise<TextoRed> {
+async function generarTextoRed(p: PerfilPack, tema: string, red: string, opts: OpcionesTexto = {}): Promise<TextoRed> {
   try {
     const limite = red === "Instagram" ? "máximo 150 palabras" : "máximo 200 palabras";
     const prompt = `Genera un post para ${red} de "${p.nombre_entidad || `la ${enteDe(p)}`}" (${p.tipo_entidad || "ong"}).
 Tema: ${tema}
 ${contextoDe(p)}
-
+${opts.instruccion ? `\nINSTRUCCIÓN DE ESTE POST:\n${opts.instruccion}\n` : ""}
 Responde SOLO con JSON válido:
 {
   "titular": "6-8 palabras impactantes para superponer sobre la imagen",
@@ -214,7 +243,7 @@ ${reglaIdioma(p.idioma_principal)}`;
     const hashtags = (Array.isArray(o.hashtags) ? o.hashtags : []).filter((h): h is string => typeof h === "string").map((h) => h.startsWith("#") ? h : `#${h}`);
     // Descripción de imagen: paso propio con contexto completo (escena, no eslogan).
     const prompt_imagen = await generarDescripcionImagen(p, {
-      titular, texto, hashtags, tema, pais: imgCtx?.pais, base: imgCtx?.base,
+      titular, texto, hashtags, tema, pais: opts.imgCtx?.pais, base: opts.imgCtx?.base,
     });
     return { titular, texto, hashtags, prompt_imagen };
   } catch {
@@ -223,12 +252,12 @@ ${reglaIdioma(p.idioma_principal)}`;
 }
 
 /** Genera guion estructurado de TikTok. */
-async function generarGuionTikTok(p: PerfilPack, tema: string): Promise<{ guion: GuionTikTok | null; texto: string; titular: string; hashtags: string[] }> {
+async function generarGuionTikTok(p: PerfilPack, tema: string, instruccion?: string): Promise<{ guion: GuionTikTok | null; texto: string; titular: string; hashtags: string[] }> {
   try {
     const prompt = `Crea un guion de TikTok (30s, tono cercano) para "${p.nombre_entidad || `la ${enteDe(p)}`}".
 Tema: ${tema}
 ${contextoDe(p)}
-
+${instruccion ? `\nINSTRUCCIÓN DE ESTE POST:\n${instruccion}\n` : ""}
 Responde SOLO con JSON válido:
 {"titular":"6-10 palabras","guion":[{"tiempo":"0-3s","voz":"...","accion":"..."}],"planos":[{"numero":1,"descripcion":"plano práctico con smartphone"}],"hashtags":["#fyp","#parati"],"audio_sugerido":"tipo de audio genérico, no una canción concreta"}
 Usa 3-4 segmentos. 10-12 hashtags.
@@ -386,10 +415,9 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   const userId = job.user_id as string;
   const fechaInicio = job.fecha_inicio as string; // 'YYYY-MM-DD' (lunes)
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("nombre_entidad, tipo_entidad, mision_valores, publico_objetivo, servicios_programas, causas_o_productos, temas_prioritarios, logros_numeros, info_extra, sector, idioma_principal, genero, pack_dias_semana, redes_activas, mostrar_dias_espana")
-    .eq("id", userId).single();
+  // select("*"): incluye columnas nuevas (proyectos/colaboraciones/novedad) sin
+  // romper si la migración v2.4 aún no se aplicó.
+  const { data: profile } = await admin.from("profiles").select("*").eq("id", userId).single();
   if (!profile) throw new Error("perfil no encontrado");
 
   const N = Math.min(7, Math.max(1, profile.pack_dias_semana ?? 5));
@@ -418,24 +446,86 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
     diasClave = dc || [];
   }
 
-  // Asignar fuente y tema a cada día.
-  type Plan = { fecha: string; nombre_dia: string; tema: string; fuente: PackFuente };
-  const planes: Plan[] = [];
-  const indicesIA: number[] = [];
+  // ---- Mix semanal (v2.4): 1-2 días mundiales + 1-2 conversación + 1-2
+  //      actualidad + 1 colaboración recurrente + 0 propios (salvo novedad). ----
+  type TipoContenido = "dia_mundial" | "conversacion" | "actualidad" | "colaboracion" | "propio";
+  type Plan = { fecha: string; nombre_dia: string; tema: string; fuente: PackFuente; tipo_contenido: TipoContenido; instruccion?: string; imgPais?: string | null; imgBase?: string | null };
+
+  const proyectos = Array.isArray(perfil.proyectos_propios) ? perfil.proyectos_propios : [];
+  const colabs = Array.isArray(perfil.colaboraciones) ? perfil.colaboraciones : [];
+  const colabsRec = colabs.filter((c) => c.recurrente);
+  const novedadTxt = (perfil.novedad_semanal_texto || "").trim();
+  const novedadActiva = !!perfil.novedad_semanal_activa && !!novedadTxt && proyectos.length > 0;
+  const fuentes = fuentesPara(perfil, catList);
+
+  const planes: (Plan | undefined)[] = new Array(N);
+
+  // 1) Slots de calendario (fecha_usuario / día clave), máximo 2 (variedad).
+  let diasMundiales = 0;
   dias.forEach((d, idx) => {
+    if (diasMundiales >= 2) return;
     const fu = fechas.find((f) => f.mes === d.mes && f.dia === d.dia && (f.recurrente !== false || f.ano_especifico === d.ano));
-    if (fu) { planes.push({ fecha: d.fecha, nombre_dia: d.nombre_dia, tema: fu.nombre, fuente: "fecha_usuario" }); return; }
-    const dc = diasClave.find((c) => c.mes === d.mes && c.dia === d.dia);
-    if (dc) { planes.push({ fecha: d.fecha, nombre_dia: d.nombre_dia, tema: dc.nombre, fuente: "dia_clave" }); return; }
-    planes.push({ fecha: d.fecha, nombre_dia: d.nombre_dia, tema: "", fuente: "ia_sugerencia" });
-    indicesIA.push(idx);
+    const dc = fu ? null : diasClave.find((c) => c.mes === d.mes && c.dia === d.dia);
+    if (fu || dc) {
+      planes[idx] = { fecha: d.fecha, nombre_dia: d.nombre_dia, tema: (fu?.nombre || dc?.nombre) as string, fuente: fu ? "fecha_usuario" : "dia_clave", tipo_contenido: "dia_mundial" };
+      diasMundiales++;
+    }
   });
 
-  // Rellenar huecos con temas IA basados en la actividad.
-  if (indicesIA.length) {
-    const temas = await temasIA(perfil, indicesIA.length);
-    indicesIA.forEach((idx, k) => { planes[idx].tema = temas[k] || `Comparte una historia de tu ${enteDe(perfil)}`; });
+  // 2) Cola de tipos para los huecos, por prioridad.
+  const libres: number[] = [];
+  for (let i = 0; i < N; i++) if (!planes[i]) libres.push(i);
+
+  const temasBase = (perfil.temas_prioritarios && perfil.temas_prioritarios.length) ? perfil.temas_prioritarios : [`la causa de tu ${enteDe(perfil)}`];
+  const rot = (k: number) => temasBase[k % temasBase.length];
+  const nuevo = (patch: Partial<Plan>): Plan => ({ fecha: "", nombre_dia: "", tema: "", fuente: "ia_sugerencia", tipo_contenido: "conversacion", ...patch });
+
+  const cola: Plan[] = [];
+
+  // 2a) Proyecto propio SOLO si hay novedad de la semana.
+  if (novedadActiva) {
+    const proy = proyectos.find((x) => novedadTxt.toLowerCase().includes((x.nombre || "").toLowerCase().slice(0, 12))) || proyectos[0];
+    cola.push(nuevo({
+      tipo_contenido: "propio", tema: novedadTxt,
+      instruccion: `Este post trata de un PROYECTO PROPIO con una NOVEDAD real: "${novedadTxt}". Framing correcto: "${proy.framing_correcto}". Habla en primera persona (nuestro/a).${proy.matiz ? ` MATIZ IMPORTANTE: ${proy.matiz}` : ""}${proy.cifra_clave ? ` Si citas cifras usa EXACTAMENTE: ${proy.cifra_clave}.` : ""}`,
+      imgBase: proy.resumen_visual || null,
+    }));
   }
+
+  // 2b) 1 colaboración recurrente (rota por semana si hay varias).
+  if (colabsRec.length) {
+    const semanaIdx = Math.floor(new Date(fechaInicio + "T00:00:00").getTime() / (7 * 24 * 3600 * 1000));
+    const c = colabsRec[semanaIdx % colabsRec.length];
+    cola.push(nuevo({
+      tipo_contenido: "colaboracion", tema: `${c.proyecto} (${c.entidad})`,
+      instruccion: `Este post trata de una COLABORACIÓN con "${c.entidad}". Habla SIEMPRE en tercera persona dando crédito a la entidad original — NUNCA te lo atribuyas. Framing correcto: "${c.framing_correcto}". PROHIBIDO usar: ${c.framing_prohibido}.${c.cifra_clave ? ` Si citas cifras usa EXACTAMENTE: ${c.cifra_clave} (no inventes otras).` : ""}`,
+      imgPais: c.pais || null, imgBase: c.descripcion_imagen_base || null,
+    }));
+  }
+
+  // 2c) Hasta 2 de actualidad/educativo (fuentes como inspiración, sin cifras inventadas).
+  for (let k = 0; k < 2; k++) {
+    cola.push(nuevo({
+      tipo_contenido: "actualidad", tema: `Actualidad: ${rot(k)}`,
+      instruccion: `Este post es de ACTUALIDAD/EDUCATIVO sobre el sector, NO sobre la entidad. Inspírate en los temas típicos de estas fuentes de referencia (NO las cites literalmente, NO inventes cifras exactas; usa rangos genéricos como "según estudios recientes" o "los datos apuntan a que…"): ${fuentes}. Aporta contexto útil y una reflexión; no atribuyas nada a la entidad.`,
+    }));
+  }
+
+  // 2d) Conversación rellena el resto.
+  let ck = 0;
+  while (cola.length < libres.length) {
+    cola.push(nuevo({
+      tipo_contenido: "conversacion", tema: `Conversación: ${rot(ck++)}`,
+      instruccion: `Este post es de CONVERSACIÓN: plantea una pregunta abierta, encuesta o dilema afín a las causas de la entidad para generar interacción y comentarios ("¿Alguna vez has sentido que…?", "¿Qué haces cuando…?"). NO promociones proyectos concretos. Tono cercano y humano.`,
+    }));
+  }
+
+  // Recorta manteniendo prioridad (propio → colab → actualidad → conversación) y asigna a los huecos.
+  cola.length = Math.min(cola.length, libres.length);
+  libres.forEach((idx, k) => {
+    const s = cola[k] || nuevo({ tipo_contenido: "conversacion", tema: `Conversación: ${rot(k)}` });
+    planes[idx] = { ...s, fecha: dias[idx].fecha, nombre_dia: dias[idx].nombre_dia };
+  });
 
   // Distribución de redes.
   const redes = distribuirRedes(redesActivas, N);
@@ -443,14 +533,15 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   // Pase 1: texto/guion para TODOS los días (barato, garantizado).
   const contenido: PackDia[] = [];
   for (let i = 0; i < N; i++) {
-    const plan = planes[i];
+    const plan = planes[i]!;
     const red = redes[i] || "instagram";
     const tipo = red;
+    const imgCtx = (plan.imgPais || plan.imgBase) ? { pais: plan.imgPais, base: plan.imgBase } : undefined;
     if (red === "tiktok") {
-      const g = await generarGuionTikTok(perfil, plan.tema);
+      const g = await generarGuionTikTok(perfil, plan.tema, plan.instruccion);
       contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, imagen_limpia_url: null, titular: g.titular, texto: g.texto, hashtags: g.hashtags, guion_tiktok: g.guion, fuente: plan.fuente });
     } else {
-      const r = await generarTextoRed(perfil, plan.tema, RED_LABEL[red] || "Instagram");
+      const r = await generarTextoRed(perfil, plan.tema, RED_LABEL[red] || "Instagram", { instruccion: plan.instruccion, imgCtx });
       contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, imagen_limpia_url: null, titular: r.titular, texto: r.texto, hashtags: r.hashtags, prompt_imagen: r.prompt_imagen, guion_tiktok: null, fuente: plan.fuente });
     }
   }
@@ -486,7 +577,7 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   return { pack_id: pack.id as string, dias: N, con_imagen: conImagen, fallos };
 }
 
-const PERFIL_SELECT = "nombre_entidad, tipo_entidad, mision_valores, publico_objetivo, servicios_programas, causas_o_productos, temas_prioritarios, logros_numeros, info_extra, sector, idioma_principal, genero";
+const PERFIL_SELECT = "*"; // incluye columnas v2.4 sin romper si aún no se migró
 
 /**
  * Regenera UN día del pack. modo:
