@@ -74,6 +74,7 @@ interface PerfilPack {
   info_extra: string | null;
   sector: string | null;
   idioma_principal: string | null;
+  genero: string | null;
 }
 
 /** "empresa" u "organización" según el tipo, para textos de los prompts. */
@@ -125,9 +126,69 @@ interface TextoRed { titular: string; texto: string; hashtags: string[]; prompt_
 const promptImagenFallback = (tema: string) =>
   `Photograph related to "${tema}", documentary editorial style, photorealistic, natural lighting, shallow depth of field, no text, no letters, no logos, no watermarks`;
 
+/** Mapea profiles.genero a una pista de protagonista en inglés (o null). */
+function pistaGenero(genero?: string | null): string | null {
+  switch (genero) {
+    case "hombre": return "the main person is a man";
+    case "mujer": return "the main person is a woman";
+    case "no_binario": return "the main person is non-binary";
+    case "persona_trans": return "the main person is a trans person";
+    case "equipo_mixto": return "show a small mixed team of people";
+    default: return null;
+  }
+}
 
-/** Genera titular + texto + hashtags + descripción visual de la imagen (Instagram/Facebook). */
-async function generarTextoRed(p: PerfilPack, tema: string, red: string): Promise<TextoRed> {
+interface CtxImagen {
+  titular: string;
+  texto: string;
+  hashtags: string[];
+  tema: string;
+  pais?: string | null;   // colaboración internacional (ej. Guinea-Bissau)
+  base?: string | null;   // descripcion_imagen_base de una colaboración
+}
+
+/**
+ * Genera una DESCRIPCIÓN VISUAL de escena (no un eslogan) para el modelo de
+ * imagen. Llamada dedicada con contexto completo: 40-80 palabras en inglés,
+ * sujetos/entorno/luz/estilo. Si hay `base` (colaboración) la usa como ancla.
+ * Tolerante: fallback a base o plantilla.
+ */
+async function generarDescripcionImagen(p: PerfilPack, ctx: CtxImagen): Promise<string> {
+  try {
+    const genero = pistaGenero(p.genero);
+    const prompt = `You are an art director writing an image-generation prompt for a photorealistic model.
+Return ONLY a vivid VISUAL SCENE in ENGLISH — NOT a slogan, NOT a headline, NOT the caption. Describe something a photographer could actually shoot.
+
+Grounding (do NOT quote literally):
+- Entity: ${p.nombre_entidad || enteDe(p)} (${p.tipo_entidad || "ong"}), sector ${p.sector || "n/d"}
+- Audience: ${p.publico_objetivo || "general"}
+- Topic: ${ctx.tema}
+- Post title: ${ctx.titular}
+- Post text: ${ctx.texto.slice(0, 400)}
+- Hashtags: ${ctx.hashtags.slice(0, 8).join(" ")}${ctx.pais ? `\n- Country/context: ${ctx.pais}` : ""}${genero ? `\n- Protagonist: ${genero}` : ""}${ctx.base ? `\n\nUse THIS scene as the visual anchor and adapt it faithfully:\n"${ctx.base}"` : ""}
+
+Rules:
+- 40-80 words. Concrete subjects, setting, objects, lighting, mood, composition.
+- Documentary photojournalism style, photorealistic, natural lighting, shallow depth of field.
+- People: general traits only (age, expression, context); NEVER real/identifiable people or celebrities.
+- Dignity and respect; no "poverty porn", no staged misery.
+- End with: "no text, no letters, no logos, no watermarks".
+Return ONLY the description, one paragraph, no quotes, no preamble.`;
+    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 300, messages: [{ role: "user", content: prompt }] });
+    const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
+    const limpio = raw.replace(/^["'«»]|["'«»]$/g, "").trim();
+    // Guarda anti-eslogan: si sale demasiado corto, caemos a base o plantilla.
+    if (limpio.split(/\s+/).length < 15) return ctx.base || promptImagenFallback(ctx.tema);
+    return limpio;
+  } catch {
+    return ctx.base || promptImagenFallback(ctx.tema);
+  }
+}
+
+/** Genera titular + texto + hashtags (Instagram/Facebook) y, aparte, la descripción visual. */
+async function generarTextoRed(
+  p: PerfilPack, tema: string, red: string, imgCtx?: { pais?: string | null; base?: string | null },
+): Promise<TextoRed> {
   try {
     const limite = red === "Instagram" ? "máximo 150 palabras" : "máximo 200 palabras";
     const prompt = `Genera un post para ${red} de "${p.nombre_entidad || `la ${enteDe(p)}`}" (${p.tipo_entidad || "ong"}).
@@ -138,28 +199,24 @@ Responde SOLO con JSON válido:
 {
   "titular": "6-8 palabras impactantes para superponer sobre la imagen",
   "texto": "texto listo para publicar (${limite}), con emojis y SIN hashtags",
-  "hashtags": ["#hashtag1", "#hashtag2"],
-  "image_prompt_en": "ENGLISH photorealistic image prompt (see rules)"
+  "hashtags": ["#hashtag1", "#hashtag2"]
 }
 - IMPORTANTE: el campo "texto" NO debe contener hashtags ni el símbolo #. Los hashtags van EXCLUSIVAMENTE en el array "hashtags" (se muestran aparte en la app).
 - Incluye 8-12 hashtags relevantes al tema y al sector.
-- "image_prompt_en" debe ir SIEMPRE EN INGLÉS (aunque el resto del JSON esté en otro idioma) y describir una FOTOGRAFÍA realista editorial/documental: entidades visuales concretas (sujeto, composición, luz, ambiente). NO ilustración, NO abstracto, NO vectorial. Para personas usa solo rasgos generales (edad, expresión, contexto); NUNCA personas reales concretas ni famosos. Termina con "documentary editorial style, photorealistic, shallow depth of field, no text, no letters, no logos, no watermarks". Ejemplos:
-  · "Close-up photograph of a young hand gently holding the wrinkled hand of an elderly person, documentary editorial style, soft natural lighting, warm respectful tone, photorealistic, 50mm lens, shallow depth of field, no text, no logos"
-  · "Photograph of hands planting a young tree in healthy soil, close-up, documentary style, golden hour lighting, hopeful mood, photorealistic, no text, no logos"
 ${INSTRUCCION_TILDES}
 ${instruccionIdioma(p.idioma_principal)}
 ${reglaIdioma(p.idioma_principal)}`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
     const o = (parseJSON(raw) || {}) as Record<string, unknown>;
-    const promptImg = typeof o.image_prompt_en === "string" && o.image_prompt_en.trim().length > 10
-      ? o.image_prompt_en.trim() : promptImagenFallback(tema);
-    return {
-      titular: typeof o.titular === "string" ? o.titular.replace(/^["'«»]|["'«»]$/g, "") : tema,
-      texto: typeof o.texto === "string" ? quitarHashtags(o.texto) : "",
-      hashtags: (Array.isArray(o.hashtags) ? o.hashtags : []).filter((h): h is string => typeof h === "string").map((h) => h.startsWith("#") ? h : `#${h}`),
-      prompt_imagen: promptImg,
-    };
+    const titular = typeof o.titular === "string" ? o.titular.replace(/^["'«»]|["'«»]$/g, "") : tema;
+    const texto = typeof o.texto === "string" ? quitarHashtags(o.texto) : "";
+    const hashtags = (Array.isArray(o.hashtags) ? o.hashtags : []).filter((h): h is string => typeof h === "string").map((h) => h.startsWith("#") ? h : `#${h}`);
+    // Descripción de imagen: paso propio con contexto completo (escena, no eslogan).
+    const prompt_imagen = await generarDescripcionImagen(p, {
+      titular, texto, hashtags, tema, pais: imgCtx?.pais, base: imgCtx?.base,
+    });
+    return { titular, texto, hashtags, prompt_imagen };
   } catch {
     return { titular: tema, texto: "", hashtags: [], prompt_imagen: promptImagenFallback(tema) };
   }
@@ -331,7 +388,7 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("nombre_entidad, tipo_entidad, mision_valores, publico_objetivo, servicios_programas, causas_o_productos, temas_prioritarios, logros_numeros, info_extra, sector, idioma_principal, pack_dias_semana, redes_activas, mostrar_dias_espana")
+    .select("nombre_entidad, tipo_entidad, mision_valores, publico_objetivo, servicios_programas, causas_o_productos, temas_prioritarios, logros_numeros, info_extra, sector, idioma_principal, genero, pack_dias_semana, redes_activas, mostrar_dias_espana")
     .eq("id", userId).single();
   if (!profile) throw new Error("perfil no encontrado");
 
@@ -429,7 +486,7 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   return { pack_id: pack.id as string, dias: N, con_imagen: conImagen, fallos };
 }
 
-const PERFIL_SELECT = "nombre_entidad, tipo_entidad, mision_valores, publico_objetivo, servicios_programas, causas_o_productos, temas_prioritarios, logros_numeros, info_extra, sector, idioma_principal";
+const PERFIL_SELECT = "nombre_entidad, tipo_entidad, mision_valores, publico_objetivo, servicios_programas, causas_o_productos, temas_prioritarios, logros_numeros, info_extra, sector, idioma_principal, genero";
 
 /**
  * Regenera UN día del pack. modo:
