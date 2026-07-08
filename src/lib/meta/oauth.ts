@@ -17,15 +17,20 @@ async function graphGet<T>(path: string, params: Record<string, string>): Promis
   return json as T;
 }
 
-/** URL a la que redirigimos a Sebas para autorizar la app. */
-export function buildAuthorizeUrl(state: string, redirectUri: string): string {
+/**
+ * URL a la que redirigimos a Sebas para autorizar la app. Con Business Login
+ * (configId) los permisos/assets los define la configuración → se pasa
+ * config_id y NO scope. Sin configId, cae al modo scope clásico.
+ */
+export function buildAuthorizeUrl(state: string, redirectUri: string, configId?: string): string {
   const p = new URLSearchParams({
     client_id: process.env.META_APP_ID || "",
     redirect_uri: redirectUri,
     state,
-    scope: META_SCOPES.join(","),
     response_type: "code",
   });
+  if (configId) p.set("config_id", configId);
+  else p.set("scope", META_SCOPES.join(","));
   return `${META_OAUTH_DIALOG}?${p.toString()}`;
 }
 

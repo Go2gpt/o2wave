@@ -33,6 +33,15 @@ export function metaOAuthConfigurado(): boolean {
 }
 
 /**
+ * Config ID del "Business Login for Business". Si está definido, el diálogo
+ * OAuth va con config_id (los permisos/assets los define la configuración) en
+ * lugar de scope, y el token es de System User (larga duración).
+ */
+export function metaLoginConfigId(): string | undefined {
+  return process.env.META_LOGIN_CONFIG_ID || undefined;
+}
+
+/**
  * redirect_uri del OAuth. DEBE coincidir EXACTAMENTE con la registrada en la
  * Meta App. Configurable por env (META_REDIRECT_URI); por defecto usa SITE_URL.
  */

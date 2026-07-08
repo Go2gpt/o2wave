@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAudit";
 import { SITE_URL } from "@/lib/siteUrl";
 import { cifrarToken } from "@/lib/crypto-tokens";
-import { autopostEnabled, metaOAuthConfigurado, metaRedirectUri, TOKEN_TTL_DIAS } from "@/lib/meta/config";
+import { autopostEnabled, metaOAuthConfigurado, metaRedirectUri, metaLoginConfigId, TOKEN_TTL_DIAS } from "@/lib/meta/config";
 import { exchangeCodeForUserToken, toLongLivedUserToken, listarPaginasConIG } from "@/lib/meta/oauth";
 
 export const dynamic = "force-dynamic";
@@ -26,11 +26,18 @@ export async function GET(request: NextRequest) {
   if (!code || !state || !cookieState || state !== cookieState) return panel("error=state");
 
   try {
-    const userToken = await toLongLivedUserToken(await exchangeCodeForUserToken(code, metaRedirectUri()));
+    const shortToken = await exchangeCodeForUserToken(code, metaRedirectUri());
+    // Business Login (System User) → el token ya es de larga duración: el
+    // intercambio a long-lived es best-effort (si falla, usamos el token tal cual).
+    let userToken = shortToken;
+    try { userToken = await toLongLivedUserToken(shortToken); } catch { /* system user token */ }
+
     const paginas = await listarPaginasConIG(userToken);
     if (!paginas.length) return panel("error=sin_paginas");
 
-    const expira = new Date(Date.now() + TOKEN_TTL_DIAS * 24 * 60 * 60 * 1000).toISOString();
+    // System User → sin caducidad práctica (expiry null = permanente/verde).
+    const esSystemUser = !!metaLoginConfigId();
+    const expira = esSystemUser ? null : new Date(Date.now() + TOKEN_TTL_DIAS * 24 * 60 * 60 * 1000).toISOString();
     let guardadas = 0;
 
     for (const p of paginas) {
@@ -46,11 +53,13 @@ export async function GET(request: NextRequest) {
         updated_at: new Date().toISOString(),
       };
       // Upsert manual por fb_page_id (el índice único es parcial): update o insert.
+      // En INSERT entra activo=false (Fase 1a: Sebas activa solo @o2wave.app a mano;
+      // así @go2.bcn queda conectada pero intacta). En UPDATE no tocamos activo.
       const { data: existe } = await auth.admin
         .from("autopost_cuentas").select("id").eq("fb_page_id", p.fb_page_id).maybeSingle();
       const { error } = existe
         ? await auth.admin.from("autopost_cuentas").update(fila).eq("id", existe.id)
-        : await auth.admin.from("autopost_cuentas").insert(fila);
+        : await auth.admin.from("autopost_cuentas").insert({ ...fila, activo: false });
       if (error) { console.error("autopost callback guardar:", error.message); continue; }
       guardadas++;
     }

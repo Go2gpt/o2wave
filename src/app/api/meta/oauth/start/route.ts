@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { requireAdmin } from "@/lib/adminAudit";
 import { SITE_URL } from "@/lib/siteUrl";
-import { autopostEnabled, metaOAuthConfigurado, metaRedirectUri } from "@/lib/meta/config";
+import { autopostEnabled, metaOAuthConfigurado, metaRedirectUri, metaLoginConfigId } from "@/lib/meta/config";
 import { buildAuthorizeUrl } from "@/lib/meta/oauth";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function GET() {
 
   // state anti-CSRF: cookie httpOnly que verificamos en el callback.
   const state = crypto.randomBytes(16).toString("hex");
-  const url = buildAuthorizeUrl(state, metaRedirectUri());
+  const url = buildAuthorizeUrl(state, metaRedirectUri(), metaLoginConfigId());
 
   const res = NextResponse.redirect(url);
   res.cookies.set("meta_oauth_state", state, {
