@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/autopost-generar",
       "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/autopost-publicar",
+      "schedule": "0 * * * *"
     }
   ]
 }
