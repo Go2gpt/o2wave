@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/pack-semanal",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron/autopost-generar",
+      "schedule": "0 8 * * 1"
     }
   ]
 }

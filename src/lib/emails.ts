@@ -178,3 +178,34 @@ export async function enviarAdminFallo(p: { nombre: string; email: string; plan:
   ])}<p style="font-family:Arial,sans-serif;color:#6b7280;font-size:13px">Stripe lo reintentará automáticamente. Si tras varios intentos sigue fallando, la suscripción quedará suspendida y el usuario recibirá el aviso correspondiente.</p>`;
   await enviar(NOTIFICATION_EMAIL, `⚠️ Cobro fallido: ${p.email} — ${importeTexto(p.plan, p.ciclo)}`, html, "admin-fallo");
 }
+
+/* ------------------------------ autopost (Fase 1) ------------------------------ */
+
+/** Aviso semanal: piezas de autopost generadas, con enlace al panel de revisión. */
+export async function enviarAutopostRevision(p: { pendientes: number; programadas: number; detalle: string }): Promise<void> {
+  const panel = `${SITE_URL}/admin/autopost`;
+  const html = layout(`
+    <h2 style="margin:0 0 8px">Pack de autopost listo</h2>
+    <p>Se han generado piezas para las cuentas internas:</p>
+    <ul style="padding-left:18px;margin:8px 0">
+      <li><strong>${p.pendientes}</strong> pendiente(s) de tu revisión</li>
+      <li><strong>${p.programadas}</strong> auto-aprobada(s) y programada(s)</li>
+    </ul>
+    ${p.detalle ? `<p style="color:#6b7280;font-size:13px">${esc(p.detalle)}</p>` : ""}
+    <p>Revisa, aprueba o rechaza desde el panel:</p>
+    ${boton(panel, "Abrir panel de autopost")}
+  `);
+  await enviar(NOTIFICATION_EMAIL, `📣 Autopost: ${p.pendientes} pendiente(s) de revisión`, html, "autopost-revision");
+}
+
+/** Aviso de fallo al publicar una pieza (tras agotar reintentos). */
+export async function enviarAutopostFallo(p: { cuenta: string; motivo: string }): Promise<void> {
+  const panel = `${SITE_URL}/admin/autopost`;
+  const html = layout(`
+    <h2 style="margin:0 0 8px">Fallo al publicar</h2>
+    <p>No se pudo publicar una pieza de autopost en <strong>${esc(p.cuenta)}</strong> tras varios intentos.</p>
+    <p style="color:#6b7280;font-size:13px">Motivo: ${esc(p.motivo)}</p>
+    ${boton(panel, "Ver panel de autopost")}
+  `);
+  await enviar(NOTIFICATION_EMAIL, `⚠️ Autopost: fallo al publicar en ${p.cuenta}`, html, "autopost-fallo");
+}
