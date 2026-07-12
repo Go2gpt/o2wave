@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/autopost-publicar",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/autopost-tokens",
+      "schedule": "0 6 * * *"
     }
   ]
 }

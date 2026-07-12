@@ -198,6 +198,19 @@ export async function enviarAutopostRevision(p: { pendientes: number; programada
   await enviar(NOTIFICATION_EMAIL, `📣 Autopost: ${p.pendientes} pendiente(s) de revisión`, html, "autopost-revision");
 }
 
+/** Aviso de token de una cuenta próximo a caducar o inválido (reconectar). */
+export async function enviarAutopostToken(p: { cuenta: string; motivo: string }): Promise<void> {
+  const panel = `${SITE_URL}/admin/autopost`;
+  const html = layout(`
+    <h2 style="margin:0 0 8px">Revisa la conexión de una cuenta</h2>
+    <p>El token de <strong>${esc(p.cuenta)}</strong> necesita atención:</p>
+    <p style="color:#6b7280;font-size:13px">${esc(p.motivo)}</p>
+    <p>Reconéctala desde el panel para que siga publicando:</p>
+    ${boton(panel, "Reconectar en el panel")}
+  `);
+  await enviar(NOTIFICATION_EMAIL, `🔑 Autopost: revisa la conexión de ${p.cuenta}`, html, "autopost-token");
+}
+
 /** Aviso de fallo al publicar una pieza (tras agotar reintentos). */
 export async function enviarAutopostFallo(p: { cuenta: string; motivo: string }): Promise<void> {
   const panel = `${SITE_URL}/admin/autopost`;
