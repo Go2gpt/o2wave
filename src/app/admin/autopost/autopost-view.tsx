@@ -84,7 +84,7 @@ function CuentaCard({ c, onChanged }: { c: Cuenta; onChanged: () => void }) {
             {c.etiqueta}
           </p>
           <p className="text-xs text-white/40 mt-0.5">
-            {c.fb_page_nombre ? `FB: ${c.fb_page_nombre}` : "sin FB"}{c.ig_username ? ` · IG: @${c.ig_username}` : " · sin IG"}
+            {c.fb_page_nombre ? `FB: ${c.fb_page_nombre}` : "sin FB"}{c.ig_user_id ? ` · IG: ${c.ig_username ? `@${c.ig_username}` : c.ig_user_id}` : " · sin IG"}
           </p>
           <p className="text-[11px] text-white/30 mt-0.5">{sem.t}</p>
         </div>

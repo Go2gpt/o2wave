@@ -73,21 +73,59 @@ interface AccountsResponse {
   }>;
 }
 
+interface IgPaginaResponse {
+  instagram_business_account?: { id: string; username?: string };
+  connected_instagram_account?: { id: string; username?: string };
+}
+
+/**
+ * Resuelve la cuenta IG vinculada a una Página consultándola DIRECTAMENTE con
+ * el page token. Con Business Login / System User, /me/accounts no expande de
+ * forma fiable instagram_business_account; esta consulta por página sí. Prueba
+ * instagram_business_account y, como fallback, connected_instagram_account.
+ */
+async function resolverIgDePagina(pageId: string, pageToken: string): Promise<{ id: string | null; username: string | null }> {
+  try {
+    const r = await graphGet<IgPaginaResponse>(`/${pageId}`, {
+      fields: "instagram_business_account{id,username},connected_instagram_account{id,username}",
+      access_token: pageToken,
+    });
+    const ig = r.instagram_business_account || r.connected_instagram_account;
+    return { id: ig?.id || null, username: ig?.username || null };
+  } catch (e) {
+    console.error(`resolverIgDePagina(${pageId}):`, e instanceof Error ? e.message : e);
+    return { id: null, username: null };
+  }
+}
+
 /**
  * Lista las Páginas de FB que administra el usuario, con su page token y la
- * cuenta IG business vinculada (si la hay). Los page tokens derivados de un
- * user token de larga duración son a su vez de larga duración.
+ * cuenta IG business vinculada. Si /me/accounts no trae el IG (habitual con
+ * Business Login/System User), se resuelve por página con el page token.
  */
 export async function listarPaginasConIG(userToken: string): Promise<PaginaConectada[]> {
   const data = await graphGet<AccountsResponse>("/me/accounts", {
     fields: "id,name,access_token,instagram_business_account{id,username}",
     access_token: userToken,
   });
-  return (data.data || []).map((p) => ({
-    fb_page_id: p.id,
-    fb_page_nombre: p.name,
-    page_token: p.access_token,
-    ig_user_id: p.instagram_business_account?.id || null,
-    ig_username: p.instagram_business_account?.username || null,
-  }));
+  const paginas: PaginaConectada[] = [];
+  for (const p of data.data || []) {
+    let igId = p.instagram_business_account?.id || null;
+    let igUser = p.instagram_business_account?.username || null;
+    // Resolución por página (con page token) si /me/accounts no expandió el IG
+    // o no trajo el username.
+    if (!igId || !igUser) {
+      const ig = await resolverIgDePagina(p.id, p.access_token);
+      igId = igId || ig.id;
+      igUser = igUser || ig.username;
+    }
+    paginas.push({
+      fb_page_id: p.id,
+      fb_page_nombre: p.name,
+      page_token: p.access_token,
+      ig_user_id: igId,
+      ig_username: igUser,
+    });
+  }
+  return paginas;
 }
