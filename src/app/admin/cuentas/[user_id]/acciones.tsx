@@ -3,15 +3,31 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function CuentaAcciones({ userId, suspendida }: { userId: string; suspendida: boolean }) {
+export default function CuentaAcciones({ userId, suspendida, esEmbajador, tieneSubActiva }: { userId: string; suspendida: boolean; esEmbajador: boolean; tieneSubActiva: boolean }) {
   const router = useRouter();
-  const [modal, setModal] = useState<null | "suspender" | "eliminar">(null);
+  const [modal, setModal] = useState<null | "suspender" | "eliminar" | "embajador">(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [motivo, setMotivo] = useState("");
   const [confirmTexto, setConfirmTexto] = useState("");
 
   const cerrar = () => { setModal(null); setError(""); setMotivo(""); setConfirmTexto(""); };
+
+  const toggleEmbajador = async () => {
+    setLoading(true); setError("");
+    try {
+      const res = await fetch("/api/admin/embajador", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, embajador: !esEmbajador }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Error");
+      if (data.aviso_sub_activa) {
+        alert("Marcado como embajador. Atención: este usuario tiene una suscripción Stripe activa. Cancélala manualmente en Stripe si no quieres que siga pagando.");
+      }
+      cerrar(); router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Error"); setLoading(false); }
+  };
 
   const suspender = async () => {
     setLoading(true); setError("");
@@ -45,6 +61,11 @@ export default function CuentaAcciones({ userId, suspendida }: { userId: string;
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-2">
+        <button onClick={() => setModal("embajador")}
+          className="flex-1 py-3 rounded-xl text-sm font-bold border active:scale-[0.98]"
+          style={esEmbajador ? { borderColor: "#f9b23b", color: "#f9b23b" } : { borderColor: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.9)" }}>
+          {esEmbajador ? "Quitar embajador" : "Marcar embajador ★"}
+        </button>
         <button onClick={() => setModal("suspender")}
           className="flex-1 py-3 rounded-xl text-sm font-bold border border-white/20 text-white/90 hover:bg-white/5 active:scale-[0.98]">
           {suspendida ? "Reactivar cuenta" : "Suspender cuenta"}
@@ -73,6 +94,26 @@ export default function CuentaAcciones({ userId, suspendida }: { userId: string;
                   <button onClick={suspender} disabled={loading} className="flex-1 py-3 rounded-xl text-sm font-bold text-[#0F0F0F] disabled:opacity-50"
                     style={{ backgroundColor: suspendida ? "#93bf30" : "#f9b23b" }}>
                     {loading ? "Aplicando…" : suspendida ? "Reactivar" : "Suspender"}
+                  </button>
+                </div>
+              </>
+            ) : modal === "embajador" ? (
+              <>
+                <h3 className="font-black text-lg mb-1">{esEmbajador ? "Quitar embajador" : "Marcar como embajador ★"}</h3>
+                <p className="text-sm text-white/60 mb-4">
+                  {esEmbajador
+                    ? "La cuenta dejará de estar protegida. No se cambia plan_actual automáticamente."
+                    : "La cuenta tendrá acceso pro sin cobro y el webhook de Stripe no le bajará el plan. Se pondrá plan_actual='pro' si no lo estaba. NO se cancela la suscripción de Stripe (hazlo tú aparte)."}
+                </p>
+                {!esEmbajador && tieneSubActiva && (
+                  <p className="text-xs mb-3 border-l-2 pl-2" style={{ borderColor: "#f9b23b", color: "#f9d9a8" }}>
+                    ⚠️ Este usuario tiene una suscripción Stripe activa. Cancélala manualmente en Stripe si no quieres que siga pagando.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={cerrar} disabled={loading} className="flex-1 py-3 rounded-xl text-sm font-bold border border-white/20 text-white/70">Cancelar</button>
+                  <button onClick={toggleEmbajador} disabled={loading} className="flex-1 py-3 rounded-xl text-sm font-bold text-[#0F0F0F] disabled:opacity-50" style={{ backgroundColor: "#f9b23b" }}>
+                    {loading ? "Aplicando…" : esEmbajador ? "Quitar" : "Marcar embajador"}
                   </button>
                 </div>
               </>

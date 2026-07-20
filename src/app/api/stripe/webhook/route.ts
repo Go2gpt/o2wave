@@ -43,6 +43,18 @@ async function patchPorCustomer(customerId: string, patch: Record<string, unknow
   await createAdminClient().from("profiles").update(patch).eq("stripe_customer_id", customerId);
 }
 
+/**
+ * ¿La cuenta es "embajador" (acceso pro sin pagar)? Si lo es, el webhook NO
+ * debe bajar plan_actual al cancelar/actualizar la suscripción. Tolerante: si
+ * la columna aún no existe (migración sin aplicar), devuelve false.
+ */
+async function esEmbajador(customerId: string): Promise<boolean> {
+  if (!customerId) return false;
+  const { data } = await createAdminClient()
+    .from("profiles").select("es_embajador").eq("stripe_customer_id", customerId).single();
+  return (data as { es_embajador?: boolean } | null)?.es_embajador === true;
+}
+
 /** Convierte una suscripción Early Bird recién creada en un schedule de 2 fases. */
 async function convertirEarlyBird(stripe: Stripe, subId: string, ciclo: PlanCiclo) {
   const earlybird = priceId("earlybird", ciclo);
@@ -133,7 +145,8 @@ export async function POST(request: NextRequest) {
           plan_periodo_fin: periodoFin(sub),
         };
         // Refleja el plan/ciclo según el precio activo (incluye el salto Early Bird→Standard).
-        if (mapped) { patch.plan_actual = mapped.plan; patch.plan_ciclo = mapped.ciclo; }
+        // Embajador: NO tocar plan_actual/plan_ciclo (conserva pro sin pagar).
+        if (mapped && !(await esEmbajador(customerId))) { patch.plan_actual = mapped.plan; patch.plan_ciclo = mapped.ciclo; }
         await patchPorCustomer(customerId, patch);
         break;
       }
@@ -143,7 +156,23 @@ export async function POST(request: NextRequest) {
         const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
         const { data: prev } = await createAdminClient().from("profiles")
-          .select("nombre_entidad, email, tipo_entidad, plan_actual, plan_ciclo, plan_estado").eq("stripe_customer_id", customerId).single();
+          .select("nombre_entidad, email, tipo_entidad, plan_actual, plan_ciclo, plan_estado, es_embajador").eq("stripe_customer_id", customerId).single();
+        const embajador = (prev as { es_embajador?: boolean } | null)?.es_embajador === true;
+
+        // Embajador: refleja la cancelación en Stripe PERO conserva plan_actual (pro sin pagar).
+        if (embajador) {
+          await patchPorCustomer(customerId, { plan_estado: "cancelada" as PlanEstado, plan_periodo_fin: null, stripe_subscription_id: null });
+          console.log(`[webhook] embajador ${customerId} — skip downgrade de plan_actual`);
+          // Aviso interno a admin (registro), pero NO el email de "vuelves al plan gratuito" al usuario.
+          if (prev && prev.plan_estado !== "cancelada") {
+            const planHad = (prev.plan_actual || "pro") as PlanActual;
+            const ciclo = (prev.plan_ciclo || "mensual") as PlanCiclo;
+            const startTs = sub.start_date ?? sub.created;
+            const fechaInicioISO = startTs ? new Date(startTs * 1000).toISOString() : null;
+            await enviarAdminBaja({ nombre: prev.nombre_entidad || "", email: prev.email || "", plan: planHad, ciclo, fechaInicioISO, stripeCustomerId: customerId });
+          }
+          break;
+        }
 
         await patchPorCustomer(customerId, { plan_estado: "cancelada" as PlanEstado, plan_actual: "ong_pequena" as PlanActual });
 

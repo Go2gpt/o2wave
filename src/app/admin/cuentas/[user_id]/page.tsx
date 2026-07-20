@@ -15,7 +15,7 @@ interface Perfil {
   id: string; email: string | null; nombre_entidad: string | null; tipo_entidad: string | null;
   plan_actual: string | null; plan_estado: string | null; plan_periodo_fin: string | null;
   estado_verificacion: string | null; verification_notes: string | null; motivo_rechazo: string | null;
-  cuenta_suspendida: boolean | null; acepta_mencion_go2: boolean | null;
+  cuenta_suspendida: boolean | null; acepta_mencion_go2: boolean | null; es_embajador: boolean | null;
   nif: string | null; presupuesto_anual: number | null; trabajadores_remunerados: number | null;
   sector: string | null; created_at: string | null; stripe_subscription_id: string | null;
 }
@@ -33,7 +33,7 @@ export default async function AdminCuentaDetallePage({ params }: { params: { use
 
   const admin = createAdminClient();
   const { data: p } = await admin.from("profiles").select(
-    "id, email, nombre_entidad, tipo_entidad, plan_actual, plan_estado, plan_periodo_fin, estado_verificacion, verification_notes, motivo_rechazo, cuenta_suspendida, acepta_mencion_go2, nif, presupuesto_anual, trabajadores_remunerados, sector, created_at, stripe_subscription_id"
+    "id, email, nombre_entidad, tipo_entidad, plan_actual, plan_estado, plan_periodo_fin, estado_verificacion, verification_notes, motivo_rechazo, cuenta_suspendida, acepta_mencion_go2, es_embajador, nif, presupuesto_anual, trabajadores_remunerados, sector, created_at, stripe_subscription_id"
   ).eq("id", params.user_id).single<Perfil>();
   if (!p) notFound();
 
@@ -67,6 +67,7 @@ export default async function AdminCuentaDetallePage({ params }: { params: { use
           <div className="mt-3"><Logo size="md" /></div>
           <div className="flex items-center gap-2 mt-4">
             <h1 className="text-xl font-semibold">{p.nombre_entidad || p.email || "—"}</h1>
+            {p.es_embajador && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(249,178,59,0.15)", color: "#f9b23b" }}>Embajador ★</span>}
             {p.cuenta_suspendida && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(220,39,67,0.15)", color: "#f87171" }}>Suspendida</span>}
           </div>
           <p className="text-sm text-white/50">{p.email}</p>
@@ -91,6 +92,7 @@ export default async function AdminCuentaDetallePage({ params }: { params: { use
           <Dato k="Estado" v={p.plan_estado || "—"} />
           <Dato k="Próximo cobro" v={fecha(p.plan_periodo_fin)} />
           <Dato k="Suscripción Stripe" v={p.stripe_subscription_id ? "Sí" : "No"} />
+          <Dato k="Embajador (pro sin cobro)" v={p.es_embajador ? "Sí ★" : "No"} />
           <Dato k="Descuento mención Go2" v={p.acepta_mencion_go2 ? "10% activo" : "No"} />
         </section>
 
@@ -115,7 +117,7 @@ export default async function AdminCuentaDetallePage({ params }: { params: { use
         {/* Acciones */}
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <h2 className="text-xs font-bold uppercase tracking-widest text-white/40 mb-3">Acciones</h2>
-          <CuentaAcciones userId={p.id} suspendida={!!p.cuenta_suspendida} />
+          <CuentaAcciones userId={p.id} suspendida={!!p.cuenta_suspendida} esEmbajador={!!p.es_embajador} tieneSubActiva={!!p.stripe_subscription_id && p.plan_estado === "activa"} />
         </section>
       </div>
     </main>

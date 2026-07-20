@@ -46,6 +46,7 @@ interface Cuenta {
   plan_actual: string | null;
   estado_verificacion: string | null;
   cuenta_suspendida: boolean | null;
+  es_embajador: boolean | null;
   created_at: string | null;
   plan_periodo_fin: string | null;
 }
@@ -84,7 +85,7 @@ export default async function AdminCuentasPage({ searchParams }: {
   const admin = createAdminClient();
   let query = admin
     .from("profiles")
-    .select("id, email, nombre_entidad, tipo_entidad, plan_actual, estado_verificacion, cuenta_suspendida, created_at, plan_periodo_fin", { count: "exact" });
+    .select("id, email, nombre_entidad, tipo_entidad, plan_actual, estado_verificacion, cuenta_suspendida, es_embajador, created_at, plan_periodo_fin", { count: "exact" });
 
   if (tipo !== "todos") query = query.eq("tipo_entidad", tipo);
   if (plan !== "todos") query = query.eq("plan_actual", plan);
@@ -176,7 +177,7 @@ export default async function AdminCuentasPage({ searchParams }: {
                 return (
                   <Link key={c.id} href={`/admin/cuentas/${c.id}`} className="block rounded-2xl border border-white/10 bg-white/5 p-4 active:bg-white/10">
                     <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <p className="font-bold truncate">{c.nombre_entidad || c.email || "—"}</p>
+                      <p className="font-bold truncate">{c.es_embajador && <span title="Embajador">★ </span>}{c.nombre_entidad || c.email || "—"}</p>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: b.bg, color: b.fg }}>{b.txt}</span>
                     </div>
                     <p className="text-xs text-white/50 truncate mb-2">{c.email}</p>
@@ -211,7 +212,7 @@ export default async function AdminCuentasPage({ searchParams }: {
                       <tr key={c.id} className="border-t border-white/10 hover:bg-white/5">
                         <td className="px-4 py-2.5">
                           <Link href={`/admin/cuentas/${c.id}`} className="block">
-                            <span className="font-semibold">{c.nombre_entidad || "—"}</span>
+                            <span className="font-semibold">{c.es_embajador && <span title="Embajador" style={{ color: "#f9b23b" }}>★ </span>}{c.nombre_entidad || "—"}</span>
                             <span className="block text-xs text-white/40">{c.email}</span>
                           </Link>
                         </td>

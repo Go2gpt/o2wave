@@ -50,6 +50,7 @@ export interface ProfileData {
   novedad_semanal_texto: string | null;
   novedad_semanal_activa: boolean | null;
   es_admin: boolean | null;
+  es_embajador: boolean | null;
   stripe_customer_id: string | null;
   plan_actual: string | null;
   plan_estado: string | null;
@@ -437,7 +438,14 @@ export default function ProfileForm({
         {!initial.es_admin && (
           <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
             <h2 className="text-sm font-bold text-gray-800">Mi suscripción</h2>
-            {initial.stripe_customer_id ? (
+            {initial.es_embajador ? (
+              <div className="rounded-xl p-4" style={{ backgroundColor: "#fff8ef", border: "1px solid #f9d9a8" }}>
+                <p className="text-sm font-bold" style={{ color: "#b9791a" }}>Cuenta embajador ★</p>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Tienes acceso pro sin coste. Gracias por apoyar a o2Wave.
+                </p>
+              </div>
+            ) : initial.stripe_customer_id ? (
               <>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Plan</span>
