@@ -90,7 +90,7 @@ export default function RegisterPage() {
 
   // Todos los tipos aportan documento de identificación.
   const pideNif = true;
-  const DUP_MSG = "Este NIF ya está registrado en o2Wave. Si crees que es un error, contacta con nosotros.";
+  const DUP_MSG = "Este documento ya está registrado en o2Wave. Si crees que es un error, contacta con nosotros.";
 
   const esErrorNifDuplicado = (msg: string) =>
     msg.includes("23505") || msg.toLowerCase().includes("nif");

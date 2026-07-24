@@ -57,19 +57,19 @@ export function validarNIF(nif: string): NifResult {
   if (/^\d{8}[A-Z]$/.test(v)) {
     return validarDNI(v)
       ? { valido: true, tipo: "DNI" }
-      : { valido: false, mensaje: "El NIF/CIF no es válido. Revísalo." };
+      : { valido: false, mensaje: "El documento no es válido. Revísalo." };
   }
 
   if (/^[XYZ]\d{7}[A-Z]$/.test(v)) {
     return validarNIE(v)
       ? { valido: true, tipo: "NIE" }
-      : { valido: false, mensaje: "El NIF/CIF no es válido. Revísalo." };
+      : { valido: false, mensaje: "El documento no es válido. Revísalo." };
   }
 
   if (new RegExp(`^[${CIF_ORG_LETTERS}]\\d{7}[0-9A-J]$`).test(v)) {
     return validarCIF(v)
       ? { valido: true, tipo: "CIF" }
-      : { valido: false, mensaje: "El NIF/CIF no es válido. Revísalo." };
+      : { valido: false, mensaje: "El documento no es válido. Revísalo." };
   }
 
   return { valido: false, mensaje: "Formato no reconocido. Introduce un NIF, NIE o CIF válido." };

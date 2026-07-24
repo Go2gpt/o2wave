@@ -103,7 +103,7 @@ export default function MisFechasList({ fechas }: { fechas: FechaUsuario[] }) {
           <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
             <div className="text-4xl mb-3">🗓️</div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Aún no tienes fechas propias</p>
-            <p className="text-xs text-gray-400">Añade aniversarios, hitos o cualquier fecha importante para tu organización.</p>
+            <p className="text-xs text-gray-400">Añade aniversarios, hitos o cualquier fecha importante que quieras recordar.</p>
           </div>
         </div>
       ) : (
