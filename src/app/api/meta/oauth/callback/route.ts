@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAudit";
 import { SITE_URL } from "@/lib/siteUrl";
 import { cifrarToken } from "@/lib/crypto-tokens";
-import { autopostEnabled, metaOAuthConfigurado, metaRedirectUri, metaLoginConfigId, TOKEN_TTL_DIAS } from "@/lib/meta/config";
+import { autopostEnabled, metaOAuthConfigurado, metaRedirectUri } from "@/lib/meta/config";
 import { exchangeCodeForUserToken, toLongLivedUserToken, listarPaginasConIG } from "@/lib/meta/oauth";
 
 export const dynamic = "force-dynamic";
@@ -27,17 +27,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const shortToken = await exchangeCodeForUserToken(code, metaRedirectUri());
-    // Business Login (System User) → el token ya es de larga duración: el
-    // intercambio a long-lived es best-effort (si falla, usamos el token tal cual).
+    // Login clásico: el user token de corta duración (~1h) se intercambia por uno
+    // de larga duración (~60d). Los page tokens derivados de ESE user token de
+    // larga duración son PERMANENTES (no caducan) → token_expira_at = null.
     let userToken = shortToken;
-    try { userToken = await toLongLivedUserToken(shortToken); } catch { /* system user token */ }
+    let longLived = false;
+    try { userToken = await toLongLivedUserToken(shortToken); longLived = true; }
+    catch (e) { console.error("autopost oauth: intercambio long-lived falló:", e instanceof Error ? e.message : e); }
 
     const paginas = await listarPaginasConIG(userToken);
     if (!paginas.length) return panel("error=sin_paginas");
 
-    // System User → sin caducidad práctica (expiry null = permanente/verde).
-    const esSystemUser = !!metaLoginConfigId();
-    const expira = esSystemUser ? null : new Date(Date.now() + TOKEN_TTL_DIAS * 24 * 60 * 60 * 1000).toISOString();
+    // Page token permanente si el user token es de larga duración; si el
+    // intercambio falló, el page token es de ~1h → marca expiry para que C6 avise.
+    const expira = longLived ? null : new Date(Date.now() + 60 * 60 * 1000).toISOString();
     let guardadas = 0;
 
     for (const p of paginas) {

@@ -9,17 +9,18 @@ export const META_GRAPH_VERSION = "v20.0";
 export const META_GRAPH = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 export const META_OAUTH_DIALOG = `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`;
 
-/** Permisos que pedimos en el OAuth (publicar en Páginas FB + IG business). */
+/**
+ * Permisos que pedimos en el OAuth clásico (Facebook Login). Con la app en
+ * Development y el usuario como admin/tester, están disponibles sin App Review.
+ */
 export const META_SCOPES = [
+  "pages_show_list",
   "pages_manage_posts",
   "pages_read_engagement",
-  "instagram_content_publish",
-  "instagram_basic",
   "business_management",
+  "instagram_basic",
+  "instagram_content_publish",
 ];
-
-/** Vida estimada de un page token de larga duración (~60 días). */
-export const TOKEN_TTL_DIAS = 60;
 
 /** ¿Está encendido el sistema de autopost? Interruptor global (criterio #6). */
 export function autopostEnabled(): boolean {
@@ -30,15 +31,6 @@ export function autopostEnabled(): boolean {
 /** ¿Están las credenciales de la Meta App configuradas? */
 export function metaOAuthConfigurado(): boolean {
   return !!process.env.META_APP_ID && !!process.env.META_APP_SECRET;
-}
-
-/**
- * Config ID del "Business Login for Business". Si está definido, el diálogo
- * OAuth va con config_id (los permisos/assets los define la configuración) en
- * lugar de scope, y el token es de System User (larga duración).
- */
-export function metaLoginConfigId(): string | undefined {
-  return process.env.META_LOGIN_CONFIG_ID || undefined;
 }
 
 /**

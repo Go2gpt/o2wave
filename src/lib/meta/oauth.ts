@@ -18,19 +18,18 @@ async function graphGet<T>(path: string, params: Record<string, string>): Promis
 }
 
 /**
- * URL a la que redirigimos a Sebas para autorizar la app. Con Business Login
- * (configId) los permisos/assets los define la configuración → se pasa
- * config_id y NO scope. Sin configId, cae al modo scope clásico.
+ * URL del diálogo de Facebook Login (clásico) para autorizar la app. Los
+ * permisos se piden con scope explícito; disponibles sin App Review con la app
+ * en Development y el usuario como admin/tester.
  */
-export function buildAuthorizeUrl(state: string, redirectUri: string, configId?: string): string {
+export function buildAuthorizeUrl(state: string, redirectUri: string): string {
   const p = new URLSearchParams({
     client_id: process.env.META_APP_ID || "",
     redirect_uri: redirectUri,
     state,
     response_type: "code",
+    scope: META_SCOPES.join(","),
   });
-  if (configId) p.set("config_id", configId);
-  else p.set("scope", META_SCOPES.join(","));
   return `${META_OAUTH_DIALOG}?${p.toString()}`;
 }
 
