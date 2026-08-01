@@ -45,6 +45,22 @@ async function apiPost(url: string, body: unknown): Promise<{ ok: boolean; error
   } catch { return { ok: false, error: "red" }; }
 }
 
+/** Publica una pieza inline (botón "Publicar ahora"). Devuelve el resultado. */
+async function publicarAhora(id: string): Promise<{ ok: boolean; estado?: string; fb_post_url?: string | null; error?: string }> {
+  try {
+    const res = await fetch(`/api/admin/autopost/posts/${id}/publish-now`, { method: "POST" });
+    const data = await res.json();
+    return res.ok ? { ok: true, ...data } : { ok: false, error: data.error || "error" };
+  } catch { return { ok: false, error: "red" }; }
+}
+
+/** Feedback común tras "Publicar ahora". */
+function avisarResultado(r: { ok: boolean; estado?: string; fb_post_url?: string | null; error?: string }) {
+  if (r.ok && r.estado === "published") alert(`✓ Publicado${r.fb_post_url ? `: ${r.fb_post_url}` : ""}`);
+  else if (r.ok) alert(`Programado, pero aún no confirmado (estado: ${r.estado}). ${r.error || ""}`.trim());
+  else alert(`No se pudo publicar: ${r.error || "revisa el histórico"}`);
+}
+
 function CuentaCard({ c, onChanged }: { c: Cuenta; onChanged: () => void }) {
   const [activo, setActivo] = useState(c.activo);
   const [perfil, setPerfil] = useState<Cuenta["perfil_publicacion"]>(c.perfil_publicacion);
@@ -152,6 +168,13 @@ function PiezaPendiente({ p, onChanged }: { p: Post; onChanged: () => void }) {
     setBusy(false);
     if (r.ok) onChanged(); else alert(r.error || "Error");
   };
+  const ahora = async () => {
+    setBusy(true);
+    const r = await publicarAhora(p.id);
+    setBusy(false);
+    avisarResultado(r);
+    onChanged();
+  };
   return (
     <div className={card}>
       <div className="flex gap-3">
@@ -161,9 +184,30 @@ function PiezaPendiente({ p, onChanged }: { p: Post; onChanged: () => void }) {
           <p className="text-sm text-white/80 whitespace-pre-wrap line-clamp-6">{p.texto}</p>
         </div>
       </div>
-      <div className="flex gap-2 mt-3">
-        <button onClick={() => accion("aprobar")} disabled={busy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>Aprobar</button>
+      <div className="flex flex-wrap gap-2 mt-3">
+        <button onClick={ahora} disabled={busy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>{busy ? "…" : "Publicar ahora"}</button>
+        <button onClick={() => accion("aprobar")} disabled={busy} className={`${btn} border border-white/15 text-white/90`}>Aprobar (programar)</button>
         <button onClick={() => accion("rechazar")} disabled={busy} className={`${btn} border border-white/15 text-red-300`}>Rechazar</button>
+      </div>
+    </div>
+  );
+}
+
+function PiezaProgramada({ p, onChanged }: { p: Post; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const ahora = async () => {
+    setBusy(true);
+    const r = await publicarAhora(p.id);
+    setBusy(false);
+    avisarResultado(r);
+    onChanged();
+  };
+  return (
+    <div className="py-2 flex items-center justify-between gap-3 first:pt-0 last:pb-0">
+      <span className="text-sm text-white/80 truncate">{p.texto.slice(0, 60)}…</span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-xs text-white/40">{p.red} · {fmt(p.publish_at)}</span>
+        <button onClick={ahora} disabled={busy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>{busy ? "…" : "Publicar ahora"}</button>
       </div>
     </div>
   );
@@ -218,12 +262,7 @@ export default function AutopostView({ cuentas, pendientes, programados, histori
           {programados.length === 0
             ? <div className={`${card} text-white/50 text-sm`}>Nada programado.</div>
             : <div className={`${card} divide-y divide-white/10`}>
-                {programados.map((p) => (
-                  <div key={p.id} className="py-2 flex items-center justify-between gap-3 first:pt-0 last:pb-0">
-                    <span className="text-sm text-white/80 truncate">{p.texto.slice(0, 60)}…</span>
-                    <span className="text-xs text-white/40 flex-shrink-0">{p.red} · {fmt(p.publish_at)}</span>
-                  </div>
-                ))}
+                {programados.map((p) => <PiezaProgramada key={p.id} p={p} onChanged={refresh} />)}
               </div>}
         </section>
 
