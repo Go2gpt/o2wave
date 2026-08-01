@@ -15,7 +15,10 @@ export default async function AutopostPage() {
 
   const admin = createAdminClient();
   const [cuentas, pendientes, programados, historico] = await Promise.all([
-    admin.from("autopost_cuentas").select("*").order("created_at", { ascending: true }),
+    // Nunca enviamos los tokens cifrados al cliente: solo columnas de UI.
+    admin.from("autopost_cuentas")
+      .select("id, etiqueta, fb_page_id, fb_page_nombre, ig_user_id, ig_username, token_expira_at, ig_token_expira_at, perfil_publicacion, auto_approve, frecuencia_semanal, dias_horas, activo")
+      .order("created_at", { ascending: true }),
     admin.from("autopost_posts").select("*").eq("estado", "pending_review").order("created_at", { ascending: false }),
     admin.from("autopost_posts").select("*").eq("estado", "scheduled").order("publish_at", { ascending: true }),
     admin.from("autopost_posts").select("*").eq("estado", "published").order("publicado_at", { ascending: false }).limit(30),

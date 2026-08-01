@@ -1,4 +1,4 @@
-import { META_GRAPH } from "@/lib/meta/config";
+import { META_GRAPH, GRAPH_INSTAGRAM } from "@/lib/meta/config";
 import { descifrarToken } from "@/lib/crypto-tokens";
 
 /**
@@ -16,13 +16,14 @@ export interface ResultadoPublicacion { facebook?: ResultadoRed; instagram?: Res
 export interface CuentaPublicable {
   fb_page_id: string | null;
   ig_user_id: string | null;
-  token_cifrado: string;
+  token_cifrado: string;          // page token FB (graph.facebook.com)
+  ig_token_cifrado: string | null; // IG token (Instagram Business Login, graph.instagram.com)
 }
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function graphPost<T>(path: string, params: Record<string, string>): Promise<T> {
-  const res = await fetch(`${META_GRAPH}${path}`, {
+async function graphPost<T>(path: string, params: Record<string, string>, base = META_GRAPH): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params).toString(),
@@ -32,8 +33,8 @@ async function graphPost<T>(path: string, params: Record<string, string>): Promi
   return json as T;
 }
 
-async function graphGet<T>(path: string, params: Record<string, string>): Promise<T> {
-  const res = await fetch(`${META_GRAPH}${path}?${new URLSearchParams(params).toString()}`, { cache: "no-store" });
+async function graphGet<T>(path: string, params: Record<string, string>, base = META_GRAPH): Promise<T> {
+  const res = await fetch(`${base}${path}?${new URLSearchParams(params).toString()}`, { cache: "no-store" });
   const json = await res.json();
   if (!res.ok || json?.error) throw new Error(json?.error?.message || `Graph GET ${path} (${res.status})`);
   return json as T;
@@ -52,7 +53,10 @@ export async function validarImagenParaIG(imageUrl: string): Promise<string | nu
   return null;
 }
 
-/** Publica en Instagram (business): contenedor → poll → media_publish. */
+/**
+ * Publica en Instagram (Business Login): contenedor → poll → media_publish.
+ * Usa graph.instagram.com con el IG token propio (no el Page Token de FB).
+ */
 export async function publicarEnInstagram(
   igUserId: string, token: string, imageUrl: string, caption: string,
 ): Promise<ResultadoRed> {
@@ -60,28 +64,28 @@ export async function publicarEnInstagram(
     const invalida = await validarImagenParaIG(imageUrl);
     if (invalida) return { ok: false, error: invalida };
 
-    const cont = await graphPost<{ id: string }>(`/${igUserId}/media`, {
+    const cont = await graphPost<{ id: string }>(`/v20.0/${igUserId}/media`, {
       image_url: imageUrl, caption, access_token: token,
-    });
+    }, GRAPH_INSTAGRAM);
 
     // Poll del contenedor hasta FINISHED (o ERROR). ~60s máx.
     let estado = "";
     for (let i = 0; i < 30; i++) {
       await dormir(2000);
-      const st = await graphGet<{ status_code: string }>(`/${cont.id}`, { fields: "status_code", access_token: token });
+      const st = await graphGet<{ status_code: string }>(`/${cont.id}`, { fields: "status_code", access_token: token }, GRAPH_INSTAGRAM);
       estado = st.status_code;
       if (estado === "FINISHED") break;
       if (estado === "ERROR" || estado === "EXPIRED") return { ok: false, error: `Contenedor IG en estado ${estado}` };
     }
     if (estado !== "FINISHED") return { ok: false, error: "El contenedor de IG no quedó listo a tiempo." };
 
-    const pub = await graphPost<{ id: string }>(`/${igUserId}/media_publish`, {
+    const pub = await graphPost<{ id: string }>(`/v20.0/${igUserId}/media_publish`, {
       creation_id: cont.id, access_token: token,
-    });
+    }, GRAPH_INSTAGRAM);
 
     let url: string | undefined;
     try {
-      const perma = await graphGet<{ permalink: string }>(`/${pub.id}`, { fields: "permalink", access_token: token });
+      const perma = await graphGet<{ permalink: string }>(`/${pub.id}`, { fields: "permalink", access_token: token }, GRAPH_INSTAGRAM);
       url = perma.permalink;
     } catch { /* permalink es opcional */ }
 
@@ -118,16 +122,17 @@ export async function publicarPieza(
   cuenta: CuentaPublicable,
   pieza: { texto: string; imagenUrl: string | null; red: string },
 ): Promise<ResultadoPublicacion> {
-  const token = descifrarToken(cuenta.token_cifrado);
   const out: ResultadoPublicacion = {};
   const quiere = (r: string) => pieza.red === r || pieza.red === "ambas";
 
   if (quiere("facebook") && cuenta.fb_page_id) {
-    out.facebook = await publicarEnFacebook(cuenta.fb_page_id, token, pieza.imagenUrl, pieza.texto);
+    const pageToken = descifrarToken(cuenta.token_cifrado);
+    out.facebook = await publicarEnFacebook(cuenta.fb_page_id, pageToken, pieza.imagenUrl, pieza.texto);
   }
-  if (quiere("instagram") && cuenta.ig_user_id) {
+  if (quiere("instagram") && cuenta.ig_user_id && cuenta.ig_token_cifrado) {
+    const igToken = descifrarToken(cuenta.ig_token_cifrado);
     out.instagram = pieza.imagenUrl
-      ? await publicarEnInstagram(cuenta.ig_user_id, token, pieza.imagenUrl, pieza.texto)
+      ? await publicarEnInstagram(cuenta.ig_user_id, igToken, pieza.imagenUrl, pieza.texto)
       : { ok: false, error: "Instagram requiere una imagen." };
   }
   return out;

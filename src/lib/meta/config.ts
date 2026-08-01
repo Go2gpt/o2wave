@@ -9,6 +9,25 @@ export const META_GRAPH_VERSION = "v20.0";
 export const META_GRAPH = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 export const META_OAUTH_DIALOG = `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`;
 
+/* --- Instagram Business Login (Fase 1a.2): OAuth y Graph propios de IG --- */
+export const GRAPH_INSTAGRAM = "https://graph.instagram.com";
+export const IG_OAUTH_AUTHORIZE = "https://api.instagram.com/oauth/authorize";
+export const IG_OAUTH_TOKEN = "https://api.instagram.com/oauth/access_token";
+export const IG_SCOPES = ["instagram_business_basic", "instagram_business_content_publish"];
+
+/** redirect_uri del OAuth de Instagram (debe coincidir con la Meta App). */
+export function metaIgRedirectUri(): string {
+  return process.env.META_IG_REDIRECT_URI || `${SITE_URL}/api/meta/oauth/instagram-callback`;
+}
+/** App ID para el flujo Instagram (puede diferir del de FB → fallback al de FB). */
+export function metaIgAppId(): string {
+  return process.env.META_IG_APP_ID || process.env.META_APP_ID || "";
+}
+/** App Secret para el flujo Instagram (fallback al de FB). */
+export function metaIgAppSecret(): string {
+  return process.env.META_IG_APP_SECRET || process.env.META_APP_SECRET || "";
+}
+
 /**
  * Permisos que pedimos en el OAuth clásico (Facebook Login). Con la app en
  * Development y el usuario como admin/tester, están disponibles sin App Review.

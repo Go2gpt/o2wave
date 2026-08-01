@@ -12,7 +12,7 @@ interface Cuenta {
   id: string; etiqueta: string;
   fb_page_id: string | null; fb_page_nombre: string | null;
   ig_user_id: string | null; ig_username: string | null;
-  token_expira_at: string | null;
+  token_expira_at: string | null; ig_token_expira_at: string | null;
   perfil_publicacion: "producto" | "ong_general";
   auto_approve: boolean; frecuencia_semanal: number;
   dias_horas: { dia: number; hora: string }[] | null;
@@ -103,11 +103,22 @@ function CuentaCard({ c, onChanged }: { c: Cuenta; onChanged: () => void }) {
             {c.etiqueta}
           </p>
           <p className="text-xs text-white/40 mt-0.5">
-            {c.fb_page_nombre ? `FB: ${c.fb_page_nombre}` : "sin FB"}{c.ig_user_id ? ` · IG: ${c.ig_username ? `@${c.ig_username}` : c.ig_user_id}` : " · IG: pendiente (Fase 1a.2)"}
+            {c.fb_page_nombre ? `FB: ${c.fb_page_nombre}` : "sin FB"}{c.ig_user_id ? ` · IG: ${c.ig_username ? `@${c.ig_username}` : c.ig_user_id}` : " · IG: sin conectar"}
           </p>
-          <p className="text-[11px] text-white/30 mt-0.5">{sem.t}</p>
+          <p className="text-[11px] text-white/30 mt-0.5">
+            FB: {sem.t}
+            {c.ig_user_id && (c.ig_token_expira_at
+              ? ` · IG: caduca ${new Date(c.ig_token_expira_at).toLocaleDateString("es-ES")}`
+              : " · IG: sin token (reconecta IG)")}
+          </p>
         </div>
-        <button onClick={desconectar} className={`${btn} border border-white/15 text-red-300`}>Desconectar</button>
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          <a href={`/api/meta/oauth/instagram-start?cuenta_id=${c.id}`}
+            className={`${btn} border border-white/15 text-white/90 text-center`}>
+            {c.ig_user_id ? "Reconectar IG" : "Conectar IG"}
+          </a>
+          <button onClick={desconectar} className={`${btn} border border-white/15 text-red-300`}>Desconectar</button>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">

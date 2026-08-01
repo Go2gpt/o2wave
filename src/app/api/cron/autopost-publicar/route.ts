@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
   for (const post of posts ?? []) {
     const { data: cuenta } = await admin
-      .from("autopost_cuentas").select("id, etiqueta, fb_page_id, ig_user_id, token_cifrado, activo")
+      .from("autopost_cuentas").select("id, etiqueta, fb_page_id, ig_user_id, token_cifrado, ig_token_cifrado, activo")
       .eq("id", post.cuenta_id).maybeSingle();
     if (!cuenta || !cuenta.activo) {
       await admin.from("autopost_posts").update({ estado: "failed", ultimo_error: "cuenta no encontrada o inactiva", updated_at: ahora }).eq("id", post.id);
@@ -48,12 +48,12 @@ export async function GET(request: Request) {
     const yaFb = !!post.fb_post_id;
     const yaIg = !!post.ig_post_id;
     const quiereFb = (post.red === "facebook" || post.red === "ambas") && !!cuenta.fb_page_id;
-    const quiereIg = (post.red === "instagram" || post.red === "ambas") && !!cuenta.ig_user_id;
+    const quiereIg = (post.red === "instagram" || post.red === "ambas") && !!cuenta.ig_user_id && !!cuenta.ig_token_cifrado;
     let redPend: string = post.red || "ambas";
     if (post.red === "ambas") redPend = yaFb && !yaIg ? "instagram" : yaIg && !yaFb ? "facebook" : "ambas";
 
     const res = await publicarPieza(
-      { fb_page_id: cuenta.fb_page_id, ig_user_id: cuenta.ig_user_id, token_cifrado: cuenta.token_cifrado },
+      { fb_page_id: cuenta.fb_page_id, ig_user_id: cuenta.ig_user_id, token_cifrado: cuenta.token_cifrado, ig_token_cifrado: cuenta.ig_token_cifrado },
       { texto: post.texto, imagenUrl: post.imagen_url, red: redPend },
     );
 
