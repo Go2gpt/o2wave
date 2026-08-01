@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
+import Toast, { type ToastState } from "@/components/Toast";
+
+type Notify = (message: string, type: NonNullable<ToastState>["type"]) => void;
 
 interface Cuenta {
   id: string; etiqueta: string;
@@ -55,10 +58,10 @@ async function publicarAhora(id: string): Promise<{ ok: boolean; estado?: string
 }
 
 /** Feedback común tras "Publicar ahora". */
-function avisarResultado(r: { ok: boolean; estado?: string; fb_post_url?: string | null; error?: string }) {
-  if (r.ok && r.estado === "published") alert(`✓ Publicado${r.fb_post_url ? `: ${r.fb_post_url}` : ""}`);
-  else if (r.ok) alert(`Programado, pero aún no confirmado (estado: ${r.estado}). ${r.error || ""}`.trim());
-  else alert(`No se pudo publicar: ${r.error || "revisa el histórico"}`);
+function avisarResultado(r: { ok: boolean; estado?: string; fb_post_url?: string | null; error?: string }, notify: Notify) {
+  if (r.ok && r.estado === "published") notify(`Publicado${r.fb_post_url ? `: ${r.fb_post_url}` : ""}`, "success");
+  else if (r.ok) notify(`Programado (estado: ${r.estado}). ${r.error || ""}`.trim(), "info");
+  else notify(`No se pudo publicar: ${r.error || "revisa el histórico"}`, "error");
 }
 
 function CuentaCard({ c, onChanged }: { c: Cuenta; onChanged: () => void }) {
@@ -160,46 +163,94 @@ function CuentaCard({ c, onChanged }: { c: Cuenta; onChanged: () => void }) {
   );
 }
 
-function PiezaPendiente({ p, onChanged }: { p: Post; onChanged: () => void }) {
+function PiezaPendiente({ p, onChanged, notify }: { p: Post; onChanged: () => void; notify: Notify }) {
   const [busy, setBusy] = useState(false);
+  const [regenerando, setRegenerando] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(p.texto);
+  const [imagenUrl, setImagenUrl] = useState<string | null>(p.imagen_url);
+
   const accion = async (a: "aprobar" | "rechazar") => {
+    if (a === "rechazar" && !confirm("¿Rechazar esta pieza? No se podrá recuperar.")) return;
     setBusy(true);
     const r = await apiPost("/api/admin/autopost/post", { post_id: p.id, accion: a });
     setBusy(false);
-    if (r.ok) onChanged(); else alert(r.error || "Error");
+    if (r.ok) { notify(a === "aprobar" ? "Pieza aprobada y programada." : "Pieza rechazada.", "success"); onChanged(); }
+    else notify(r.error || "Error", "error");
   };
   const ahora = async () => {
     setBusy(true);
     const r = await publicarAhora(p.id);
     setBusy(false);
-    avisarResultado(r);
+    avisarResultado(r, notify);
     onChanged();
   };
+  const guardarTexto = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/autopost/posts/${p.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto }),
+      });
+      const data = await res.json();
+      if (res.ok) { setEditando(false); notify("Texto guardado.", "success"); }
+      else notify(data.error || "No se pudo guardar", "error");
+    } catch { notify("Error de red", "error"); } finally { setBusy(false); }
+  };
+  const regenerar = async () => {
+    setRegenerando(true);
+    try {
+      const res = await fetch(`/api/admin/autopost/posts/${p.id}/regenerate-image`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.imagen_url) { setImagenUrl(data.imagen_url); notify("Imagen regenerada.", "success"); }
+      else notify(data.error || "No se pudo regenerar la imagen", "error");
+    } catch { notify("Error de red", "error"); } finally { setRegenerando(false); }
+  };
+
   return (
     <div className={card}>
       <div className="flex gap-3">
-        {p.imagen_url && <img src={p.imagen_url} alt="" className="w-24 h-24 rounded-lg object-cover flex-shrink-0" />}
-        <div className="min-w-0">
+        {imagenUrl && (
+          <div className="relative w-24 h-24 flex-shrink-0">
+            <img src={imagenUrl} alt="" className="w-24 h-24 rounded-lg object-cover" />
+            {regenerando && <div className="absolute inset-0 rounded-lg bg-black/60 flex items-center justify-center text-[11px] text-white">Generando…</div>}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] text-white/40 mb-1">{p.red || "—"} · creado {fmt(p.created_at)}</p>
-          <p className="text-sm text-white/80 whitespace-pre-wrap line-clamp-6">{p.texto}</p>
+          {editando ? (
+            <textarea value={texto} maxLength={2200} rows={6} onChange={(e) => setTexto(e.target.value)}
+              className="w-full rounded-lg bg-white/5 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f9b23b]" />
+          ) : (
+            <p className="text-sm text-white/80 whitespace-pre-wrap line-clamp-6">{texto}</p>
+          )}
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 mt-3">
-        <button onClick={ahora} disabled={busy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>{busy ? "…" : "Publicar ahora"}</button>
-        <button onClick={() => accion("aprobar")} disabled={busy} className={`${btn} border border-white/15 text-white/90`}>Aprobar (programar)</button>
-        <button onClick={() => accion("rechazar")} disabled={busy} className={`${btn} border border-white/15 text-red-300`}>Rechazar</button>
-      </div>
+
+      {editando ? (
+        <div className="flex flex-wrap gap-2 mt-3">
+          <button onClick={guardarTexto} disabled={busy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#f9b23b" }}>{busy ? "…" : "Guardar"}</button>
+          <button onClick={() => { setTexto(p.texto); setEditando(false); }} disabled={busy} className={`${btn} border border-white/15 text-white/70`}>Cancelar</button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2 mt-3">
+          <button onClick={ahora} disabled={busy || regenerando} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>{busy ? "…" : "Publicar ahora"}</button>
+          <button onClick={() => accion("aprobar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Aprobar (programar)</button>
+          <button onClick={() => setEditando(true)} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Editar texto</button>
+          <button onClick={regenerar} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>{regenerando ? "Generando…" : "Regenerar imagen"}</button>
+          <button onClick={() => accion("rechazar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-red-300`}>Rechazar</button>
+        </div>
+      )}
     </div>
   );
 }
 
-function PiezaProgramada({ p, onChanged }: { p: Post; onChanged: () => void }) {
+function PiezaProgramada({ p, onChanged, notify }: { p: Post; onChanged: () => void; notify: Notify }) {
   const [busy, setBusy] = useState(false);
   const ahora = async () => {
     setBusy(true);
     const r = await publicarAhora(p.id);
     setBusy(false);
-    avisarResultado(r);
+    avisarResultado(r, notify);
     onChanged();
   };
   return (
@@ -218,9 +269,12 @@ export default function AutopostView({ cuentas, pendientes, programados, histori
 }) {
   const router = useRouter();
   const refresh = () => router.refresh();
+  const [toast, setToast] = useState<ToastState>(null);
+  const notify: Notify = (message, type) => setToast({ message, type });
 
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white px-4 sm:px-5 py-8">
+      <Toast toast={toast} onClose={() => setToast(null)} />
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
           <BackLink href="/admin" dark>Administración</BackLink>
@@ -253,7 +307,7 @@ export default function AutopostView({ cuentas, pendientes, programados, histori
           <h2 className="text-sm font-bold text-white/80 mb-3">Pendientes de revisión ({pendientes.length})</h2>
           {pendientes.length === 0
             ? <div className={`${card} text-white/50 text-sm`}>Nada pendiente.</div>
-            : <div className="space-y-3">{pendientes.map((p) => <PiezaPendiente key={p.id} p={p} onChanged={refresh} />)}</div>}
+            : <div className="space-y-3">{pendientes.map((p) => <PiezaPendiente key={p.id} p={p} onChanged={refresh} notify={notify} />)}</div>}
         </section>
 
         {/* Programados (próximas 4 semanas) */}
@@ -262,7 +316,7 @@ export default function AutopostView({ cuentas, pendientes, programados, histori
           {programados.length === 0
             ? <div className={`${card} text-white/50 text-sm`}>Nada programado.</div>
             : <div className={`${card} divide-y divide-white/10`}>
-                {programados.map((p) => <PiezaProgramada key={p.id} p={p} onChanged={refresh} />)}
+                {programados.map((p) => <PiezaProgramada key={p.id} p={p} onChanged={refresh} notify={notify} />)}
               </div>}
         </section>
 

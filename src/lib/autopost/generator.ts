@@ -22,6 +22,41 @@ const FOCOS_PRODUCTO = [
   "la propuesta de valor de o2Wave para ONGs, pymes y particulares",
 ];
 
+/** Deriva una escena visual EN (40-80 palabras) a partir del copy de una pieza. */
+async function escenaDesdeTexto(texto: string): Promise<string> {
+  const fallback = `Modern clean marketing scene related to social media and communication. Photorealistic, natural lighting, human and warm, no text, no letters, no logos, no watermarks.`;
+  try {
+    const prompt = `You are an art director. From this social post caption, write ONE vivid English VISUAL SCENE (40-80 words) for a photorealistic image model — concrete subjects, setting, objects, lighting, mood. NOT a slogan, NOT the caption. Avoid clichés like generic business charts on laptops unless truly relevant. End with "no text, no letters, no logos, no watermarks".
+
+Caption:
+${texto.slice(0, 600)}
+
+Return ONLY the scene description, one paragraph.`;
+    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 300, messages: [{ role: "user", content: prompt }] });
+    const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
+    return raw.split(/\s+/).length >= 15 ? raw : fallback;
+  } catch { return fallback; }
+}
+
+/**
+ * Regenera la imagen de una pieza (botón "Regenerar imagen"). Deriva una escena
+ * nueva del copy, la genera con el mismo pipeline que C4 (generarImagenIA) y la
+ * sube a post-images/autopost. Devuelve la URL pública o un error legible.
+ */
+export async function regenerarImagenAutopost(admin: SupabaseClient, cuentaId: string, texto: string): Promise<{ url: string } | { error: string }> {
+  try {
+    const escena = await escenaDesdeTexto(texto);
+    const gen = await generarImagenIA(escena, "1:1");
+    if (!gen) return { error: "No se pudo generar la imagen (Gemini/Replicate)." };
+    const path = `autopost/${cuentaId}/${Date.now()}-regen.png`;
+    const { error } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
+    if (error) return { error: `No se pudo subir la imagen: ${error.message}` };
+    return { url: admin.storage.from("post-images").getPublicUrl(path).data.publicUrl };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "error al regenerar" };
+  }
+}
+
 export interface CuentaGen {
   id: string; etiqueta: string; perfil_publicacion: string;
   auto_approve: boolean; frecuencia_semanal: number;
