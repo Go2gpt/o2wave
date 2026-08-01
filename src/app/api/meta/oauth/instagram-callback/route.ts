@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAudit";
 import { SITE_URL } from "@/lib/siteUrl";
 import { cifrarToken } from "@/lib/crypto-tokens";
-import { autopostEnabled, metaIgAppId, metaIgRedirectUri } from "@/lib/meta/config";
+import { autopostEnabled, metaIgAppId, metaIgAppSecret, metaIgRedirectUri } from "@/lib/meta/config";
 import { exchangeIgCodeForToken, toLongLivedIgToken, fetchIgUsername } from "@/lib/meta/oauth-ig";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +26,13 @@ export async function GET(request: NextRequest) {
   const cuentaId = request.cookies.get("ig_oauth_cuenta")?.value;
   if (!code || !state || !cookieState || state !== cookieState || !cuentaId) return panel("error=ig_state");
 
+  // Diagnóstico: expone exactamente qué redirect_uri/appId se usan en el
+  // exchange (JSON.stringify revela espacios/saltos ocultos). Nunca loguea el secret.
+  const ru = metaIgRedirectUri();
+  console.log(`ig callback: redirect_uri=${JSON.stringify(ru)} appId=${JSON.stringify(metaIgAppId())} secretLen=${metaIgAppSecret().length}`);
+
   try {
-    const { accessToken: shortToken, userId } = await exchangeIgCodeForToken(code, metaIgRedirectUri());
+    const { accessToken: shortToken, userId } = await exchangeIgCodeForToken(code, ru);
     const { token, expiresIn } = await toLongLivedIgToken(shortToken);
     const username = await fetchIgUsername(userId, token);
     const expira = new Date(Date.now() + expiresIn * 1000).toISOString();

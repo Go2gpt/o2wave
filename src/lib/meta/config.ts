@@ -15,17 +15,20 @@ export const IG_OAUTH_AUTHORIZE = "https://api.instagram.com/oauth/authorize";
 export const IG_OAUTH_TOKEN = "https://api.instagram.com/oauth/access_token";
 export const IG_SCOPES = ["instagram_business_basic", "instagram_business_content_publish"];
 
+// .trim() defensivo: un espacio/salto de línea al pegar la env en Vercel rompe
+// el intercambio code→token (Instagram exige redirect_uri/secret byte-a-byte y
+// devuelve un error genérico de "redirect_uri" aunque el fallo sea el secret).
 /** redirect_uri del OAuth de Instagram (debe coincidir con la Meta App). */
 export function metaIgRedirectUri(): string {
-  return process.env.META_IG_REDIRECT_URI || `${SITE_URL}/api/meta/oauth/instagram-callback`;
+  return (process.env.META_IG_REDIRECT_URI || `${SITE_URL}/api/meta/oauth/instagram-callback`).trim();
 }
 /** App ID para el flujo Instagram (puede diferir del de FB → fallback al de FB). */
 export function metaIgAppId(): string {
-  return process.env.META_IG_APP_ID || process.env.META_APP_ID || "";
+  return (process.env.META_IG_APP_ID || process.env.META_APP_ID || "").trim();
 }
 /** App Secret para el flujo Instagram (fallback al de FB). */
 export function metaIgAppSecret(): string {
-  return process.env.META_IG_APP_SECRET || process.env.META_APP_SECRET || "";
+  return (process.env.META_IG_APP_SECRET || process.env.META_APP_SECRET || "").trim();
 }
 
 /**
