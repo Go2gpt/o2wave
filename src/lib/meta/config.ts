@@ -12,14 +12,17 @@ export const META_OAUTH_DIALOG = `https://www.facebook.com/${META_GRAPH_VERSION}
 /**
  * Permisos que pedimos en el OAuth clásico (Facebook Login). Con la app en
  * Development y el usuario como admin/tester, están disponibles sin App Review.
+ *
+ * Solo scopes de Páginas: Meta separó en 2024 los flujos OAuth de FB e IG, y
+ * los instagram_business_* SOLO se piden vía Instagram Business Login
+ * (api.instagram.com/oauth/authorize), NO desde Facebook Login clásico.
+ * IG queda para Fase 1a.2 (OAuth separado). Fase 1a publica solo en FB.
  */
 export const META_SCOPES = [
   "pages_show_list",
   "pages_manage_posts",
   "pages_read_engagement",
   "business_management",
-  "instagram_business_basic",
-  "instagram_business_content_publish",
 ];
 
 /** ¿Está encendido el sistema de autopost? Interruptor global (criterio #6). */
