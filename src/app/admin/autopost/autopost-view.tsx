@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
@@ -190,12 +190,21 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   );
 }
 
-function PiezaPendiente({ p, onChanged, notify }: { p: Post; onChanged: () => void; notify: Notify }) {
+function PiezaPendiente({ p, onChanged, notify, cuentaEtiqueta }: { p: Post; onChanged: () => void; notify: Notify; cuentaEtiqueta: string }) {
   const [busy, setBusy] = useState(false);
   const [regenerando, setRegenerando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(p.texto);
   const [imagenUrl, setImagenUrl] = useState<string | null>(p.imagen_url);
+  const [preview, setPreview] = useState(false);
+
+  // Cerrar el modal con Esc.
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPreview(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [preview]);
 
   const accion = async (a: "aprobar" | "rechazar") => {
     if (a === "rechazar" && !confirm("¿Rechazar esta pieza? No se podrá recuperar.")) return;
@@ -233,41 +242,82 @@ function PiezaPendiente({ p, onChanged, notify }: { p: Post; onChanged: () => vo
     } catch { notify("Error de red", "error"); } finally { setRegenerando(false); }
   };
 
+  // Acciones (compartidas por la card y el modal). En modo edición → Guardar/Cancelar.
+  const acciones = editando ? (
+    <>
+      <button onClick={guardarTexto} disabled={busy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#f9b23b" }}>{busy ? "…" : "Guardar"}</button>
+      <button onClick={() => { setTexto(p.texto); setEditando(false); }} disabled={busy} className={`${btn} border border-white/15 text-white/70`}>Cancelar</button>
+    </>
+  ) : (
+    <>
+      <button onClick={ahora} disabled={busy || regenerando} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>{busy ? "…" : "Publicar ahora"}</button>
+      <button onClick={() => accion("aprobar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Aprobar (programar)</button>
+      <button onClick={() => setEditando(true)} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Editar texto</button>
+      <button onClick={regenerar} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>{regenerando ? "Generando…" : "Regenerar imagen"}</button>
+      <button onClick={() => accion("rechazar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-red-300`}>Rechazar</button>
+    </>
+  );
+
   return (
-    <div className={card}>
-      <div className="flex gap-3">
-        {imagenUrl && (
-          <div className="relative w-24 h-24 flex-shrink-0">
-            <img src={imagenUrl} alt="" className="w-24 h-24 rounded-lg object-cover" />
-            {regenerando && <div className="absolute inset-0 rounded-lg bg-black/60 flex items-center justify-center text-[11px] text-white">Generando…</div>}
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-white/40 mb-1">{p.red || "—"} · creado {fmt(p.created_at)}</p>
-          {editando ? (
-            <textarea value={texto} maxLength={2200} rows={6} onChange={(e) => setTexto(e.target.value)}
-              className="w-full rounded-lg bg-white/5 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f9b23b]" />
-          ) : (
-            <p className="text-sm text-white/80 whitespace-pre-wrap line-clamp-6">{texto}</p>
+    <>
+      <div className={card}>
+        <div className="flex gap-3">
+          {imagenUrl && (
+            <button type="button" onClick={() => setPreview(true)} title="Ver a tamaño real" className="relative w-24 h-24 flex-shrink-0">
+              <img src={imagenUrl} alt="" className="w-24 h-24 rounded-lg object-cover" />
+              {regenerando && <div className="absolute inset-0 rounded-lg bg-black/60 flex items-center justify-center text-[11px] text-white">Generando…</div>}
+            </button>
           )}
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] text-white/40 mb-1">{cuentaEtiqueta} · {p.red || "—"} · creado {fmt(p.created_at)}</p>
+            {editando ? (
+              <textarea value={texto} maxLength={2200} rows={6} onChange={(e) => setTexto(e.target.value)}
+                className="w-full rounded-lg bg-white/5 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f9b23b]" />
+            ) : (
+              <button type="button" onClick={() => setPreview(true)} className="text-left w-full">
+                <p className="text-sm text-white/80 whitespace-pre-wrap line-clamp-6">{texto}</p>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-3">
+          {!editando && <button onClick={() => setPreview(true)} className={`${btn} border border-white/15 text-white/90`}>👁 Ver</button>}
+          {acciones}
         </div>
       </div>
 
-      {editando ? (
-        <div className="flex flex-wrap gap-2 mt-3">
-          <button onClick={guardarTexto} disabled={busy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#f9b23b" }}>{busy ? "…" : "Guardar"}</button>
-          <button onClick={() => { setTexto(p.texto); setEditando(false); }} disabled={busy} className={`${btn} border border-white/15 text-white/70`}>Cancelar</button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2 mt-3">
-          <button onClick={ahora} disabled={busy || regenerando} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>{busy ? "…" : "Publicar ahora"}</button>
-          <button onClick={() => accion("aprobar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Aprobar (programar)</button>
-          <button onClick={() => setEditando(true)} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Editar texto</button>
-          <button onClick={regenerar} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>{regenerando ? "Generando…" : "Regenerar imagen"}</button>
-          <button onClick={() => accion("rechazar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-red-300`}>Rechazar</button>
+      {/* Modal preview a tamaño real */}
+      {preview && (
+        <div className="fixed inset-0 z-[80] bg-black/70 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setPreview(false)}>
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-2xl p-4 sm:p-6 my-8 text-white" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="font-bold">{cuentaEtiqueta}</p>
+                <p className="text-[11px] text-white/40">{p.red || "—"} · creado {fmt(p.created_at)}</p>
+              </div>
+              <button onClick={() => setPreview(false)} aria-label="Cerrar" className="text-white/50 hover:text-white text-2xl leading-none px-2">×</button>
+            </div>
+
+            {imagenUrl && (
+              <div className="relative mb-4">
+                <img src={imagenUrl} alt="" className="w-full rounded-lg max-h-[65vh] object-contain bg-black/30" />
+                {regenerando && <div className="absolute inset-0 rounded-lg bg-black/60 flex items-center justify-center text-sm">Generando…</div>}
+              </div>
+            )}
+
+            {editando ? (
+              <textarea value={texto} maxLength={2200} rows={10} onChange={(e) => setTexto(e.target.value)}
+                className="w-full rounded-lg bg-white/5 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f9b23b] mb-4" />
+            ) : (
+              <p className="text-sm text-white/85 whitespace-pre-wrap mb-4">{texto}</p>
+            )}
+
+            <div className="flex flex-wrap gap-2">{acciones}</div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -334,7 +384,7 @@ export default function AutopostView({ cuentas, pendientes, programados, histori
           <h2 className="text-sm font-bold text-white/80 mb-3">Pendientes de revisión ({pendientes.length})</h2>
           {pendientes.length === 0
             ? <div className={`${card} text-white/50 text-sm`}>Nada pendiente.</div>
-            : <div className="space-y-3">{pendientes.map((p) => <PiezaPendiente key={p.id} p={p} onChanged={refresh} notify={notify} />)}</div>}
+            : <div className="space-y-3">{pendientes.map((p) => <PiezaPendiente key={p.id} p={p} onChanged={refresh} notify={notify} cuentaEtiqueta={cuentas.find((cc) => cc.id === p.cuenta_id)?.etiqueta || "—"} />)}</div>}
         </section>
 
         {/* Programados (próximas 4 semanas) */}
