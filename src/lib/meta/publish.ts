@@ -22,6 +22,16 @@ export interface CuentaPublicable {
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Construye el error tras loguear el body crudo de Meta (code/subcode/fbtrace). */
+function graphError(verbo: string, base: string, path: string, status: number, json: unknown): Error {
+  const e = (json as { error?: Record<string, unknown> })?.error || {};
+  // El body crudo suele traer más que el mensaje resumido (error_subcode,
+  // error_user_title/msg, fbtrace_id) — clave para diagnosticar permisos IG.
+  console.error(`Graph ${verbo} ${base}${path} [${status}]:`, JSON.stringify(e));
+  const cod = e.code ? ` (code ${e.code}${e.error_subcode ? `/${e.error_subcode}` : ""})` : "";
+  return new Error(`${(e.message as string) || `Graph ${verbo} ${path} (${status})`}${cod}`);
+}
+
 async function graphPost<T>(path: string, params: Record<string, string>, base = META_GRAPH): Promise<T> {
   const res = await fetch(`${base}${path}`, {
     method: "POST",
@@ -29,14 +39,14 @@ async function graphPost<T>(path: string, params: Record<string, string>, base =
     body: new URLSearchParams(params).toString(),
   });
   const json = await res.json();
-  if (!res.ok || json?.error) throw new Error(json?.error?.message || `Graph POST ${path} (${res.status})`);
+  if (!res.ok || json?.error) throw graphError("POST", base, path, res.status, json);
   return json as T;
 }
 
 async function graphGet<T>(path: string, params: Record<string, string>, base = META_GRAPH): Promise<T> {
   const res = await fetch(`${base}${path}?${new URLSearchParams(params).toString()}`, { cache: "no-store" });
   const json = await res.json();
-  if (!res.ok || json?.error) throw new Error(json?.error?.message || `Graph GET ${path} (${res.status})`);
+  if (!res.ok || json?.error) throw graphError("GET", base, path, res.status, json);
   return json as T;
 }
 
