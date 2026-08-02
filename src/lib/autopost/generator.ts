@@ -108,33 +108,59 @@ export async function generarPiezasAutopost(admin: SupabaseClient, cuenta: Cuent
 
   for (let k = 0; k < faltan; k++) {
     const foco = FOCOS_PRODUCTO[(semanaIdx + ya + k) % FOCOS_PRODUCTO.length];
-    const pieza = await piezaProducto(foco);
-    if (!pieza) continue;
-
-    // Imagen IA (1:1 sirve para IG y FB). Tolerante: si falla, la pieza va sin imagen.
-    let imagenUrl: string | null = null;
-    try {
-      const gen = await generarImagenIA(pieza.img, "1:1");
-      if (gen) {
-        const path = `autopost/${cuenta.id}/${Date.now()}-${k}.png`;
-        const { error: upErr } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
-        if (!upErr) imagenUrl = admin.storage.from("post-images").getPublicUrl(path).data.publicUrl;
-      }
-    } catch { /* pieza sin imagen */ }
-
-    const texto = `${pieza.texto}\n\n${pieza.hashtags.join(" ")}`.trim().slice(0, MAX_IG_CHARS);
     const estado = autoAprob ? "scheduled" : "pending_review";
     const publishAt = autoAprob ? proximaPublicacion(cuenta.dias_horas) : null;
     // La primera pieza de la semana lleva semana_inicio (índice único anti-duplicado).
-    const esPrimera = ya === 0 && k === 0;
+    const semanaCol = ya === 0 && k === 0 ? semanaInicio : null;
 
-    const { error } = await admin.from("autopost_posts").insert({
-      cuenta_id: cuenta.id, estado, perfil_publicacion: cuenta.perfil_publicacion,
-      texto, imagen_url: imagenUrl, red: "ambas", publish_at: publishAt,
-      semana_inicio: esPrimera ? semanaInicio : null,
-    });
-    if (error) { console.error("autopost generar insert:", error.message); continue; }
+    const r = await crearPiezaProducto(admin, cuenta.id, cuenta.perfil_publicacion, foco, { estado, publishAt, semanaInicio: semanaCol, sufijo: `${k}` });
+    if (!r) continue;
     generadas++; if (autoAprob) programadas++; else pendientes++;
   }
   return { cuenta: cuenta.etiqueta, generadas, programadas, pendientes, saltada: false };
+}
+
+/**
+ * Crea e inserta UNA pieza de producto (texto + imagen). Devuelve id/texto/url
+ * o null si falla la generación de texto/inserción. Reutilizado por el cron C4
+ * y por la generación manual.
+ */
+async function crearPiezaProducto(
+  admin: SupabaseClient, cuentaId: string, perfil: string, foco: string,
+  opts: { estado: string; publishAt: string | null; semanaInicio: string | null; sufijo?: string },
+): Promise<{ id: string; texto: string; imagen_url: string | null } | null> {
+  const pieza = await piezaProducto(foco);
+  if (!pieza) return null;
+
+  // Imagen IA (1:1 sirve para IG y FB). Tolerante: si falla, la pieza va sin imagen.
+  let imagenUrl: string | null = null;
+  try {
+    const gen = await generarImagenIA(pieza.img, "1:1");
+    if (gen) {
+      const path = `autopost/${cuentaId}/${Date.now()}-${opts.sufijo ?? "0"}.png`;
+      const { error: upErr } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
+      if (!upErr) imagenUrl = admin.storage.from("post-images").getPublicUrl(path).data.publicUrl;
+    }
+  } catch { /* pieza sin imagen */ }
+
+  const texto = `${pieza.texto}\n\n${pieza.hashtags.join(" ")}`.trim().slice(0, MAX_IG_CHARS);
+  const { data, error } = await admin.from("autopost_posts").insert({
+    cuenta_id: cuentaId, estado: opts.estado, perfil_publicacion: perfil,
+    texto, imagen_url: imagenUrl, red: "ambas", publish_at: opts.publishAt,
+    semana_inicio: opts.semanaInicio,
+  }).select("id").single();
+  if (error) { console.error("autopost crear pieza insert:", error.message); return null; }
+  return { id: data.id as string, texto, imagen_url: imagenUrl };
+}
+
+/**
+ * Generación MANUAL de una pieza (botón "Generar pack ahora"): bypassa el guard
+ * semanal, siempre a pending_review, semana_inicio=null (no choca con el índice
+ * único). Foco variado por invocación. Solo perfil producto (Fase 1a).
+ */
+export async function generarPiezaManual(admin: SupabaseClient, cuentaId: string, perfil: string): Promise<{ pieza_id: string; texto: string; imagen_url: string | null } | { error: string }> {
+  const foco = FOCOS_PRODUCTO[Math.floor(Math.random() * FOCOS_PRODUCTO.length)];
+  const r = await crearPiezaProducto(admin, cuentaId, perfil, foco, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "manual" });
+  if (!r) return { error: "No se pudo generar la pieza (texto o imagen)." };
+  return { pieza_id: r.id, texto: r.texto, imagen_url: r.imagen_url };
 }

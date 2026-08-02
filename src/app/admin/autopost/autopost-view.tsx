@@ -64,16 +64,27 @@ function avisarResultado(r: { ok: boolean; estado?: string; fb_post_url?: string
   else notify(`No se pudo publicar: ${r.error || "revisa el histórico"}`, "error");
 }
 
-function CuentaCard({ c, onChanged }: { c: Cuenta; onChanged: () => void }) {
+function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void; notify: Notify }) {
   const [activo, setActivo] = useState(c.activo);
   const [perfil, setPerfil] = useState<Cuenta["perfil_publicacion"]>(c.perfil_publicacion);
   const [autoApprove, setAutoApprove] = useState(c.auto_approve);
   const [frecuencia, setFrecuencia] = useState(c.frecuencia_semanal || 1);
   const [franjas, setFranjas] = useState<{ dia: number; hora: string }[]>(c.dias_horas || []);
   const [saving, setSaving] = useState(false);
+  const [generando, setGenerando] = useState(false);
   const [msg, setMsg] = useState("");
   const sem = semaforo(c.token_expira_at);
   const esOng = perfil === "ong_general";
+
+  const generarPack = async () => {
+    setGenerando(true);
+    try {
+      const res = await fetch(`/api/admin/autopost/accounts/${c.id}/generate-now`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.pieza_id) { notify("Pieza generada. Revísala en «Pendientes de revisión».", "success"); onChanged(); }
+      else notify(data.error || "No se pudo generar la pieza", "error");
+    } catch { notify("Error de red", "error"); } finally { setGenerando(false); }
+  };
 
   const guardar = async () => {
     setSaving(true); setMsg("");
@@ -113,6 +124,11 @@ function CuentaCard({ c, onChanged }: { c: Cuenta; onChanged: () => void }) {
           </p>
         </div>
         <div className="flex flex-col gap-2 flex-shrink-0">
+          {perfil === "producto" && (
+            <button onClick={generarPack} disabled={generando} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>
+              {generando ? "Generando…" : "Generar pack ahora"}
+            </button>
+          )}
           <a href={`/api/meta/oauth/instagram-start?cuenta_id=${c.id}`}
             className={`${btn} border border-white/15 text-white/90 text-center`}>
             {c.ig_user_id ? "Reconectar IG" : "Conectar IG"}
@@ -310,7 +326,7 @@ export default function AutopostView({ cuentas, pendientes, programados, histori
           </div>
           {cuentas.length === 0
             ? <div className={`${card} text-white/50 text-sm`}>Ninguna cuenta conectada. Pulsa «Conectar cuenta» para el OAuth de Meta.</div>
-            : <div className="space-y-3">{cuentas.map((c) => <CuentaCard key={c.id} c={c} onChanged={refresh} />)}</div>}
+            : <div className="space-y-3">{cuentas.map((c) => <CuentaCard key={c.id} c={c} onChanged={refresh} notify={notify} />)}</div>}
         </section>
 
         {/* Pendientes de revisión */}
