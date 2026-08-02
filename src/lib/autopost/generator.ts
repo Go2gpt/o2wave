@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
 import { proximaPublicacion } from "@/lib/autopost/schedule";
@@ -98,49 +97,35 @@ const IMAGEN_REGLAS = `El "image_prompt_en" es una descripción de ESCENA en ING
 - Iluminación cálida-agobiante (una lámpara sola / el monitor iluminando la cara), NO luz natural amplia.
 - PROHIBIDO: relaxed smiling professional, modern happy office, tidy desk with a plant, teams collaborating, influencer aesthetic / ring light, aspirational stock.
 - PROHIBIDO cualquier UI/pantalla de app inventada, mockups, dashboards ni business charts.
-- PROHIBIDO logos de marcas comerciales reales (Apple/manzana mordida, Windows/cuadrado de 4, Dell, HP, Lenovo, Google, Instagram, Facebook, TikTok, o cualquier otra marca existente) y el logo de o2Wave.
-- El portátil, si aparece, DEBE tener la tapa OSCURA completamente LISA, SIN ningún símbolo, logotipo, forma abstracta ni marca visible (un logo se añade después en post-proceso). Deja la tapa homogénea y sin decoración.
-- Si aparece un portátil, su pantalla debe estar EN BLANCO, desenfocada, o el portátil CERRADO. Un feed, si aparece, ficticio y borroso/ilegible, sin logos reales.
+- PROHIBIDO logos de marcas comerciales reales (Apple/manzana mordida, Windows/cuadrado de 4, Dell, HP, Lenovo, Google, Instagram, Facebook, TikTok, o cualquier otra marca existente).
+- La escena SIEMPRE incluye un portátil (laptop) con la CARA EXTERIOR DE LA TAPA de frente a la cámara (se ve el respaldo de la tapa, no la pantalla). NUNCA un monitor de sobremesa, NUNCA el portátil de perfil, NUNCA cerrado de espaldas sin la tapa hacia la cámara. La tapa es una superficie oscura mate, prominente en el encuadre. La persona fatigada está detrás o al lado, de modo que se ven a la vez su cansancio y la tapa.
+- NO describas TÚ el logo de la tapa: se añadirá automáticamente una especificación de logo detallada al final del prompt. Solo deja clara la tapa oscura mate de frente.
 - Termina siempre con "no real brand logos, no text, no letters, no watermarks".`;
 
 /* ============================================================================
- * Logo onda canónico (composite post-Gemini, SOLO autopost). El SVG va inline
- * (robusto en serverless: no depende de leer archivos del bundle). Fuente:
- * guias-visuales/logo-onda-tapa-ordenador.svg. En BLANCO para simular el logo
- * iluminado sobre la tapa oscura. Se superpone tras generarImagenIA en el
- * camino autopost — NUNCA en /create ni en el pack semanal (generarImagenIA
- * es compartida).
+ * Logo onda de la tapa del portátil — v1.4: lo DIBUJA Gemini con una spec
+ * ultra-detallada (el composite mecánico del SVG se descartó: Gemini colocaba
+ * el portátil en posiciones aleatorias y el logo quedaba flotando). El SVG
+ * canónico queda archivado en src/lib/autopost/assets/ por si se retoma la vía
+ * de detección de tapa por visión IA. LOGO_SPEC se anexa VERBATIM al final del
+ * image_prompt_en que va a Gemini (mismos descriptores en todas las piezas).
  * ==========================================================================*/
-const SVG_ONDA = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 400 1020 540"><path fill="#FFFFFF" d="M 47.81 779.84 C 52.60 776.48 67.06 779.86 73.82 781.04 Q 79.84 782.09 85.61 784.10 Q 114.73 794.27 146.65 802.03 C 184.93 811.33 224.28 816.50 263.00 816.20 Q 284.04 816.04 306.82 812.83 Q 361.78 805.08 406.61 778.11 Q 435.77 760.56 461.00 732.75 Q 480.10 711.69 497.77 680.54 Q 504.57 668.55 514.58 644.91 C 535.12 596.39 556.84 547.08 586.35 504.32 C 602.08 481.54 621.13 461.37 643.87 445.41 Q 675.76 423.03 714.29 414.80 Q 749.93 407.19 785.25 409.40 Q 794.66 409.99 800.92 410.16 C 827.87 410.89 854.94 414.06 881.47 418.36 Q 922.29 424.98 957.46 433.60 C 965.52 435.58 1034.74 452.66 1024.77 465.83 A 2.54 2.46 -87.5 0 1 1024.21 466.36 Q 1000.18 482.50 971.37 487.62 C 956.47 490.27 938.97 491.39 924.93 494.08 Q 894.85 499.83 872.92 508.70 Q 847.64 518.93 825.90 533.16 C 798.13 551.34 773.00 575.27 751.73 600.92 C 719.52 639.74 694.59 679.71 665.69 725.95 C 646.92 755.98 628.06 784.65 607.84 811.09 C 587.68 837.46 563.56 863.05 538.00 882.73 C 513.73 901.40 487.22 915.05 458.69 924.66 C 449.23 927.85 436.04 930.84 424.97 931.99 Q 401.05 934.46 385.74 933.97 Q 357.44 933.06 328.36 926.63 C 312.85 923.20 297.80 919.38 282.11 914.03 Q 248.61 902.61 219.56 889.17 Q 181.30 871.47 141.74 848.23 Q 109.72 829.43 64.04 798.36 Q 60.80 796.16 57.33 793.32 C 53.11 789.86 48.90 786.76 47.08 782.35 A 2.09 2.09 0.0 0 1 47.81 779.84 Z"/></svg>`;
-
-/**
- * Superpone el logo onda canónico (blanco) sobre la imagen: ~15% del ancho,
- * centrado en X (50%), a ~55% de altura (zona típica de la tapa). Tolerante:
- * si el composite falla, devuelve la imagen original sin logo.
- */
-async function superponerLogoOnda(imagenBuffer: Buffer): Promise<Buffer> {
-  try {
-    const base = sharp(imagenBuffer);
-    const meta = await base.metadata();
-    const W = meta.width || 1024;
-    const H = meta.height || 1024;
-    const logoW = Math.round(W * 0.15);
-    const logoPng = await sharp(Buffer.from(SVG_ONDA)).resize({ width: logoW }).png().toBuffer();
-    const logoH = (await sharp(logoPng).metadata()).height || Math.round(logoW * 540 / 1020);
-    const left = Math.round(W * 0.5 - logoW / 2);
-    const top = Math.round(H * 0.55 - logoH / 2);
-    return await base.composite([{ input: logoPng, left, top }]).png().toBuffer();
-  } catch (e) {
-    console.error("superponerLogoOnda:", e instanceof Error ? e.message : e);
-    return imagenBuffer;
-  }
-}
+const LOGO_SPEC = `LAPTOP LID LOGO — MANDATORY SPECIFICATION:
+The laptop lid facing the camera must display a single glowing wave-shaped symbol.
+SHAPE: single continuous horizontal wave, like a stylized flowing ribbon or brushstroke. Two soft crests (one left, one right) connected by a smooth curved line. Organic, hand-drawn feel like a signature or calligraphy stroke. SOLID FILLED shape (NOT thin outline strokes). Uniform thickness. Proportion ~3:1 (three times wider than tall). Smooth rounded ends, no sharp corners.
+SIZE: occupies 35-45% of visible laptop lid width. Clearly visible from normal viewing distance. Centered horizontally on the lid, vertically centered or slightly above center.
+COLOR/LIGHT: bright white #FFFFFF, luminous, backlit from inside the lid. Subtle warm glow around the shape (soft orange-white halo, radius ~5% of symbol width). Emits light like an Apple logo or Dell LED, but with the described shape. Strong contrast against dark matte laptop lid.
+STYLE: minimalist, modern, elegant. Evokes fluid movement — water, air, sound wave.
+PROHIBITED: real brand logos (Apple/Windows/HP/Dell/Lenovo/Asus/Acer/Samsung/Microsoft/etc), fruit shapes, geometric icons, tech-brand references, thin outline lines, extra symbols/stickers/decals on lid, any text/letters/numbers on or near symbol.`;
 
 /** Deriva una escena visual EN (40-80 palabras) a partir del copy de una pieza. */
 async function escenaDesdeTexto(texto: string): Promise<string> {
-  const fallback = `Modern clean marketing scene related to social media and communication. Photorealistic, natural lighting, human and warm, no text, no letters, no logos, no watermarks.`;
+  const fallback = `A single tired content creator at night, hunched over a laptop with cold coffee and crossed-out post-it notes, warm oppressive lamp light. The laptop's outer lid faces the camera — a dark matte lid, prominent in frame (we see the back of the lid, not the screen). Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
+  let escena = fallback;
   try {
-    const prompt = `You are an art director. From this social post caption, write ONE vivid English VISUAL SCENE (40-80 words) for a photorealistic image model — concrete subjects, setting, objects, lighting, mood. NOT a slogan, NOT the caption. Avoid clichés like generic business charts on laptops unless truly relevant. End with "no text, no letters, no logos, no watermarks".
+    const prompt = `You are an art director. From this social post caption, write ONE vivid English VISUAL SCENE (40-80 words) for a photorealistic image model — concrete subjects, setting, objects, lighting, mood. NOT a slogan.
+The scene MUST include: a SINGLE person visibly overloaded/tired; a laptop with its OUTER LID facing the camera (we see the back of the lid, not the screen — dark matte lid, prominent in frame); warm oppressive lighting. Do NOT describe any logo on the lid (a detailed logo spec is appended automatically). No desktop monitor, no laptop in profile.
+End with "no real brand logos, no text, no letters, no watermarks".
 
 Caption:
 ${texto.slice(0, 600)}
@@ -148,8 +133,9 @@ ${texto.slice(0, 600)}
 Return ONLY the scene description, one paragraph.`;
     const res = await anthropic.messages.create({ model: MODEL, max_tokens: 300, messages: [{ role: "user", content: prompt }] });
     const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
-    return raw.split(/\s+/).length >= 15 ? raw : fallback;
-  } catch { return fallback; }
+    if (raw.split(/\s+/).length >= 15) escena = raw;
+  } catch { /* usa fallback */ }
+  return `${escena}\n\n${LOGO_SPEC}`;
 }
 
 /**
@@ -162,9 +148,8 @@ export async function regenerarImagenAutopost(admin: SupabaseClient, cuentaId: s
     const escena = await escenaDesdeTexto(texto);
     const gen = await generarImagenIA(escena, "1:1");
     if (!gen) return { error: "No se pudo generar la imagen (Gemini/Replicate)." };
-    const conLogo = await superponerLogoOnda(gen.buffer);
     const path = `autopost/${cuentaId}/${Date.now()}-regen.png`;
-    const { error } = await admin.storage.from("post-images").upload(path, conLogo, { contentType: "image/png", upsert: false });
+    const { error } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
     if (error) return { error: `No se pudo subir la imagen: ${error.message}` };
     return { url: admin.storage.from("post-images").getPublicUrl(path).data.publicUrl };
   } catch (e) {
@@ -211,8 +196,9 @@ Responde SOLO con JSON válido:
     const texto = typeof o.texto === "string" ? o.texto.trim() : "";
     const img = typeof o.image_prompt_en === "string" && o.image_prompt_en.trim().length > 10 ? o.image_prompt_en.trim() : "";
     if (!texto || !img) return null;
+    // La spec del logo se anexa VERBATIM (misma onda en todas las piezas).
     // Hashtags SIEMPRE de la lista canónica (el modelo no los inventa).
-    return { texto, hashtags: hashtagsDe(foco, arquetipo), img };
+    return { texto, hashtags: hashtagsDe(foco, arquetipo), img: `${img}\n\n${LOGO_SPEC}` };
   } catch { return null; }
 }
 
@@ -267,9 +253,8 @@ async function crearPiezaProducto(
   try {
     const gen = await generarImagenIA(pieza.img, "1:1");
     if (gen) {
-      const conLogo = await superponerLogoOnda(gen.buffer);
       const path = `autopost/${cuentaId}/${Date.now()}-${opts.sufijo ?? "0"}.png`;
-      const { error: upErr } = await admin.storage.from("post-images").upload(path, conLogo, { contentType: "image/png", upsert: false });
+      const { error: upErr } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
       if (!upErr) imagenUrl = admin.storage.from("post-images").getPublicUrl(path).data.publicUrl;
     }
   } catch { /* pieza sin imagen */ }
