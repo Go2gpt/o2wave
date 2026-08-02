@@ -96,9 +96,11 @@ const IMAGEN_REGLAS = `El "image_prompt_en" es una descripción de ESCENA en ING
 - UN SOLO personaje (la soledad del problema). NUNCA grupos ni equipos.
 - Iluminación cálida-agobiante (una lámpara sola / el monitor iluminando la cara), NO luz natural amplia.
 - PROHIBIDO: relaxed smiling professional, modern happy office, tidy desk with a plant, teams collaborating, influencer aesthetic / ring light, aspirational stock.
-- PROHIBIDO cualquier UI/pantalla de app inventada, mockups, dashboards, business charts, y CUALQUIER logo (ni Instagram/Facebook/TikTok reales, ni o2Wave).
-- Si aparece un portátil, su pantalla debe estar EN BLANCO, desenfocada, o el portátil CERRADO. Un feed, si aparece, ficticio y borroso/ilegible, sin logos.
-- Termina siempre con "no text, no letters, no logos, no watermarks".`;
+- PROHIBIDO cualquier UI/pantalla de app inventada, mockups, dashboards ni business charts.
+- PROHIBIDO logos de marcas comerciales reales (Apple/manzana mordida, Windows/cuadrado de 4, Dell, HP, Lenovo, Google, Instagram, Facebook, TikTok, o cualquier otra marca existente) y el logo de o2Wave.
+- El portátil PUEDE tener un símbolo ABSTRACTO genérico ficticio iluminado en la tapa (forma geométrica simple: círculo, triángulo, cuadrado con contorno, onda, estrella, luna, o una letra estilizada ficticia), siempre que NO sea reconocible como una marca real. Da realismo a la escena nocturna sin sesgar hacia ninguna marca. Si dudas, deja la tapa lisa.
+- Si aparece un portátil, su pantalla debe estar EN BLANCO, desenfocada, o el portátil CERRADO. Un feed, si aparece, ficticio y borroso/ilegible, sin logos reales.
+- Termina siempre con "no real brand logos, no text, no letters, no watermarks".`;
 
 /** Deriva una escena visual EN (40-80 palabras) a partir del copy de una pieza. */
 async function escenaDesdeTexto(texto: string): Promise<string> {
