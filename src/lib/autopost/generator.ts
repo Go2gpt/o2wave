@@ -98,7 +98,7 @@ const IMAGEN_REGLAS = `El "image_prompt_en" es una descripción de ESCENA en ING
 - PROHIBIDO: relaxed smiling professional, modern happy office, tidy desk with a plant, teams collaborating, influencer aesthetic / ring light, aspirational stock.
 - PROHIBIDO cualquier UI/pantalla de app inventada, mockups, dashboards ni business charts.
 - PROHIBIDO logos de marcas comerciales reales (Apple/manzana mordida, Windows/cuadrado de 4, Dell, HP, Lenovo, Google, Instagram, Facebook, TikTok, o cualquier otra marca existente) y el logo de o2Wave.
-- El portátil PUEDE tener un símbolo ABSTRACTO genérico ficticio iluminado en la tapa (forma geométrica simple: círculo, triángulo, cuadrado con contorno, onda, estrella, luna, o una letra estilizada ficticia), siempre que NO sea reconocible como una marca real. Da realismo a la escena nocturna sin sesgar hacia ninguna marca. Si dudas, deja la tapa lisa.
+- El portátil, si aparece, DEBE llevar en la tapa un símbolo ABSTRACTO iluminado con el mismo tamaño, prominencia y visibilidad que el logo de Apple en un MacBook: grande, centrado, bien definido, con brillo cálido (NO dos líneas finas apenas visibles). El símbolo es una ONDA ESTILIZADA (una única curva orgánica visible). Debe ser abstracto e independiente, sin coincidir con ningún logo real (prohibido manzana/Apple, cuadrado dividido/Windows, y cualquier marca comercial existente, además del logo oficial de o2Wave).
 - Si aparece un portátil, su pantalla debe estar EN BLANCO, desenfocada, o el portátil CERRADO. Un feed, si aparece, ficticio y borroso/ilegible, sin logos reales.
 - Termina siempre con "no real brand logos, no text, no letters, no watermarks".`;
 
