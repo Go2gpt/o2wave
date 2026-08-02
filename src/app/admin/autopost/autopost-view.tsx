@@ -117,10 +117,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
             {c.fb_page_nombre ? `FB: ${c.fb_page_nombre}` : "sin FB"}{c.ig_user_id ? ` · IG: ${c.ig_username ? `@${c.ig_username}` : c.ig_user_id}` : " · IG: sin conectar"}
           </p>
           <p className="text-[11px] text-white/30 mt-0.5">
-            FB: {sem.t}
-            {c.ig_user_id && (c.ig_token_expira_at
-              ? ` · IG: caduca ${new Date(c.ig_token_expira_at).toLocaleDateString("es-ES")}`
-              : " · IG: sin token (reconecta IG)")}
+            FB: {sem.t}{c.ig_user_id ? " · IG publica con el Page token" : " · IG: reconecta FB para vincular"}
           </p>
         </div>
         <div className="flex flex-col gap-2 flex-shrink-0">
@@ -129,10 +126,6 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
               {generando ? "Generando…" : "Generar pack ahora"}
             </button>
           )}
-          <a href={`/api/meta/oauth/instagram-start?cuenta_id=${c.id}`}
-            className={`${btn} border border-white/15 text-white/90 text-center`}>
-            {c.ig_user_id ? "Reconectar IG" : "Conectar IG"}
-          </a>
           <button onClick={desconectar} className={`${btn} border border-white/15 text-red-300`}>Desconectar</button>
         </div>
       </div>

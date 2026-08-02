@@ -1,4 +1,4 @@
-import { META_GRAPH, GRAPH_INSTAGRAM } from "@/lib/meta/config";
+import { META_GRAPH } from "@/lib/meta/config";
 import { descifrarToken } from "@/lib/crypto-tokens";
 
 /**
@@ -15,9 +15,8 @@ export interface ResultadoPublicacion { facebook?: ResultadoRed; instagram?: Res
 
 export interface CuentaPublicable {
   fb_page_id: string | null;
-  ig_user_id: string | null;
-  token_cifrado: string;          // page token FB (graph.facebook.com)
-  ig_token_cifrado: string | null; // IG token (Instagram Business Login, graph.instagram.com)
+  ig_user_id: string | null;      // IG Business Account ID (~17 díg., de instagram_business_account)
+  token_cifrado: string;          // page token FB — publica en FB Y en la IG vinculada
 }
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -64,38 +63,39 @@ export async function validarImagenParaIG(imageUrl: string): Promise<string | nu
 }
 
 /**
- * Publica en Instagram (Business Login): contenedor → poll → media_publish.
- * Usa graph.instagram.com con el IG token propio (no el Page Token de FB).
+ * Publica en Instagram vía graph.facebook.com con el PAGE TOKEN (setup
+ * "Instagram API with Facebook Login"): contenedor → poll → media_publish.
+ * `igUserId` es la IG Business Account ID (~17 díg.) vinculada a la Página.
  */
 export async function publicarEnInstagram(
-  igUserId: string, token: string, imageUrl: string, caption: string,
+  igUserId: string, pageToken: string, imageUrl: string, caption: string,
 ): Promise<ResultadoRed> {
   try {
     const invalida = await validarImagenParaIG(imageUrl);
     if (invalida) return { ok: false, error: invalida };
 
-    const cont = await graphPost<{ id: string }>(`/v20.0/${igUserId}/media`, {
-      image_url: imageUrl, caption, access_token: token,
-    }, GRAPH_INSTAGRAM);
+    const cont = await graphPost<{ id: string }>(`/${igUserId}/media`, {
+      image_url: imageUrl, caption, access_token: pageToken,
+    });
 
     // Poll del contenedor hasta FINISHED (o ERROR). ~60s máx.
     let estado = "";
     for (let i = 0; i < 30; i++) {
       await dormir(2000);
-      const st = await graphGet<{ status_code: string }>(`/${cont.id}`, { fields: "status_code", access_token: token }, GRAPH_INSTAGRAM);
+      const st = await graphGet<{ status_code: string }>(`/${cont.id}`, { fields: "status_code", access_token: pageToken });
       estado = st.status_code;
       if (estado === "FINISHED") break;
       if (estado === "ERROR" || estado === "EXPIRED") return { ok: false, error: `Contenedor IG en estado ${estado}` };
     }
     if (estado !== "FINISHED") return { ok: false, error: "El contenedor de IG no quedó listo a tiempo." };
 
-    const pub = await graphPost<{ id: string }>(`/v20.0/${igUserId}/media_publish`, {
-      creation_id: cont.id, access_token: token,
-    }, GRAPH_INSTAGRAM);
+    const pub = await graphPost<{ id: string }>(`/${igUserId}/media_publish`, {
+      creation_id: cont.id, access_token: pageToken,
+    });
 
     let url: string | undefined;
     try {
-      const perma = await graphGet<{ permalink: string }>(`/${pub.id}`, { fields: "permalink", access_token: token }, GRAPH_INSTAGRAM);
+      const perma = await graphGet<{ permalink: string }>(`/${pub.id}`, { fields: "permalink", access_token: pageToken });
       url = perma.permalink;
     } catch { /* permalink es opcional */ }
 
@@ -134,15 +134,15 @@ export async function publicarPieza(
 ): Promise<ResultadoPublicacion> {
   const out: ResultadoPublicacion = {};
   const quiere = (r: string) => pieza.red === r || pieza.red === "ambas";
+  // El MISMO Page token publica en FB y en la IG vinculada (graph.facebook.com).
+  const pageToken = descifrarToken(cuenta.token_cifrado);
 
   if (quiere("facebook") && cuenta.fb_page_id) {
-    const pageToken = descifrarToken(cuenta.token_cifrado);
     out.facebook = await publicarEnFacebook(cuenta.fb_page_id, pageToken, pieza.imagenUrl, pieza.texto);
   }
-  if (quiere("instagram") && cuenta.ig_user_id && cuenta.ig_token_cifrado) {
-    const igToken = descifrarToken(cuenta.ig_token_cifrado);
+  if (quiere("instagram") && cuenta.ig_user_id) {
     out.instagram = pieza.imagenUrl
-      ? await publicarEnInstagram(cuenta.ig_user_id, igToken, pieza.imagenUrl, pieza.texto)
+      ? await publicarEnInstagram(cuenta.ig_user_id, pageToken, pieza.imagenUrl, pieza.texto)
       : { ok: false, error: "Instagram requiere una imagen." };
   }
   return out;

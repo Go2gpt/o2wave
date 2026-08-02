@@ -32,19 +32,19 @@ export function metaIgAppSecret(): string {
 }
 
 /**
- * Permisos que pedimos en el OAuth clásico (Facebook Login). Con la app en
- * Development y el usuario como admin/tester, están disponibles sin App Review.
- *
- * Solo scopes de Páginas: Meta separó en 2024 los flujos OAuth de FB e IG, y
- * los instagram_business_* SOLO se piden vía Instagram Business Login
- * (api.instagram.com/oauth/authorize), NO desde Facebook Login clásico.
- * IG queda para Fase 1a.2 (OAuth separado). Fase 1a publica solo en FB.
+ * Permisos del OAuth de Facebook Login (setup "Instagram API with Facebook
+ * Login"). En Development, con el usuario admin/tester, están disponibles sin
+ * App Review. instagram_basic + instagram_content_publish permiten publicar en
+ * la cuenta IG vinculada a la Página usando el PAGE TOKEN (vía graph.facebook.com)
+ * — la vía estable, sin depender del OAuth separado de Instagram Login.
  */
 export const META_SCOPES = [
   "pages_show_list",
   "pages_manage_posts",
   "pages_read_engagement",
   "business_management",
+  "instagram_basic",
+  "instagram_content_publish",
 ];
 
 /** ¿Está encendido el sistema de autopost? Interruptor global (criterio #6). */
