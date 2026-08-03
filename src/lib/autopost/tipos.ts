@@ -73,9 +73,9 @@ const ESCENAS_ONG: Escena[] = [
   { en: "A wall calendar with dates marked in red and blue, stacked envelopes, a phone off the hook." },
 ];
 
-async function piezaArquetipoONG(): Promise<Pieza | null> {
+async function piezaArquetipoONG(subIndex = 0): Promise<Pieza | null> {
   const activas = (causas as { label: string; estado: string }[]).filter((c) => c.estado === "activa");
-  const causa = pick(activas);
+  const causa = activas[subIndex % activas.length]; // rotación determinista de causa
   const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
   const foco = pick([
     "arranque de temporada o campaña anual tras el verano",
@@ -88,6 +88,7 @@ async function piezaArquetipoONG(): Promise<Pieza | null> {
 Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una ONG pequeña que usa o2Wave. Historia por encima del eslogan.
 Protagonista: Ana, que dirige o coordina una ${causa.label}, con un equipo de 3-5 personas (mezcla de voluntarias y contratadas). Problema: las redes son "una tarea más que nadie quiere asumir"; nadie tiene perfil de comunicación; el tiempo escasea. Enfoque de esta pieza: ${foco}.
 o2Wave resuelve: Ana describe en una frase lo que quiere comunicar y la app genera texto e imagen listos para publicar; el equipo recupera esas horas.
+QUÉDATE EN EL CARRIL: habla SOLO de Ana y su entidad social; NO menciones empresas/pymes, "marca personal" ni "Particulares".
 OBLIGATORIO: verbo genérico ("dirige", "coordina", "impulsa"), zona genérica ("en un barrio", "en zona rural"). PROHIBIDO: nombres reales de ONGs o personas, ciudades identificables, cifras inventadas, tech-bro speak. Máx ~120 palabras.`;
   const body = await claudeTexto(prompt);
   if (!body) return null;
@@ -99,67 +100,111 @@ OBLIGATORIO: verbo genérico ("dirige", "coordina", "impulsa"), zona genérica (
 }
 
 /* ------------------------------ Empresa (Carlos) ---------------------------- */
-const SUBV_EMPRESA = [
-  "un estudio de diseño gráfico de 2 personas", "una cafetería con servicio a domicilio en el barrio",
-  "un negocio freelance de desarrollo web", "un taller mecánico o un pequeño comercio local",
-  "una escuela de idiomas pequeña con 2 profesores", "una tienda online de artesanía propia",
-];
-const ESCENAS_EMPRESA: Escena[] = [
-  { en: "A neighborhood shop with the owner behind the counter on a quiet day, shopfront with natural light, camera from inside looking out." },
-  { en: "A solo midday café: a table with a closed laptop, an almost-empty cup, an open notebook with jottings." },
-  { en: "A small coworking with two or three desks occupied, warm light, a discreet plant, the owner in a hoodie (not a suit)." },
-  { en: "A garage or small workshop with the tools of the trade, a real working atmosphere, not aspirational." },
-  { en: "A back-office desk with genuinely stacked papers: invoices, catalogues, notes." },
-  { en: "Someone preparing delivery orders by bicycle or motorbike outside a small business." },
+// Cada subvariante trae SUS propias escenas (ligadas al negocio; nada de
+// "persona con laptop de noche" que echaría a piezaProducto).
+const SUBV_EMPRESA: { label: string; escenas: Escena[] }[] = [
+  { label: "un estudio de diseño gráfico de 2 personas", escenas: [
+    { en: "A small graphic design studio: two people at desks with printed mockups and color swatches pinned on the wall, daylight." },
+    { en: "A designer's desk with a drawing tablet, printed posters and mugs of coffee, a creative small studio." },
+    { en: "A studio wall covered with pinned design drafts, someone reviewing prints." },
+  ] },
+  { label: "una cafetería con servicio a domicilio en el barrio", escenas: [
+    { en: "A neighborhood café counter at opening time, pastries in the display case, warm morning light." },
+    { en: "A café bar with a barista steaming milk, cups lined up on the counter." },
+    { en: "A café interior at dawn, chairs still on the tables, someone setting up for the day." },
+  ] },
+  { label: "un negocio freelance de desarrollo web", escenas: [
+    { en: "A calm daytime home office with two monitors showing blurred code, a mechanical keyboard and sticky notes." },
+    { en: "A tidy developer desk with a laptop, a coffee and a small plant, quiet room, natural light.", logo: true },
+    { en: "A coworking desk with headphones and a notebook full of wireframe sketches." },
+  ] },
+  { label: "un taller mecánico o un pequeño comercio local", escenas: [
+    { en: "A small mechanic workshop with tools and a car lifted, a real working atmosphere." },
+    { en: "A small local shop counter with the owner arranging products on the shelves." },
+    { en: "A workshop bench with the tools of the trade and a handwritten order list." },
+  ] },
+  { label: "una escuela de idiomas pequeña con 2 profesores", escenas: [
+    { en: "A small language classroom with a whiteboard full of vocabulary and a few chairs." },
+    { en: "A teacher's desk with textbooks and flashcards, warm light." },
+    { en: "A small classroom with chairs in a semicircle and language posters on the wall." },
+  ] },
+  { label: "una tienda online de artesanía propia", escenas: [
+    { en: "A craft workshop table with handmade products, packaging materials and a phone photographing an item." },
+    { en: "Shelves of handmade crafts with a small parcel being wrapped on the table." },
+    { en: "An artisan's hands finishing a handmade product on a wooden table, warm light." },
+  ] },
 ];
 
-async function piezaArquetipoEmpresa(): Promise<Pieza | null> {
-  const sub = pick(SUBV_EMPRESA);
+async function piezaArquetipoEmpresa(subIndex = 0): Promise<Pieza | null> {
+  const sub = SUBV_EMPRESA[subIndex % SUBV_EMPRESA.length]; // rotación determinista
   const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
   const prompt = `${GUARDARRAILES}
 
-Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una pyme/negocio local. Historia por encima del eslogan.
-Protagonista: Carlos, que lleva ${sub}, solo o con 1-2 personas. Problema: las redes son "una tarea más entre veinte"; el cliente delante siempre gana prioridad; publicar queda para el final del día y no sale.
+Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una EMPRESA / pyme / negocio local. Historia por encima del eslogan.
+Protagonista: Carlos, que lleva ${sub.label}, solo o con 1-2 personas. Problema: las redes son "una tarea más entre veinte"; el cliente delante siempre gana prioridad; publicar queda para el final del día y no sale.
 o2Wave resuelve: Carlos describe en una frase lo que quiere anunciar y la app genera texto e imagen listos; los posts salen sin robarle la mañana.
+QUÉDATE EN EL CARRIL: habla SOLO de Carlos y su negocio. PROHIBIDO mencionar "marca personal", "Particulares", "personas con proyectos personales", ONGs o "creadores" — este post es de EMPRESA.
 OBLIGATORIO: verbo humano ("lleva", "gestiona", "atiende"), nunca "CEO". PROHIBIDO: nombres reales de negocios/marcas, precios concretos, "emprendedor exitoso"/"self-made", anglicismos (startup, founder, growth hacking), referencias a Musk/Jobs. Máx ~120 palabras.`;
   const body = await claudeTexto(prompt);
   if (!body) return null;
   return {
     texto: `${body}\n\n${cta}`,
     hashtags: hash(HB, ["#Pymes", "#EmprendedoresDigitales", "#NegocioLocal"], ["#CasoDeUso", "#InspiraciónDigital"]),
-    img: imagen(pick(ESCENAS_EMPRESA)),
+    img: imagen(pick(sub.escenas)),
   };
 }
 
 /* ----------------------------- Particular (María) --------------------------- */
-const SUBV_PARTICULAR = [
-  "coach de bienestar y hábitos con clientes 1 a 1", "creadora de contenido cultural o educativo (pódcast, boletín)",
-  "autora auto-publicada (novela o no ficción)", "terapeuta con consulta propia (psicóloga, fisio o nutricionista)",
-  "ilustradora freelance con encargos", "formadora online con cursos propios",
-];
-const ESCENAS_PARTICULAR: Escena[] = [
-  { en: "A home desk moderately tidy (a small plant, a cup, a notebook) — not a perfect 'clean girl' setup; there is a notebook, a post-it, maybe an open book." },
-  { en: "A bright café working alone: a table by the window, a laptop, a notebook, other people blurred in the background, a calm atmosphere.", logo: true },
-  { en: "A small colorful coworking, the person wearing headphones or writing by hand." },
-  { en: "A small classroom giving a workshop to 5-10 people, seated in a circle or U shape." },
-  { en: "A home study corner: a bookshelf, a desk, a comfy chair, warm afternoon light." },
+const SUBV_PARTICULAR: { label: string; escenas: Escena[] }[] = [
+  { label: "coach de bienestar y hábitos con clientes 1 a 1", escenas: [
+    { en: "A calm home study with a notebook and a small plant, warm afternoon light." },
+    { en: "A bright room with a rolled-up yoga mat and a journal open on a table." },
+    { en: "A person writing in a notebook by a window, calm and unhurried." },
+  ] },
+  { label: "creadora de contenido cultural o educativo (pódcast o boletín)", escenas: [
+    { en: "A simple home desk with a modest microphone (no pro studio), a notebook and warm light." },
+    { en: "A cozy corner with books, a closed laptop and a cup of tea." },
+    { en: "A table with a notebook and plants, a calm creative workspace." },
+  ] },
+  { label: "autora auto-publicada (novela o no ficción)", escenas: [
+    { en: "A writing desk with an open notebook and a stack of books, a warm lamp." },
+    { en: "A cozy reading nook with a book and handwritten notes." },
+    { en: "A table with a printed manuscript and a pen, calm and focused." },
+  ] },
+  { label: "terapeuta con consulta propia (psicóloga, fisio o nutricionista)", escenas: [
+    { en: "A small warm consultation room with two chairs and a discreet plant." },
+    { en: "A tidy desk with a notebook and a calm reading corner." },
+    { en: "A peaceful room with soft light, a notebook and a cup." },
+  ] },
+  { label: "ilustradora freelance con encargos", escenas: [
+    { en: "An illustrator's desk with a drawing tablet and sketches pinned around, natural light." },
+    { en: "A table with watercolors, brushes and paper, hands sketching." },
+    { en: "Art materials scattered on a wooden table with a half-finished illustration." },
+  ] },
+  { label: "formadora online con cursos propios", escenas: [
+    { en: "A small home setup for online teaching: a laptop, a notebook and a calm room, daytime.", logo: true },
+    { en: "A desk with a printed course outline and a cup of coffee, warm light." },
+    { en: "A cozy study corner with books and handwritten lesson plans." },
+  ] },
 ];
 
-async function piezaArquetipoParticular(): Promise<Pieza | null> {
-  const sub = pick(SUBV_PARTICULAR);
+async function piezaArquetipoParticular(subIndex = 0): Promise<Pieza | null> {
+  const sub = SUBV_PARTICULAR[subIndex % SUBV_PARTICULAR.length]; // rotación determinista
   const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
   const prompt = `${GUARDARRAILES}
 
-Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una persona con proyecto propio. Historia por encima del eslogan.
-Protagonista: María, ${sub}, que trabaja sola. Problema: su marca personal ES su trabajo, pero mantenerla activa en redes le agota; perfeccionista, tarda horas en cada post; prefiere dedicarse a su oficio.
+Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una PARTICULAR (persona con proyecto propio). Historia por encima del eslogan.
+Protagonista: María, ${sub.label}, que trabaja sola. Problema: su marca personal ES su trabajo, pero mantenerla activa en redes le agota; perfeccionista, tarda horas en cada post; prefiere dedicarse a su oficio.
 o2Wave resuelve: María describe la reflexión o idea de la semana y la app genera texto e imagen listos; sigue siendo su voz, sale antes.
-OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "creator"/"influencer" (usa "creadora"/"autora"/el oficio), "boss babe"/"girl boss", "personal branding"/"storytelling"/"content strategy", superlativos, seguidores como métrica, precios. Máx ~120 palabras.`;
+REGLA DURA DE NOMENCLATURA: si te refieres al conjunto de este público, di "Particulares" (nunca "personas", "creadores", "creators" ni "influencers"). A María descríbela por su oficio.
+QUÉDATE EN EL CARRIL: habla SOLO de María y su proyecto propio; NO menciones empresas ni ONGs como sujeto.
+OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "boss babe"/"girl boss", "personal branding"/"storytelling"/"content strategy", superlativos, seguidores como métrica, precios. Máx ~120 palabras.`;
   const body = await claudeTexto(prompt);
   if (!body) return null;
   return {
     texto: `${body}\n\n${cta}`,
     hashtags: hash(HB, ["#ProyectosPersonales", "#FreelanceProductivo", "#MarcaPersonal"], ["#CasoDeUso", "#InspiraciónDigital"]),
-    img: imagen(pick(ESCENAS_PARTICULAR)),
+    img: imagen(pick(sub.escenas)),
   };
 }
 
@@ -257,12 +302,13 @@ Estructura: anuncio directo + beneficio concreto para la persona usuaria. PROHIB
  * generator.ts (v1.4) — este módulo cubre los 6 tipos nuevos de v2.1.
  */
 export async function construirPieza(
-  tipo: TipoPieza, opts?: { variante?: string; novedad?: { version?: string; feature?: string } },
+  tipo: TipoPieza, opts?: { variante?: string; subIndex?: number; novedad?: { version?: string; feature?: string } },
 ): Promise<Pieza | null> {
+  const s = opts?.subIndex ?? 0;
   switch (tipo) {
-    case "piezaArquetipoONG": return piezaArquetipoONG();
-    case "piezaArquetipoEmpresa": return piezaArquetipoEmpresa();
-    case "piezaArquetipoParticular": return piezaArquetipoParticular();
+    case "piezaArquetipoONG": return piezaArquetipoONG(s);
+    case "piezaArquetipoEmpresa": return piezaArquetipoEmpresa(s);
+    case "piezaArquetipoParticular": return piezaArquetipoParticular(s);
     case "piezaDato": return piezaDato();
     case "piezaEducativa": return piezaEducativa(opts?.variante);
     case "piezaNovedad": return piezaNovedad(opts?.novedad);

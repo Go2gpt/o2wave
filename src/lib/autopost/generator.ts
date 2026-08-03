@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
 import { proximaPublicacion } from "@/lib/autopost/schedule";
 import { construirPieza, type Pieza } from "@/lib/autopost/tipos";
-import { siguienteTipo, type CicloEntry } from "@/lib/autopost/rotacion";
+import { tipoActual, avanzarCiclo, type EstadoCiclo } from "@/lib/autopost/rotacion";
 
 /**
  * Generación de piezas de autopost con perfil "producto" (marketing de o2Wave).
@@ -222,15 +222,17 @@ export async function generarPiezasAutopost(admin: SupabaseClient, cuenta: Cuent
   let generadas = 0, programadas = 0, pendientes = 0;
 
   for (let k = 0; k < faltan; k++) {
-    // Rotación canónica v2.1: cada pieza toma el tipo que toca y avanza el ciclo.
-    const entry = await siguienteTipo(admin, cuenta.id);
+    // Rotación canónica v2.1: lee el tipo que toca; SOLO avanza si la pieza sale
+    // (una pieza fallida no consume su slot → distribución de arquetipos correcta).
+    const ciclo = await tipoActual(admin, cuenta.id);
     const estado = autoAprob ? "scheduled" : "pending_review";
     const publishAt = autoAprob ? proximaPublicacion(cuenta.dias_horas) : null;
     // La primera pieza de la semana lleva semana_inicio (índice único anti-duplicado).
     const semanaCol = ya === 0 && k === 0 ? semanaInicio : null;
 
-    const r = await crearPieza(admin, cuenta.id, cuenta.perfil_publicacion, entry, { estado, publishAt, semanaInicio: semanaCol, sufijo: `${k}` });
+    const r = await crearPieza(admin, cuenta.id, cuenta.perfil_publicacion, ciclo, { estado, publishAt, semanaInicio: semanaCol, sufijo: `${k}` });
     if (!r) continue;
+    await avanzarCiclo(admin, cuenta.id, ciclo);
     generadas++; if (autoAprob) programadas++; else pendientes++;
   }
   return { cuenta: cuenta.etiqueta, generadas, programadas, pendientes, saltada: false };
@@ -242,7 +244,7 @@ export async function generarPiezasAutopost(admin: SupabaseClient, cuenta: Cuent
  * `tipo` en autopost_posts. Tolerante: si falla el texto/insert devuelve null.
  */
 async function crearPieza(
-  admin: SupabaseClient, cuentaId: string, perfil: string, entry: CicloEntry,
+  admin: SupabaseClient, cuentaId: string, perfil: string, entry: EstadoCiclo,
   opts: { estado: string; publishAt: string | null; semanaInicio: string | null; sufijo?: string; novedad?: { version?: string; feature?: string } },
 ): Promise<{ id: string; texto: string; imagen_url: string | null; tipo: string } | null> {
   let pieza: Pieza | null;
@@ -251,7 +253,8 @@ async function crearPieza(
     const arquetipo = ARQUETIPOS[Math.floor(Math.random() * ARQUETIPOS.length)];
     pieza = await piezaProducto(foco, arquetipo);
   } else {
-    pieza = await construirPieza(entry.tipo, { variante: entry.variante, novedad: opts.novedad });
+    // subIndex → subvariante/causa rota de forma determinista por tipo.
+    pieza = await construirPieza(entry.tipo, { variante: entry.variante, subIndex: entry.subIndex, novedad: opts.novedad });
   }
   if (!pieza) return null;
 
@@ -281,9 +284,10 @@ async function crearPieza(
  * pending_review. AVANZA el ciclo de rotación (1 pieza/disparo). Solo producto.
  */
 export async function generarPiezaManual(admin: SupabaseClient, cuentaId: string, perfil: string): Promise<{ pieza_id: string; texto: string; imagen_url: string | null; tipo: string } | { error: string }> {
-  const entry = await siguienteTipo(admin, cuentaId);
-  const r = await crearPieza(admin, cuentaId, perfil, entry, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "manual" });
+  const ciclo = await tipoActual(admin, cuentaId);
+  const r = await crearPieza(admin, cuentaId, perfil, ciclo, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "manual" });
   if (!r) return { error: "No se pudo generar la pieza (texto o imagen)." };
+  await avanzarCiclo(admin, cuentaId, ciclo); // avanza solo tras el éxito
   return { pieza_id: r.id, texto: r.texto, imagen_url: r.imagen_url, tipo: r.tipo };
 }
 
@@ -294,7 +298,9 @@ export async function generarPiezaManual(admin: SupabaseClient, cuentaId: string
 export async function generarPiezaNovedadManual(
   admin: SupabaseClient, cuentaId: string, perfil: string, novedad: { version?: string; feature?: string },
 ): Promise<{ pieza_id: string; texto: string; imagen_url: string | null } | { error: string }> {
-  const r = await crearPieza(admin, cuentaId, perfil, { tipo: "piezaNovedad" }, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "novedad", novedad });
+  // Fuera de la rotación: entry sintético, no avanza el ciclo.
+  const entry: EstadoCiclo = { tipo: "piezaNovedad", semana: 0, subIndex: 0, subIndices: {} };
+  const r = await crearPieza(admin, cuentaId, perfil, entry, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "novedad", novedad });
   if (!r) return { error: "No se pudo generar la pieza de novedad." };
   return { pieza_id: r.id, texto: r.texto, imagen_url: r.imagen_url };
 }
