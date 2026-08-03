@@ -30,7 +30,7 @@ const CICLO: CicloEntry[] = [
   { tipo: "piezaArquetipoEmpresa" },           // 4 — Carlos
   { tipo: "piezaDato" },                       // 5 — ancla de autoridad
   { tipo: "piezaArquetipoParticular" },        // 6 — María
-  { tipo: "piezaEducativa", variante: "A" },   // 7 — valor puro sin CTA
+  { tipo: "piezaEducativa", variante: "B" },   // 7 — v2.1.1: variante A pospuesta → siempre B
   { tipo: "piezaProducto" },                   // 8 — cierre comercial
 ];
 

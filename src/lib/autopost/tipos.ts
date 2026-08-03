@@ -253,7 +253,11 @@ const ESCENAS_EDU: Escena[] = [
   { en: "A window with natural light, a slow shot with paper and a pen." },
 ];
 
-async function piezaEducativa(variante?: string): Promise<Pieza | null> {
+// Firma canónica v2.1.1 §1.7: línea horizontal + salto DOBLE + firma. Va al final
+// del cuerpo, ANTES de los hashtags (los añade crearPieza).
+const FIRMA_EDU = "─────────────\n\nCompartido por el equipo de o2Wave · o2wave.app 🌊";
+
+async function piezaEducativa(): Promise<Pieza | null> {
   // Pool general: excluye tips restringidos (compatibles_con != null, p. ej. #13
   // "comparte errores", que solo va con arquetipo ONG/Particular).
   const pool = (tips as { tip: string; compatibles_con: string[] | null }[]).filter((t) => !t.compatibles_con);
@@ -265,9 +269,10 @@ Consejo a desarrollar: "${t.tip}"
 Estructura: plantea el consejo claro y accionable + un ejemplo concreto (aunque sea genérico) de cómo aplicarlo. PROHIBIDO: mencionar features de o2Wave, "hack/trick" (usa "un consejo"/"un truco"), "engagement/reach/conversion" (usa interacción/alcance/resultado), competidores. Máx ~110 palabras.`;
   const body = await claudeTexto(prompt);
   if (!body) return null;
-  // Variante B → mini-firma; variante A → sin CTA. (El ciclo pasa A/B; aleatorio si no.)
-  const conFirma = variante ? variante === "B" : Math.random() < 0.5;
-  const texto = conFirma ? `${body}\n\n─────────────\nCompartido por el equipo de o2Wave · o2wave.app 🌊` : body;
+  // Patch guía v2.1.1 §1.7: SIEMPRE variante B (firma discreta) en fase de
+  // captación. Variante A (sin firma) pospuesta hasta 100 usuarios pagos / 6
+  // meses de tracción → se reactivará en v2.2.
+  const texto = `${body}\n\n${FIRMA_EDU}`;
   return {
     texto,
     hashtags: hash(HB, ["#ComunicaciónEfectiva", "#TipsRedesSociales", "#ContenidoDeValor"]),
@@ -350,7 +355,7 @@ export async function construirPieza(
     case "piezaArquetipoEmpresa": return piezaArquetipoEmpresa(s);
     case "piezaArquetipoParticular": return piezaArquetipoParticular(s);
     case "piezaDato": return piezaDato();
-    case "piezaEducativa": return piezaEducativa(opts?.variante);
+    case "piezaEducativa": return piezaEducativa(); // v2.1.1: siempre variante B (firma)
     case "piezaNovedad": return piezaNovedad(opts?.novedad);
     default: return null; // piezaProducto lo maneja generator.ts
   }
