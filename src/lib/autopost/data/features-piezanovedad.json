@@ -1,0 +1,9 @@
+[
+  { "version": "v2.1", "feature": "DNI/NIE/Pasaporte/CIF en el registro", "descripcion": "Ahora te registras con DNI, NIE, pasaporte o CIF, no solo CIF." },
+  { "version": "v2.1", "feature": "Visión de imagen con IA", "descripcion": "La IA analiza una foto tuya para generar contenido a partir de ella." },
+  { "version": "v2.1", "feature": "Selector de idioma ES/CA/EN", "descripcion": "Genera tus publicaciones en español, catalán o inglés." },
+  { "version": "v2.2", "feature": "Campo de género/identidad en el perfil", "descripcion": "Un campo opcional que hace que las imágenes IA con personas sean coherentes contigo." },
+  { "version": "v2.3", "feature": "LinkedIn como red soportada", "descripcion": "Genera texto e imagen adaptados a LinkedIn." },
+  { "version": "v2.3", "feature": "Particulares funcionales", "descripcion": "o2Wave adaptado a personas con proyectos propios, no solo ONGs y empresas." },
+  { "version": "v2.4", "feature": "Pack semanal con tus proyectos y colaboraciones", "descripcion": "El pack semanal se genera con la mezcla de tus proyectos propios y colaboraciones activas. Candidata a anuncio (no comunicada aún).", "candidata": true }
+]

@@ -1,0 +1,17 @@
+[
+  { "id": 1, "bloque": "A", "tip": "Antes de escribir, define UNA sola idea central por post. No dos. Una.", "compatibles_con": null },
+  { "id": 2, "bloque": "A", "tip": "El primer segundo lo es todo: si tu primera línea no engancha, nadie llega al resto.", "compatibles_con": null },
+  { "id": 3, "bloque": "A", "tip": "Escribe como hablas. Si te sale demasiado formal, léelo en voz alta y reescribe.", "compatibles_con": null },
+  { "id": 4, "bloque": "A", "tip": "Un solo verbo de acción por post. \"Descubre, aprende, prueba\" — elige uno.", "compatibles_con": null },
+  { "id": 5, "bloque": "A", "tip": "Un post no es un artículo. Si tienes más de 3 párrafos, probablemente son 2 posts.", "compatibles_con": null },
+  { "id": 6, "bloque": "B", "tip": "Publicar consistente supera a publicar mucho. Una vez a la semana durante un año pesa más que 30 posts en un mes.", "compatibles_con": null },
+  { "id": 7, "bloque": "B", "tip": "Guarda un banco de ideas fuera de las redes: cuaderno físico, notas del móvil, doc compartido. Los mejores posts salen de ahí.", "compatibles_con": null },
+  { "id": 8, "bloque": "B", "tip": "Reutiliza sin miedo: si un post funcionó hace 6 meses, adáptalo y vuelve a publicar. Tu audiencia no lo recuerda.", "compatibles_con": null },
+  { "id": 9, "bloque": "C", "tip": "Ignora los likes. Mira las respuestas, los mensajes privados, la gente que te menciona. Ahí está el impacto real.", "compatibles_con": null },
+  { "id": 10, "bloque": "C", "tip": "Un post que \"no funcionó\" no es un fracaso. Es datos. Fíjate en qué formato tuvo más interacción, no en cuál tuvo más visualizaciones.", "compatibles_con": null },
+  { "id": 11, "bloque": "C", "tip": "Si tu público no interactúa, no es que el algoritmo te odie. Probablemente estás hablando de ti y no de ellos.", "compatibles_con": null },
+  { "id": 12, "bloque": "D", "tip": "Escribe como si le hablaras a UNA persona específica que conoces. Si le hablas a \"todo el mundo\", nadie te escucha.", "compatibles_con": null },
+  { "id": 13, "bloque": "D", "tip": "Comparte errores. Los posts perfectos generan aplauso; los honestos generan comunidad.", "compatibles_con": ["arquetipoONG", "arquetipoParticular"] },
+  { "id": 14, "bloque": "D", "tip": "Tu voz es tu ventaja. No copies el tono de nadie más — se nota siempre.", "compatibles_con": null },
+  { "id": 15, "bloque": "D", "tip": "Cuenta lo que haces, no lo que crees que \"deberías\" decir. La coherencia entre lo que haces y lo que dices es lo que construye confianza a largo plazo.", "compatibles_con": null }
+]
