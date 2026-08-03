@@ -66,6 +66,9 @@ const hash = (...arrs: string[][]): string[] => Array.from(new Set(arrs.flat()))
 const HB = ["#o2Wave", "#IAparaRedes", "#ContenidoEnRedes", "#GestionDeRedes"]; // base común
 
 /* --------------------------------- ONG (Ana) -------------------------------- */
+// Pool genérico (a Marketing le gustó). Nota de género no forzada: si hay persona
+// focal, la coordinadora es Ana (mujer); el resto, voluntariado mixto.
+const ONG_PERSONA = "If a focal person appears, the coordinator is an adult woman (Ana); any others are volunteers of mixed ages and genders. Warm and candid, not glossy stock.";
 const ESCENAS_ONG: Escena[] = [
   { en: "Small meeting table with 3-5 volunteers of mixed ages around a computer and sticky notes, a thermos of coffee at the center, a warm but modest room with mismatched chairs and papers on the wall." },
   { en: "A modest shared NGO office: a wall with posters of past campaigns, a discreet plant, a work desk with papers more or less tidy." },
@@ -96,48 +99,57 @@ OBLIGATORIO: verbo genérico ("dirige", "coordina", "impulsa"), zona genérica (
   return {
     texto: `${body}\n\n${cta}`,
     hashtags: hash(HB, ["#ONGs", "#TercerSector", "#ComunicaciónSocial"], ["#CasoDeUso", "#InspiraciónDigital"]),
-    img: imagen(pick(ESCENAS_ONG)),
+    img: `${imagen(pick(ESCENAS_ONG))}\n\n${ONG_PERSONA}`,
   };
 }
 
 /* ------------------------------ Empresa (Carlos) ---------------------------- */
-// Cada subvariante trae SUS propias escenas (ligadas al negocio; nada de
-// "persona con laptop de noche" que echaría a piezaProducto).
+// Cada subvariante trae SUS propias escenas, con GÉNERO (Carlos = hombre) y
+// CONTEXTO del negocio bakeados en el texto — la imagen no puede salir con
+// género/contexto incompatible con el copy (bug v2.1.1). Escena determinista por
+// subIndex (escena↔copy bloqueados, sin pick aleatorio).
+const PERSONA_HOMBRE = "PERSON SHOWN: the protagonist is an adult man. One or two people maximum, no crowd, natural and candid (not glossy stock).";
 const SUBV_EMPRESA: { label: string; escenas: Escena[] }[] = [
   { label: "un estudio de diseño gráfico de 2 personas", escenas: [
-    { en: "A small graphic design studio: two people at desks with printed mockups and color swatches pinned on the wall, daylight." },
-    { en: "A designer's desk with a drawing tablet, printed posters and mugs of coffee, a creative small studio." },
-    { en: "A studio wall covered with pinned design drafts, someone reviewing prints." },
+    { en: "A man at a small graphic design studio desk, printed mockups and colour swatches pinned on the wall behind him, daylight, focused and calm." },
+    { en: "A man reviewing printed posters pinned on a studio wall, a creative small studio, natural light." },
+    { en: "A man working at a design studio desk with a drawing tablet and mugs of coffee, engaged in his work." },
   ] },
   { label: "una cafetería con servicio a domicilio en el barrio", escenas: [
-    { en: "A neighborhood café counter at opening time, pastries in the display case, warm morning light." },
-    { en: "A café bar with a barista steaming milk, cups lined up on the counter." },
-    { en: "A café interior at dawn, chairs still on the tables, someone setting up for the day." },
+    { en: "A man behind a neighbourhood café counter at opening time, pastries in the display case, warm morning light, welcoming attitude." },
+    { en: "A man working as a barista, steaming milk at a café bar with cups lined up on the counter." },
+    { en: "A man setting up his café at dawn, arranging chairs and preparing delivery orders, warm light." },
   ] },
   { label: "un negocio freelance de desarrollo web", escenas: [
-    { en: "A calm daytime home office with two monitors showing blurred code, a mechanical keyboard and sticky notes." },
-    { en: "A tidy developer desk with a laptop, a coffee and a small plant, quiet room, natural light.", logo: true },
-    { en: "A coworking desk with headphones and a notebook full of wireframe sketches." },
+    { en: "A man at a calm daytime home office with two monitors showing blurred code and a mechanical keyboard, focused." },
+    { en: "A man at a tidy developer desk with a laptop, a coffee and a small plant, quiet room, natural light.", logo: true },
+    { en: "A man at a coworking desk with headphones and a notebook full of wireframe sketches, engaged." },
   ] },
   { label: "un taller mecánico o un pequeño comercio local", escenas: [
-    { en: "A small mechanic workshop with tools and a car lifted, a real working atmosphere." },
-    { en: "A small local shop counter with the owner arranging products on the shelves." },
-    { en: "A workshop bench with the tools of the trade and a handwritten order list." },
+    { en: "A man working in a small mechanic workshop with tools and a car lifted, a real working atmosphere." },
+    { en: "A man arranging products on the shelves of his small local shop, daylight, focused." },
+    { en: "A man at a workshop bench with the tools of the trade and a handwritten order list." },
   ] },
   { label: "una escuela de idiomas pequeña con 2 profesores", escenas: [
-    { en: "A small language classroom with a whiteboard full of vocabulary and a few chairs." },
-    { en: "A teacher's desk with textbooks and flashcards, warm light." },
-    { en: "A small classroom with chairs in a semicircle and language posters on the wall." },
+    { en: "A man teaching in a small language classroom, a whiteboard full of vocabulary behind him, a few chairs." },
+    { en: "A male teacher at a desk with textbooks and flashcards, warm light, focused." },
+    { en: "A man arranging chairs in a semicircle in a small classroom with language posters on the wall." },
   ] },
   { label: "una tienda online de artesanía propia", escenas: [
-    { en: "A craft workshop table with handmade products, packaging materials and a phone photographing an item." },
-    { en: "Shelves of handmade crafts with a small parcel being wrapped on the table." },
-    { en: "An artisan's hands finishing a handmade product on a wooden table, warm light." },
+    { en: "A man at a craft workshop table with handmade products and packaging materials, photographing an item with a phone." },
+    { en: "A man wrapping a small parcel of handmade crafts on a wooden table, warm light." },
+    { en: "A man's hands finishing a handmade product on a wooden table, warm light, focused craftsmanship." },
   ] },
 ];
 
+/** Escena determinista: subvariante por (subIndex % nSub), escena por ciclo (subIndex / nSub). */
+function escenaDeSub(sub: { escenas: Escena[] }, subIndex: number, nSub: number): Escena {
+  return sub.escenas[Math.floor(subIndex / nSub) % sub.escenas.length];
+}
+
 async function piezaArquetipoEmpresa(subIndex = 0): Promise<Pieza | null> {
-  const sub = SUBV_EMPRESA[subIndex % SUBV_EMPRESA.length]; // rotación determinista
+  const sub = SUBV_EMPRESA[subIndex % SUBV_EMPRESA.length]; // rotación determinista de subvariante
+  const escena = escenaDeSub(sub, subIndex, SUBV_EMPRESA.length);
   const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
   const prompt = `${GUARDARRAILES}
 
@@ -151,46 +163,51 @@ OBLIGATORIO: verbo humano ("lleva", "gestiona", "atiende"), nunca "CEO". PROHIBI
   return {
     texto: `${body}\n\n${cta}`,
     hashtags: hash(HB, ["#Pymes", "#EmprendedoresDigitales", "#NegocioLocal"], ["#CasoDeUso", "#InspiraciónDigital"]),
-    img: imagen(pick(sub.escenas)),
+    img: `${imagen(escena)}\n\n${PERSONA_HOMBRE}`,
   };
 }
 
 /* ----------------------------- Particular (María) --------------------------- */
+// Escenas con GÉNERO (María = mujer) + ELEMENTOS DEL OFICIO del copy (micrófono/
+// paneles acústicos para pódcast, tableta+bocetos para ilustradora, etc.) — la
+// imagen refleja el oficio ficticio, no un rincón genérico (bug v2.1.1).
+const PERSONA_MUJER = "PERSON SHOWN: the protagonist is an adult woman. One or two people maximum, no crowd, natural and candid (not glossy stock).";
 const SUBV_PARTICULAR: { label: string; escenas: Escena[] }[] = [
   { label: "coach de bienestar y hábitos con clientes 1 a 1", escenas: [
-    { en: "A calm home study with a notebook and a small plant, warm afternoon light." },
-    { en: "A bright room with a rolled-up yoga mat and a journal open on a table." },
-    { en: "A person writing in a notebook by a window, calm and unhurried." },
+    { en: "A woman coach at a calm desk with a notebook, a laptop and handwritten notes, warm afternoon light, focused and positive." },
+    { en: "A woman writing goals in a planner beside a rolled-up yoga mat, a bright room, engaged." },
+    { en: "A woman reviewing session notes in a notebook by a window, calm and content." },
   ] },
   { label: "creadora de contenido cultural o educativo (pódcast o boletín)", escenas: [
-    { en: "A simple home desk with a modest microphone (no pro studio), a notebook and warm light." },
-    { en: "A cozy corner with books, a closed laptop and a cup of tea." },
-    { en: "A table with a notebook and plants, a calm creative workspace." },
+    { en: "A woman at a home podcast setup: a professional microphone, headphones and a small audio interface on the desk, acoustic foam panels on the wall, focused." },
+    { en: "A woman recording into a professional microphone with headphones on, a modest home studio, warm light." },
+    { en: "A woman editing audio on a laptop with headphones, a microphone beside her, engaged." },
   ] },
   { label: "autora auto-publicada (novela o no ficción)", escenas: [
-    { en: "A writing desk with an open notebook and a stack of books, a warm lamp." },
-    { en: "A cozy reading nook with a book and handwritten notes." },
-    { en: "A table with a printed manuscript and a pen, calm and focused." },
+    { en: "A woman author at a writing desk with an open notebook and a stack of her own printed books, a warm lamp, focused." },
+    { en: "A woman writing by hand at a desk with a printed manuscript and a pen, engaged and calm." },
+    { en: "A woman reviewing the page proofs of her book at a bright table, content." },
   ] },
   { label: "terapeuta con consulta propia (psicóloga, fisio o nutricionista)", escenas: [
-    { en: "A small warm consultation room with two chairs and a discreet plant." },
-    { en: "A tidy desk with a notebook and a calm reading corner." },
-    { en: "A peaceful room with soft light, a notebook and a cup." },
+    { en: "A woman therapist in her own small consultation room with two chairs, a plant and a notebook, warm light, welcoming." },
+    { en: "A woman at a tidy consultation desk writing notes, a calm professional room, natural light." },
+    { en: "A woman preparing her consultation room, arranging chairs and a notebook, positive attitude." },
   ] },
   { label: "ilustradora freelance con encargos", escenas: [
-    { en: "An illustrator's desk with a drawing tablet and sketches pinned around, natural light." },
-    { en: "A table with watercolors, brushes and paper, hands sketching." },
-    { en: "Art materials scattered on a wooden table with a half-finished illustration." },
+    { en: "A woman illustrator at her desk with a graphics tablet, pencils and sketches pinned around, natural light, focused." },
+    { en: "A woman sketching with watercolours and brushes on paper at an artist's table, engaged." },
+    { en: "A woman finishing an illustration at a wooden table covered with art materials, warm light." },
   ] },
   { label: "formadora online con cursos propios", escenas: [
-    { en: "A small home setup for online teaching: a laptop, a notebook and a calm room, daytime.", logo: true },
-    { en: "A desk with a printed course outline and a cup of coffee, warm light." },
-    { en: "A cozy study corner with books and handwritten lesson plans." },
+    { en: "A woman online trainer at a home setup with a laptop, a notebook and a printed course outline, daytime, focused and positive.", logo: true },
+    { en: "A woman recording a lesson at a desk with a laptop and lesson notes, natural light, engaged." },
+    { en: "A woman preparing course materials at a bright desk with a laptop and handwritten plans." },
   ] },
 ];
 
 async function piezaArquetipoParticular(subIndex = 0): Promise<Pieza | null> {
-  const sub = SUBV_PARTICULAR[subIndex % SUBV_PARTICULAR.length]; // rotación determinista
+  const sub = SUBV_PARTICULAR[subIndex % SUBV_PARTICULAR.length]; // rotación determinista de subvariante
+  const escena = escenaDeSub(sub, subIndex, SUBV_PARTICULAR.length);
   const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
   const prompt = `${GUARDARRAILES}
 
@@ -205,7 +222,7 @@ OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "boss 
   return {
     texto: `${body}\n\n${cta}`,
     hashtags: hash(HB, ["#ProyectosPersonales", "#FreelanceProductivo", "#MarcaPersonal"], ["#CasoDeUso", "#InspiraciónDigital"]),
-    img: imagen(pick(sub.escenas)),
+    img: `${imagen(escena)}\n\n${PERSONA_MUJER}`,
   };
 }
 
@@ -213,12 +230,14 @@ OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "boss 
 // Gemini inventaba texto/cifras ilegibles ("gibberish") en periódicos/pizarras y
 // resaltaba un número que no era el del copy. Escenas 100% abstractas, SIN texto:
 // el dato vive SOLO en el copy; la imagen pone ambiente, no repite el dato.
+// Bug v2.1.1: 100% abstracta perdía ancla humana. Se añade presencia humana
+// ANÓNIMA (manos, siluetas, personas de espaldas) SIN texto — DATO_SIN_TEXTO sigue.
 const ESCENAS_DATO: Escena[] = [
-  { en: "A calm desk with a calculator, a stack of blank sheets and a small plant, natural window light — no writing on the papers." },
-  { en: "A computer showing a generic, heavily blurred dashboard (no readable text, no legible numbers), soft daylight." },
-  { en: "A person from behind, thinking in front of a board with abstract colored geometric shapes (circles and bars, no labels, no words)." },
-  { en: "A minimalist composition of geometric shapes and coloured bars in earthy tones on a neutral background, no labels." },
-  { en: "Coloured circles and silhouetted graphs, blurred and unreadable, as an abstract data-mood backdrop." },
+  { en: "Two people's hands collaborating over a table, passing a blank sheet of paper (nothing written on it), natural daylight." },
+  { en: "Two people seen from behind looking at abstract coloured bars and circles on a screen, blurred and unreadable, no labels." },
+  { en: "A minimalist composition of geometric shapes and generic icons with a small human figure for scale, earthy tones, no labels." },
+  { en: "Anonymous hands writing on a blank sheet beside a calculator and a small plant, no readable text, soft daylight." },
+  { en: "People from behind working together in front of a wall of abstract coloured shapes (no words, no numbers)." },
 ];
 // Regla dura anti-gibberish que se anexa al prompt de imagen del Dato.
 const DATO_SIN_TEXTO = `NO readable text, headlines, statistics or numbers as text elements in the image. NO newspapers, magazines or documents with visible text. NO whiteboards with words. Use abstract visual metaphors: geometric shapes, colored bars/circles without labels, silhouettes with unreadable/blurred graphs behind, minimalist infographics with generic icons. The figure lives in the caption — the image sets ambient, it does NOT repeat the data.`;
@@ -244,14 +263,18 @@ Estructura: presenta el dato con naturalidad y añade 1-2 frases de contexto út
 }
 
 /* -------------------------------- Educativa --------------------------------- */
+// Bug v2.1.1: la escena "pensativa con mano en mejilla mirando por ventana" se leía
+// como tristeza/melancolía. Escenas con actitud ACTIVA y positiva; EDU_ANIMO fuerza
+// expresión concentrada/positiva y prohíbe la lectura melancólica.
 const ESCENAS_EDU: Escena[] = [
-  { en: "An open notebook with a post-it highlighting a key phrase, a calm desk." },
-  { en: "A quiet café without a laptop: a notebook, a pen, a cup, a calm atmosphere." },
-  { en: "A person thinking with a hand on the chin, a reflective expression." },
-  { en: "A small chalkboard with a single phrase written on it." },
-  { en: "An armchair with an open book and a notebook beside it." },
-  { en: "A window with natural light, a slow shot with paper and a pen." },
+  { en: "An open notebook with a post-it highlighting a key phrase, a calm bright desk, no readable text." },
+  { en: "A quiet café table without a laptop: a notebook, a pen and a cup, a calm bright atmosphere." },
+  { en: "A person actively writing a note in a notebook at a bright desk, focused and content." },
+  { en: "A small chalkboard with a simple hand-drawn arrow or shape (no words), a tidy bright desk." },
+  { en: "An armchair with an open book and a notebook beside it, warm natural light." },
+  { en: "A person actively jotting an idea on paper at a desk by a window, engaged and calm." },
 ];
+const EDU_ANIMO = "If a person appears: focused positive expression, a subtle smile or a neutral professional attitude, actively engaged in the activity (writing, reading a note, actively sipping coffee). NOT sad, NOT melancholic, NOT resting the head on the hand, NOT staring pensively through a window.";
 
 // Firma canónica v2.1.1 §1.7: línea horizontal + salto DOBLE + firma. Va al final
 // del cuerpo, ANTES de los hashtags (los añade crearPieza).
@@ -276,7 +299,7 @@ Estructura: plantea el consejo claro y accionable + un ejemplo concreto (aunque 
   return {
     texto,
     hashtags: hash(HB, ["#ComunicaciónEfectiva", "#TipsRedesSociales", "#ContenidoDeValor"]),
-    img: imagen(pick(ESCENAS_EDU)),
+    img: `${imagen(pick(ESCENAS_EDU))}\n\n${EDU_ANIMO}`,
   };
 }
 
