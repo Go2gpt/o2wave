@@ -196,7 +196,7 @@ async function piezaArquetipoParticular(subIndex = 0): Promise<Pieza | null> {
 Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una PARTICULAR (persona con proyecto propio). Historia por encima del eslogan.
 Protagonista: María, ${sub.label}, que trabaja sola. Problema: su marca personal ES su trabajo, pero mantenerla activa en redes le agota; perfeccionista, tarda horas en cada post; prefiere dedicarse a su oficio.
 o2Wave resuelve: María describe la reflexión o idea de la semana y la app genera texto e imagen listos; sigue siendo su voz, sale antes.
-REGLA DURA DE NOMENCLATURA: si te refieres al conjunto de este público, di "Particulares" (nunca "personas", "creadores", "creators" ni "influencers"). A María descríbela por su oficio.
+NOMENCLATURA (guía Marketing §0): en el copy publicado di "personas" / "personas que gestionan su marca personal" — NUNCA "Particulares" (suena burocrático). A María descríbela por su oficio. Evita "creator"/"influencer" (usa "creadora"/"autora"/el oficio).
 QUÉDATE EN EL CARRIL: habla SOLO de María y su proyecto propio; NO menciones empresas ni ONGs como sujeto.
 OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "boss babe"/"girl boss", "personal branding"/"storytelling"/"content strategy", superlativos, seguidores como métrica, precios. Máx ~120 palabras.`;
   const body = await claudeTexto(prompt);
