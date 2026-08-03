@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
+import features from "@/lib/autopost/data/features-piezanovedad.json";
 
 type Notify = (message: string, type: NonNullable<ToastState>["type"]) => void;
+const FEATURES = features as { version: string; feature: string }[];
 
 interface Cuenta {
   id: string; etiqueta: string;
@@ -73,8 +75,26 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const [saving, setSaving] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [msg, setMsg] = useState("");
+  const [novOpen, setNovOpen] = useState(false);
+  const [novFeature, setNovFeature] = useState(FEATURES[0]?.feature || "");
+  const [novBusy, setNovBusy] = useState(false);
   const sem = semaforo(c.token_expira_at);
   const esOng = perfil === "ong_general";
+
+  const generarNovedad = async () => {
+    const f = FEATURES.find((x) => x.feature === novFeature);
+    if (!f) { notify("Elige una feature", "error"); return; }
+    setNovBusy(true);
+    try {
+      const res = await fetch(`/api/admin/autopost/accounts/${c.id}/generate-novedad`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: f.version, feature: f.feature }),
+      });
+      const data = await res.json();
+      if (res.ok && data.pieza_id) { notify("Pieza de novedad generada. Revísala en «Pendientes».", "success"); setNovOpen(false); onChanged(); }
+      else notify(data.error || "No se pudo generar la novedad", "error");
+    } catch { notify("Error de red", "error"); } finally { setNovBusy(false); }
+  };
 
   const generarPack = async () => {
     setGenerando(true);
@@ -172,6 +192,26 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
           {!franjas.length && <p className="text-[11px] text-white/30">Sin franjas → se programa por defecto al día siguiente 10:00.</p>}
         </div>
       </div>
+
+      {/* Novedad AD-HOC (piezaNovedad): anuncia una feature real, fuera de la rotación. */}
+      {perfil === "producto" && (
+        <div className="mt-3 pt-3 border-t border-white/10">
+          {!novOpen ? (
+            <button onClick={() => setNovOpen(true)} className="text-xs font-semibold" style={{ color: "#f9b23b" }}>+ Generar novedad (anuncio de feature)</button>
+          ) : (
+            <div className="space-y-2">
+              <span className="text-xs text-white/50">Anuncio de feature real (no entra en la rotación):</span>
+              <select value={novFeature} onChange={(e) => setNovFeature(e.target.value)} className={`${input} w-full`}>
+                {FEATURES.map((f) => <option key={f.feature} value={f.feature}>{f.version} · {f.feature}</option>)}
+              </select>
+              <div className="flex gap-2">
+                <button onClick={generarNovedad} disabled={novBusy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#f9b23b" }}>{novBusy ? "Generando…" : "Generar novedad"}</button>
+                <button onClick={() => setNovOpen(false)} disabled={novBusy} className={`${btn} border border-white/15 text-white/70`}>Cancelar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mt-3">
         <button onClick={guardar} disabled={saving} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#f9b23b" }}>
