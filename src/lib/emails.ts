@@ -211,6 +211,19 @@ export async function enviarAutopostToken(p: { cuenta: string; motivo: string })
   await enviar(NOTIFICATION_EMAIL, `🔑 Autopost: revisa la conexión de ${p.cuenta}`, html, "autopost-token");
 }
 
+/** Aviso: se pidió una pieza de novedad pero no hay features candidatas (whitelist vacía/caducada). */
+export async function enviarAutopostSinNovedad(p: { motivo: string }): Promise<void> {
+  const panel = `${SITE_URL}/admin/autopost`;
+  const html = layout(`
+    <h2 style="margin:0 0 8px">No hay features candidatas a novedad</h2>
+    <p>Se intentó generar una pieza de <strong>novedad</strong> pero ninguna feature cumple las condiciones (activa, sin anunciar y dentro de su ventana de caducidad).</p>
+    <p style="color:#6b7280;font-size:13px">Motivo: ${esc(p.motivo)}</p>
+    <p>Actualiza la whitelist (<code>features-piezanovedad.json</code>) con una feature nueva, o desactiva este tipo temporalmente.</p>
+    ${boton(panel, "Abrir panel de autopost")}
+  `);
+  await enviar(NOTIFICATION_EMAIL, "📣 Autopost: no hay features candidatas a novedad", html, "autopost-sin-novedad");
+}
+
 /** Aviso de fallo al publicar una pieza (tras agotar reintentos). */
 export async function enviarAutopostFallo(p: { cuenta: string; motivo: string }): Promise<void> {
   const panel = `${SITE_URL}/admin/autopost`;

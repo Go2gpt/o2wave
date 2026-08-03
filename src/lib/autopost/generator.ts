@@ -2,8 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
 import { proximaPublicacion } from "@/lib/autopost/schedule";
-import { construirPieza, type Pieza } from "@/lib/autopost/tipos";
+import { construirPieza, featuresCandidatas, type Pieza } from "@/lib/autopost/tipos";
 import { tipoActual, avanzarCiclo, type EstadoCiclo } from "@/lib/autopost/rotacion";
+import { enviarAutopostSinNovedad } from "@/lib/emails";
 
 /**
  * Generación de piezas de autopost con perfil "producto" (marketing de o2Wave).
@@ -89,19 +90,26 @@ const GUARDARRAILES = `REGLAS DURAS (no las incumplas nunca):
 - NO inventes citas de usuarios ni testimonios reales.
 - NO menciones competidores ni otras herramientas (Buffer, Later, Hootsuite, Canva, ChatGPT...).
 - NO hagas promesas comerciales no verificadas ("gratis", "prueba 14 días", "sin tarjeta", precios) ni inventes planes.
+- o2Wave es una WEB (webapp), NO una app de móvil. PROHIBIDO: "descarga la app", "descarga o2Wave", "en la app", "instala/instalar la app", "App Store", "Google Play", "Play Store". USA: "en o2wave.app", "desde tu navegador", "en la web", "sin instalación". Toda CTA lleva SIEMPRE "o2wave.app".
 - Al hablar del "para quién", cubre SIEMPRE a "${AUDIENCIA}". Nunca reduzcas a "organización o negocio" ni a "creadores".
 - Emojis: MÁXIMO 2, solo de este set [🌊 ⏳ ✨ 🚀], al cierre o en el CTA. Nunca al principio.`;
 
-// Reglas para la escena de imagen (image_prompt_en). Muestra el PROBLEMA, no lo aspiracional.
-const IMAGEN_REGLAS = `El "image_prompt_en" es una descripción de ESCENA en INGLÉS (40-80 palabras) para un modelo fotorrealista. DEBE cumplir:
-- Mostrar AL MENOS UNA señal visible de sobrecarga del creador (elígela y hazla protagonista): hands on temples / holding the head; a cold coffee mug; post-it notes with crossed-out lists; many overlapping windows on the screen; a wall clock or screen corner showing a late hour (23:47); hunched posture with sunken shoulders; a full weekly calendar with an empty "publish" slot; rubbing tired eyes with blue monitor light in a dark room.
-- UN SOLO personaje (la soledad del problema). NUNCA grupos ni equipos.
-- Iluminación cálida-agobiante (una lámpara sola / el monitor iluminando la cara), NO luz natural amplia.
-- PROHIBIDO: relaxed smiling professional, modern happy office, tidy desk with a plant, teams collaborating, influencer aesthetic / ring light, aspirational stock.
+// Reglas para la escena de imagen (image_prompt_en). Muestra el MOMENTO DE TRABAJO
+// real (el problema/proceso manual), NO una escena aspiracional de éxito, pero SIN
+// tono lúgubre (feedback Sebas: las imágenes tristes/oscuras desmotivan).
+const IMAGEN_REGLAS = `El "image_prompt_en" es una descripción de ESCENA en INGLÉS (40-80 palabras) para un modelo fotorrealista. Muestra el MOMENTO DE TRABAJO real (la persona preparando su contenido), NO una escena de éxito aspiracional, pero SIN tono lúgubre. Elige y adapta UNA de estas escenas canónicas luminosas:
+  1. A tidy desk in warm afternoon light: an open laptop, a cup of coffee and an open notebook; a person calmly thinking while looking at the laptop screen (focused, not exhausted).
+  2. A bright coworking space with natural window light: one or two people working with normal, relaxed concentration.
+  3. A calm work table next to a large window with warm afternoon light: an open laptop, a steaming cup of coffee, a small plant beside it.
+  4. A home desk in natural daylight: a person writing in a physical notebook before moving to the laptop screen.
+REGLAS DURAS de la imagen:
+- ILUMINACIÓN Y ÁNIMO: "warm afternoon light, natural window light, neutral-to-positive mood, focused expression (not exhausted)". PROHIBIDO: "dark night", "single lamp only", "exhausted / tired / overwhelmed", "hands on head", "cold coffee as misery", "hunched despair", "late-hour clock (23:47)".
+- 1-2 personas como máximo, expresión concentrada y tranquila (NUNCA agotamiento ni angustia).
+- NO aspiracional: sin celebración, sin éxito triunfal, sin estética influencer / ring light, sin stock pulido.
+- La escena SIEMPRE incluye un portátil (laptop) con la CARA EXTERIOR DE LA TAPA de frente a la cámara (se ve el respaldo de la tapa, no la pantalla). NUNCA un monitor de sobremesa, NUNCA el portátil de perfil. La tapa es una superficie oscura mate, prominente en el encuadre; la persona está detrás o al lado.
+- NO describas TÚ el logo de la tapa: se añadirá automáticamente una especificación de logo detallada al final del prompt. Solo deja clara la tapa oscura mate de frente.
 - PROHIBIDO cualquier UI/pantalla de app inventada, mockups, dashboards ni business charts.
 - PROHIBIDO logos de marcas comerciales reales (Apple/manzana mordida, Windows/cuadrado de 4, Dell, HP, Lenovo, Google, Instagram, Facebook, TikTok, o cualquier otra marca existente).
-- La escena SIEMPRE incluye un portátil (laptop) con la CARA EXTERIOR DE LA TAPA de frente a la cámara (se ve el respaldo de la tapa, no la pantalla). NUNCA un monitor de sobremesa, NUNCA el portátil de perfil, NUNCA cerrado de espaldas sin la tapa hacia la cámara. La tapa es una superficie oscura mate, prominente en el encuadre. La persona fatigada está detrás o al lado, de modo que se ven a la vez su cansancio y la tapa.
-- NO describas TÚ el logo de la tapa: se añadirá automáticamente una especificación de logo detallada al final del prompt. Solo deja clara la tapa oscura mate de frente.
 - Termina siempre con "no real brand logos, no text, no letters, no watermarks".`;
 
 /* ============================================================================
@@ -122,11 +130,11 @@ PROHIBITED: real brand logos (Apple/Windows/HP/Dell/Lenovo/Asus/Acer/Samsung/Mic
 
 /** Deriva una escena visual EN (40-80 palabras) a partir del copy de una pieza. */
 async function escenaDesdeTexto(texto: string): Promise<string> {
-  const fallback = `A single tired content creator at night, hunched over a laptop with cold coffee and crossed-out post-it notes, warm oppressive lamp light. The laptop's outer lid faces the camera — a dark matte lid, prominent in frame (we see the back of the lid, not the screen). Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
+  const fallback = `A tidy desk in warm afternoon light: an open laptop with its outer lid facing the camera (a dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee and an open notebook, a person calmly thinking while looking at the laptop, focused but not exhausted, natural window light. Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
   let escena = fallback;
   try {
     const prompt = `You are an art director. From this social post caption, write ONE vivid English VISUAL SCENE (40-80 words) for a photorealistic image model — concrete subjects, setting, objects, lighting, mood. NOT a slogan.
-The scene MUST include: a SINGLE person visibly overloaded/tired; a laptop with its OUTER LID facing the camera (we see the back of the lid, not the screen — dark matte lid, prominent in frame); warm oppressive lighting. Do NOT describe any logo on the lid (a detailed logo spec is appended automatically). No desktop monitor, no laptop in profile.
+The scene MUST include: a SINGLE person calmly working or thinking (focused, NOT tired or overwhelmed); a laptop with its OUTER LID facing the camera (we see the back of the lid, not the screen — dark matte lid, prominent in frame); warm afternoon / natural window light, neutral-to-positive mood. Do NOT describe any logo on the lid (a detailed logo spec is appended automatically). No desktop monitor, no laptop in profile. Avoid dark night, single lamp, exhaustion or despair.
 End with "no real brand logos, no text, no letters, no watermarks".
 
 Caption:
@@ -245,7 +253,7 @@ export async function generarPiezasAutopost(admin: SupabaseClient, cuenta: Cuent
  */
 async function crearPieza(
   admin: SupabaseClient, cuentaId: string, perfil: string, entry: EstadoCiclo,
-  opts: { estado: string; publishAt: string | null; semanaInicio: string | null; sufijo?: string; novedad?: { version?: string; feature?: string } },
+  opts: { estado: string; publishAt: string | null; semanaInicio: string | null; sufijo?: string; novedad?: { featureId?: string } },
 ): Promise<{ id: string; texto: string; imagen_url: string | null; tipo: string } | null> {
   let pieza: Pieza | null;
   if (entry.tipo === "piezaProducto") {
@@ -292,15 +300,24 @@ export async function generarPiezaManual(admin: SupabaseClient, cuentaId: string
 }
 
 /**
- * piezaNovedad AD-HOC: NO entra en la rotación (no avanza el ciclo). Sebas pasa
- * versión + feature (de la whitelist). Siempre pending_review, solo producto.
+ * piezaNovedad AD-HOC: NO entra en la rotación (no avanza el ciclo). La feature se
+ * elige de la whitelist filtrada por las 3 condiciones de Marketing (activa +
+ * no anunciada + no caducada). Si el panel pasa un featureId se respeta solo si
+ * sigue siendo candidato. Si NO hay candidatas → aborta y avisa a Sebas por email
+ * (auto-poda garantizada). Siempre pending_review, solo producto.
  */
 export async function generarPiezaNovedadManual(
-  admin: SupabaseClient, cuentaId: string, perfil: string, novedad: { version?: string; feature?: string },
+  admin: SupabaseClient, cuentaId: string, perfil: string, ctx?: { featureId?: string },
 ): Promise<{ pieza_id: string; texto: string; imagen_url: string | null } | { error: string }> {
+  const cands = featuresCandidatas(new Date());
+  if (cands.length === 0) {
+    await enviarAutopostSinNovedad({ motivo: "Whitelist vacía o todas las features caducadas / ya anunciadas." });
+    return { error: "No hay features candidatas a novedad. Whitelist vacía o toda caducada. Se ha avisado a Sebas por email." };
+  }
+  const featureId = (ctx?.featureId && cands.find((f) => f.id === ctx.featureId)?.id) || cands[0].id;
   // Fuera de la rotación: entry sintético, no avanza el ciclo.
   const entry: EstadoCiclo = { tipo: "piezaNovedad", semana: 0, subIndex: 0, subIndices: {} };
-  const r = await crearPieza(admin, cuentaId, perfil, entry, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "novedad", novedad });
+  const r = await crearPieza(admin, cuentaId, perfil, entry, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "novedad", novedad: { featureId } });
   if (!r) return { error: "No se pudo generar la pieza de novedad." };
   return { pieza_id: r.id, texto: r.texto, imagen_url: r.imagen_url };
 }

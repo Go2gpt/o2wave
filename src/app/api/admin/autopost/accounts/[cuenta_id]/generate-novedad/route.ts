@@ -12,8 +12,9 @@ export async function POST(request: Request, { params }: { params: { cuenta_id: 
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { version, feature } = await request.json() as { version?: string; feature?: string };
-  if (!feature || !feature.trim()) return NextResponse.json({ error: "Falta la feature" }, { status: 400 });
+  // La feature se elige de la whitelist filtrada en el generador. El panel puede
+  // sugerir un featureId; si no cumple las 3 condiciones se usa la primera candidata.
+  const { featureId } = await request.json().catch(() => ({})) as { featureId?: string };
 
   const { data: cuenta } = await auth.admin
     .from("autopost_cuentas").select("id, perfil_publicacion").eq("id", params.cuenta_id).maybeSingle();
@@ -22,7 +23,7 @@ export async function POST(request: Request, { params }: { params: { cuenta_id: 
     return NextResponse.json({ error: "Novedad solo disponible para perfil producto (Fase 1a)." }, { status: 400 });
   }
 
-  const r = await generarPiezaNovedadManual(auth.admin, cuenta.id, cuenta.perfil_publicacion, { version, feature });
+  const r = await generarPiezaNovedadManual(auth.admin, cuenta.id, cuenta.perfil_publicacion, { featureId });
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: 502 });
   return NextResponse.json(r);
 }

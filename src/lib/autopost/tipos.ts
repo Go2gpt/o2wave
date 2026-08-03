@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import datos from "@/lib/autopost/data/datos-piezadato.json";
 import tips from "@/lib/autopost/data/tips-piezaeducativa.json";
 import causas from "@/lib/autopost/data/causas-piezaarquetipoONG.json";
-import features from "@/lib/autopost/data/features-piezanovedad.json";
+import featuresData from "@/lib/autopost/data/features-piezanovedad.json";
 
 /**
  * Builders de los 7 tipos de pieza autopost (guía Marketing v2.1). Cada builder
@@ -30,6 +30,7 @@ const GUARDARRAILES = `REGLAS DURAS (cúmplelas siempre):
 - Español natural y cercano. NO uses hashtags (se añaden aparte) ni cierres tú con CTA (se añade aparte).
 - NO menciones ni inventes features de o2Wave por nombre. NO verbos de lanzamiento ("lanzamos", "estrenamos", "ya disponible"). NO cifras/estadísticas inventadas. NO citas/testimonios inventados. NO competidores (Buffer, Later, Hootsuite, Canva, ChatGPT...). NO promesas comerciales ("gratis", "prueba 14 días", "sin tarjeta") ni precios.
 - Nomenclatura canónica: "${AUDIENCIA}". NUNCA "creadores"/"influencer" como genérico, ni "PYMEs/autónomos" para reemplazar "empresas/personas".
+- o2Wave es una WEB (webapp), NO una app de móvil. PROHIBIDO: "descarga la app", "descarga o2Wave", "en la app", "instala/instalar la app", "App Store", "Google Play", "Play Store". USA: "en o2wave.app", "desde tu navegador", "en la web", "sin instalación". Toda CTA lleva SIEMPRE "o2wave.app".
 - SIN anglicismos innecesarios (startup→proyecto, founder→fundador, engagement→interacción, reach→alcance, storytelling→narrativa, growth hacking, hack/trick→truco). SIN superlativos vacíos ("revolucionario", "el mejor", "cambia el juego"). SIN tech-bro ("disruptivo", "escalar mercados", "10x", "sinergias").
 - Emojis: máximo 2, solo del set [${EMOJIS}], al final. Nunca al principio.`;
 
@@ -209,13 +210,18 @@ OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "boss 
 }
 
 /* ---------------------------------- Dato ------------------------------------ */
+// Gemini inventaba texto/cifras ilegibles ("gibberish") en periódicos/pizarras y
+// resaltaba un número que no era el del copy. Escenas 100% abstractas, SIN texto:
+// el dato vive SOLO en el copy; la imagen pone ambiente, no repite el dato.
 const ESCENAS_DATO: Escena[] = [
-  { en: "A minimalist infographic with the big figure centered (bold numbers, plain background, simple typography)." },
-  { en: "A clean chart (bars or a line) on a neutral background, no logos." },
-  { en: "A hand pointing at a printed chart on paper." },
-  { en: "People seen from behind looking at a figure projected on a screen at a talk." },
-  { en: "A desk with a printed report or newspaper showing a highlighted figure." },
+  { en: "A calm desk with a calculator, a stack of blank sheets and a small plant, natural window light — no writing on the papers." },
+  { en: "A computer showing a generic, heavily blurred dashboard (no readable text, no legible numbers), soft daylight." },
+  { en: "A person from behind, thinking in front of a board with abstract colored geometric shapes (circles and bars, no labels, no words)." },
+  { en: "A minimalist composition of geometric shapes and coloured bars in earthy tones on a neutral background, no labels." },
+  { en: "Coloured circles and silhouetted graphs, blurred and unreadable, as an abstract data-mood backdrop." },
 ];
+// Regla dura anti-gibberish que se anexa al prompt de imagen del Dato.
+const DATO_SIN_TEXTO = `NO readable text, headlines, statistics or numbers as text elements in the image. NO newspapers, magazines or documents with visible text. NO whiteboards with words. Use abstract visual metaphors: geometric shapes, colored bars/circles without labels, silhouettes with unreadable/blurred graphs behind, minimalist infographics with generic icons. The figure lives in the caption — the image sets ambient, it does NOT repeat the data.`;
 
 async function piezaDato(): Promise<Pieza | null> {
   const d = pick(datos as { frase: string; anio: string; fuente: string; afinidad: string }[]);
@@ -232,7 +238,8 @@ Estructura: presenta el dato con naturalidad y añade 1-2 frases de contexto út
     // Fuente OBLIGATORIA al final, antes del CTA.
     texto: `${body}\n\n(Fuente: ${d.fuente}, ${d.anio})\n\n${cta}`,
     hashtags: hash(HB, ["#DatoInteresante", "#DatoDelDía"], [contexto]),
-    img: imagen(pick(ESCENAS_DATO), true),
+    // permitirTexto=false (aplica "no text, no letters") + regla anti-gibberish.
+    img: `${imagen(pick(ESCENAS_DATO))}\n\n${DATO_SIN_TEXTO}`,
   };
 }
 
@@ -269,6 +276,33 @@ Estructura: plantea el consejo claro y accionable + un ejemplo concreto (aunque 
 }
 
 /* --------------------------------- Novedad ---------------------------------- */
+export interface FeatureNovedad {
+  id: string; activa: boolean; version: string; nombre_interno: string;
+  titulo_corto: string; descripcion_beneficio_usuario: string;
+  fecha_lanzamiento: string; fecha_anuncio_externo: string | null;
+  caducidad_automatica_semanas?: number;
+  focos_sugeridos?: string[]; notas_marketing?: string[];
+}
+const FEATURES: FeatureNovedad[] = (featuresData as { features?: FeatureNovedad[] }).features ?? [];
+
+/**
+ * Features candidatas a piezaNovedad (guía Marketing v2.1, 3 condiciones DURAS):
+ * activa === true AND fecha_anuncio_externo === null AND
+ * (hoy - fecha_lanzamiento) < caducidad_automatica_semanas·7d (default 4 semanas).
+ * Auto-poda: al anunciarse o caducar, la feature deja de ser candidata sola.
+ */
+export function featuresCandidatas(hoy: Date): FeatureNovedad[] {
+  return FEATURES.filter((f) => {
+    if (!f.activa) return false;
+    if (f.fecha_anuncio_externo !== null) return false;
+    const lanz = Date.parse(`${f.fecha_lanzamiento}T00:00:00Z`);
+    if (Number.isNaN(lanz)) return false;
+    const semanas = f.caducidad_automatica_semanas ?? 4;
+    const diff = hoy.getTime() - lanz;
+    return diff >= 0 && diff < semanas * 7 * 24 * 60 * 60 * 1000;
+  });
+}
+
 const ESCENAS_NOVEDAD: Escena[] = [
   { en: "An abstract drawing of an improvement (a cloud, a timeline, an arrow), no brand." },
   { en: "A hand touching a blurry phone screen (an app-like look is fine, no real UI or logos)." },
@@ -276,23 +310,29 @@ const ESCENAS_NOVEDAD: Escena[] = [
   { en: "A person with an 'oh, this is easier' expression looking at a screen." },
 ];
 
-async function piezaNovedad(ctx?: { version?: string; feature?: string }): Promise<Pieza | null> {
-  // La feature DEBE venir de la whitelist (o del ctx que pasa el admin).
-  const fallback = pick(features as { version: string; feature: string; descripcion: string }[]);
-  const version = ctx?.version || fallback.version;
-  const feature = ctx?.feature || fallback.feature;
-  const desc = (features as { feature: string; descripcion: string }[]).find((f) => f.feature === feature)?.descripcion || "";
-  const cta = pick(["Descubre qué hay nuevo — o2wave.app", "Actualiza tu experiencia — o2wave.app"]);
+async function piezaNovedad(ctx?: { featureId?: string }): Promise<Pieza | null> {
+  // Solo se anuncian features candidatas (filtro Marketing). Si el generador pasó
+  // un featureId, se respeta si sigue siendo candidato; si no, la primera candidata.
+  const cands = featuresCandidatas(new Date());
+  const feat = (ctx?.featureId && cands.find((f) => f.id === ctx.featureId)) || cands[0];
+  if (!feat) return null; // sin candidatas → el generador ya avisa a Sebas por email
+  const cta = pick(["Descúbrelo en o2wave.app", "Entra en o2wave.app y pruébalo"]);
+  const notas = (feat.notas_marketing ?? []).map((n) => `- ${n}`).join("\n");
   const prompt = `${GUARDARRAILES}
 
-EXCEPCIÓN a la política de features: en esta pieza SÍ puedes nombrar la feature REAL indicada (y solo esa). Escribe el CUERPO (sin CTA, sin hashtags) de un post que anuncia una mejora de o2Wave.
-Feature real (${version}): "${feature}". Qué hace: ${desc}
-Estructura: anuncio directo + beneficio concreto para la persona usuaria. PROHIBIDO: nombrar cualquier otra feature no indicada, "revolucionario"/"único en el mercado", comparaciones con competidores. Máx ~100 palabras.`;
+EXCEPCIÓN a la política de features: en esta pieza SÍ puedes describir la mejora REAL indicada (y solo esa). Escribe el CUERPO (sin CTA, sin hashtags) de un post que anuncia una mejora de o2Wave.
+Mejora real (${feat.version}): "${feat.titulo_corto}". Qué aporta al usuario: ${feat.descripcion_beneficio_usuario}
+REGLAS DE ESTA PIEZA (Marketing):
+- La mejora YA lleva semanas publicada. PROHIBIDO "hoy lanzamos", "acabamos de sacar", "ya disponible". USA "en la última actualización de o2Wave" o "desde hace unas semanas".
+- NO uses la palabra "novedad" de forma redundante.
+- NO inventes cifras de impacto (no hay medición): describe el beneficio en cualitativo.
+- NO nombres ninguna otra feature ni "revolucionario"/"único en el mercado". Máx ~100 palabras.
+${notas ? `NOTAS ADICIONALES:\n${notas}` : ""}`;
   const body = await claudeTexto(prompt);
   if (!body) return null;
   return {
     texto: `${body}\n\n${cta}`,
-    hashtags: hash(HB, ["#Actualización", "#Novedad", "#MejoraDelProducto"]),
+    hashtags: hash(HB, ["#Actualización", "#MejoraDelProducto"]),
     img: imagen(pick(ESCENAS_NOVEDAD)),
   };
 }
@@ -302,7 +342,7 @@ Estructura: anuncio directo + beneficio concreto para la persona usuaria. PROHIB
  * generator.ts (v1.4) — este módulo cubre los 6 tipos nuevos de v2.1.
  */
 export async function construirPieza(
-  tipo: TipoPieza, opts?: { variante?: string; subIndex?: number; novedad?: { version?: string; feature?: string } },
+  tipo: TipoPieza, opts?: { variante?: string; subIndex?: number; novedad?: { featureId?: string } },
 ): Promise<Pieza | null> {
   const s = opts?.subIndex ?? 0;
   switch (tipo) {

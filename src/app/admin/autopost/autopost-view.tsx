@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
-import features from "@/lib/autopost/data/features-piezanovedad.json";
+import featuresData from "@/lib/autopost/data/features-piezanovedad.json";
 
 type Notify = (message: string, type: NonNullable<ToastState>["type"]) => void;
-const FEATURES = features as { version: string; feature: string }[];
+// Whitelist v2.1: solo features activas. El generador aplica el filtro final de
+// candidatura (no anunciada + no caducada) y aborta con aviso si ninguna cumple.
+const FEATURES = ((featuresData as { features?: { id: string; activa: boolean; version: string; titulo_corto: string }[] }).features ?? [])
+  .filter((f) => f.activa);
 
 interface Cuenta {
   id: string; etiqueta: string;
@@ -76,19 +79,17 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const [generando, setGenerando] = useState(false);
   const [msg, setMsg] = useState("");
   const [novOpen, setNovOpen] = useState(false);
-  const [novFeature, setNovFeature] = useState(FEATURES[0]?.feature || "");
+  const [novFeature, setNovFeature] = useState(FEATURES[0]?.id || "");
   const [novBusy, setNovBusy] = useState(false);
   const sem = semaforo(c.token_expira_at);
   const esOng = perfil === "ong_general";
 
   const generarNovedad = async () => {
-    const f = FEATURES.find((x) => x.feature === novFeature);
-    if (!f) { notify("Elige una feature", "error"); return; }
     setNovBusy(true);
     try {
       const res = await fetch(`/api/admin/autopost/accounts/${c.id}/generate-novedad`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: f.version, feature: f.feature }),
+        body: JSON.stringify({ featureId: novFeature }),
       });
       const data = await res.json();
       if (res.ok && data.pieza_id) { notify("Pieza de novedad generada. Revísala en «Pendientes».", "success"); setNovOpen(false); onChanged(); }
@@ -202,7 +203,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
             <div className="space-y-2">
               <span className="text-xs text-white/50">Anuncio de feature real (no entra en la rotación):</span>
               <select value={novFeature} onChange={(e) => setNovFeature(e.target.value)} className={`${input} w-full`}>
-                {FEATURES.map((f) => <option key={f.feature} value={f.feature}>{f.version} · {f.feature}</option>)}
+                {FEATURES.map((f) => <option key={f.id} value={f.id}>{f.version} · {f.titulo_corto}</option>)}
               </select>
               <div className="flex gap-2">
                 <button onClick={generarNovedad} disabled={novBusy} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#f9b23b" }}>{novBusy ? "Generando…" : "Generar novedad"}</button>

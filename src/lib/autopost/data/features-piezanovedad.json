@@ -1,9 +1,59 @@
-[
-  { "version": "v2.1", "feature": "DNI/NIE/Pasaporte/CIF en el registro", "descripcion": "Ahora te registras con DNI, NIE, pasaporte o CIF, no solo CIF." },
-  { "version": "v2.1", "feature": "Visión de imagen con IA", "descripcion": "La IA analiza una foto tuya para generar contenido a partir de ella." },
-  { "version": "v2.1", "feature": "Selector de idioma ES/CA/EN", "descripcion": "Genera tus publicaciones en español, catalán o inglés." },
-  { "version": "v2.2", "feature": "Campo de género/identidad en el perfil", "descripcion": "Un campo opcional que hace que las imágenes IA con personas sean coherentes contigo." },
-  { "version": "v2.3", "feature": "LinkedIn como red soportada", "descripcion": "Genera texto e imagen adaptados a LinkedIn." },
-  { "version": "v2.3", "feature": "Particulares funcionales", "descripcion": "o2Wave adaptado a personas con proyectos propios, no solo ONGs y empresas." },
-  { "version": "v2.4", "feature": "Pack semanal con tus proyectos y colaboraciones", "descripcion": "El pack semanal se genera con la mezcla de tus proyectos propios y colaboraciones activas. Candidata a anuncio (no comunicada aún).", "candidata": true }
-]
+{
+  "_meta": {
+    "archivo": "src/lib/autopost/data/features-piezanovedad.json",
+    "version_guia": "v2.1 (2026-08-02)",
+    "propuesta_marketing_fecha": "2026-08-03 10:00 Madrid",
+    "estado": "APLICADA al repo Code (v2.1 iteración final).",
+    "regla_filtro_code": [
+      "El generador SOLO puede elegir una feature que cumpla LAS TRES condiciones:",
+      "  1. activa === true",
+      "  2. fecha_anuncio_externo === null (no ha sido anunciada oficialmente todavía)",
+      "  3. (fecha_actual - fecha_lanzamiento) < (caducidad_automatica_semanas * 7 días)",
+      "Si ninguna feature cumple los 3 → aborta piezaNovedad y avisa a Sebas por email.",
+      "Al anunciar oficialmente una feature, Marketing pone fecha_anuncio_externo → deja de estar disponible."
+    ],
+    "descartadas_explicitas": {
+      "v2.1_dni_nie_pasaporte_cif": "ANUNCIADA 20-jun 2026 (Brevo #7 + web + popup + X + LinkedIn + IG). Ya lleva ~6 semanas anunciada.",
+      "v2.1_vision_imagen_ia": "ANUNCIADA 20-jun 2026 mismo bundle.",
+      "v2.1_selector_idioma": "ANUNCIADA 20-jun 2026 mismo bundle.",
+      "v2.2_fix_login_genero_identidad": "ANUNCIADA 08-jul 2026 acumulada con v2.3 (Brevo #8 + 5 canales).",
+      "v2.3_linkedin_soporte": "ANUNCIADA 08-jul 2026 en v2.3 acumulada.",
+      "v2.3_particulares_funcionales": "ANUNCIADA 08-jul 2026 en v2.3 acumulada.",
+      "v2.4_es_embajador_flag": "FEATURE INTERNA — protección webhook Stripe, sin beneficio percibible por usuario nuevo. NO candidata.",
+      "autopost_fase_1a": "FEATURE INTERNA (uso propio Generación o2). NO anunciable hasta Fase 2."
+    }
+  },
+  "features": [
+    {
+      "id": "v2.4-pack-fix",
+      "activa": true,
+      "version": "v2.4",
+      "nombre_interno": "pack-fix",
+      "titulo_corto": "Tus proyectos reales, no eslóganes",
+      "descripcion_beneficio_usuario": "El pack semanal ya no habla de tu ONG o negocio en abstracto. Se genera con la mezcla exacta de tus proyectos propios y las colaboraciones activas que tengas cargadas en o2Wave. Cada lunes, el contenido refleja lo que estás haciendo de verdad esa semana.",
+      "detalle_tecnico_ficha": "Nueva estructura en /perfil: campos 'proyectos_propios' + 'colaboraciones' + 'novedad_semanal_texto' + 'novedad_semanal_activa'. Ver ESTADO.md apartado v2.4 pack-fix.",
+      "fecha_lanzamiento": "2026-07-08",
+      "fecha_anuncio_externo": null,
+      "caducidad_automatica_semanas": 4,
+      "publicos_relevantes": ["ONG", "Empresa", "Particular"],
+      "focos_sugeridos": [
+        "Anuncio directo: describir el cambio + beneficio directo.",
+        "Contraste antes/después: 'Antes describías tu trabajo cada semana desde cero. Ahora o2Wave lo conoce.'",
+        "Invitación a rellenar proyectos: 'Rellena tus proyectos en /perfil y el próximo pack sale con ellos.'"
+      ],
+      "notas_marketing": [
+        "Evitar 'hoy lanzamos' — la feature es del 08-jul, no de hoy.",
+        "Usar 'en la última actualización de o2Wave' o 'desde hace unas semanas'.",
+        "No usar 'novedad' de forma redundante.",
+        "Cifras del cambio: no inventar (no hay medición). Solo describir cualitativamente."
+      ]
+    }
+  ],
+  "features_backlog_no_activas": [
+    {
+      "id": "placeholder-siguiente-release",
+      "activa": false,
+      "comentario": "Cuando Code entregue una release con beneficio percibible por usuario, Marketing añade entrada aquí antes de que Web coordine el anuncio oficial."
+    }
+  ]
+}
