@@ -33,7 +33,7 @@
       "descripcion_beneficio_usuario": "El pack semanal ya no habla de tu ONG o negocio en abstracto. Se genera con la mezcla exacta de tus proyectos propios y las colaboraciones activas que tengas cargadas en o2Wave. Cada lunes, el contenido refleja lo que estás haciendo de verdad esa semana.",
       "detalle_tecnico_ficha": "Nueva estructura en /perfil: campos 'proyectos_propios' + 'colaboraciones' + 'novedad_semanal_texto' + 'novedad_semanal_activa'. Ver ESTADO.md apartado v2.4 pack-fix.",
       "fecha_lanzamiento": "2026-07-08",
-      "fecha_anuncio_externo": null,
+      "fecha_anuncio_externo": "2026-08-04",
       "caducidad_automatica_semanas": 4,
       "publicos_relevantes": ["ONG", "Empresa", "Particular"],
       "focos_sugeridos": [
