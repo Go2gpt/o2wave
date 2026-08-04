@@ -156,7 +156,7 @@ Return ONLY the scene description, one paragraph.`;
 export async function regenerarImagenAutopost(admin: SupabaseClient, cuentaId: string, texto: string): Promise<{ url: string } | { error: string }> {
   try {
     const escena = await escenaDesdeTexto(texto);
-    const gen = await generarImagenIA(escena, "1:1");
+    const gen = await generarImagenIA(escena, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
     if (!gen) return { error: "No se pudo generar la imagen (Gemini/Replicate)." };
     const path = `autopost/${cuentaId}/${Date.now()}-regen.png`;
     const { error } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
@@ -265,10 +265,10 @@ async function crearPieza(
   }
   if (!pieza) return null;
 
-  // Imagen IA (1:1 sirve para IG y FB). Tolerante: si falla, la pieza va sin imagen.
+  // Imagen IA (4:5 = 1080×1350, óptimo IG feed + FB cross-post). Tolerante: si falla, la pieza va sin imagen.
   let imagenUrl: string | null = null;
   try {
-    const gen = await generarImagenIA(pieza.img, "1:1");
+    const gen = await generarImagenIA(pieza.img, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
     if (gen) {
       const path = `autopost/${cuentaId}/${Date.now()}-${opts.sufijo ?? "0"}.png`;
       const { error: upErr } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
