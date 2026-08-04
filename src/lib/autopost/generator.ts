@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
 import { proximaPublicacion } from "@/lib/autopost/schedule";
 import { construirPieza, featuresCandidatas, type Pieza } from "@/lib/autopost/tipos";
-import { tipoActual, avanzarCiclo, type EstadoCiclo } from "@/lib/autopost/rotacion";
+import { reservarSiguiente, type EstadoCiclo } from "@/lib/autopost/rotacion";
 import { enviarAutopostSinNovedad } from "@/lib/emails";
 
 /**
@@ -230,17 +230,16 @@ export async function generarPiezasAutopost(admin: SupabaseClient, cuenta: Cuent
   let generadas = 0, programadas = 0, pendientes = 0;
 
   for (let k = 0; k < faltan; k++) {
-    // Rotación canónica v2.1: lee el tipo que toca; SOLO avanza si la pieza sale
-    // (una pieza fallida no consume su slot → distribución de arquetipos correcta).
-    const ciclo = await tipoActual(admin, cuenta.id);
+    // Rotación canónica v2.1: RESERVA el slot (avanza el ciclo) ANTES de generar,
+    // para que disparos solapados no dupliquen tipo/subvariante (bug v2.1.2).
+    const ciclo = await reservarSiguiente(admin, cuenta.id);
     const estado = autoAprob ? "scheduled" : "pending_review";
     const publishAt = autoAprob ? proximaPublicacion(cuenta.dias_horas) : null;
     // La primera pieza de la semana lleva semana_inicio (índice único anti-duplicado).
     const semanaCol = ya === 0 && k === 0 ? semanaInicio : null;
 
     const r = await crearPieza(admin, cuenta.id, cuenta.perfil_publicacion, ciclo, { estado, publishAt, semanaInicio: semanaCol, sufijo: `${k}` });
-    if (!r) continue;
-    await avanzarCiclo(admin, cuenta.id, ciclo);
+    if (!r) continue; // pieza fallida: su slot ya quedó consumido (se recupera en la siguiente ejecución)
     generadas++; if (autoAprob) programadas++; else pendientes++;
   }
   return { cuenta: cuenta.etiqueta, generadas, programadas, pendientes, saltada: false };
@@ -289,13 +288,13 @@ async function crearPieza(
 
 /**
  * Generación MANUAL ("Generar pack ahora"): bypassa el guard semanal, siempre a
- * pending_review. AVANZA el ciclo de rotación (1 pieza/disparo). Solo producto.
+ * pending_review. RESERVA el slot ANTES de generar (1 pieza/disparo) para que
+ * clics rápidos no dupliquen tipo/subvariante (bug v2.1.2). Solo producto.
  */
 export async function generarPiezaManual(admin: SupabaseClient, cuentaId: string, perfil: string): Promise<{ pieza_id: string; texto: string; imagen_url: string | null; tipo: string } | { error: string }> {
-  const ciclo = await tipoActual(admin, cuentaId);
+  const ciclo = await reservarSiguiente(admin, cuentaId); // reserva antes de generar
   const r = await crearPieza(admin, cuentaId, perfil, ciclo, { estado: "pending_review", publishAt: null, semanaInicio: null, sufijo: "manual" });
   if (!r) return { error: "No se pudo generar la pieza (texto o imagen)." };
-  await avanzarCiclo(admin, cuentaId, ciclo); // avanza solo tras el éxito
   return { pieza_id: r.id, texto: r.texto, imagen_url: r.imagen_url, tipo: r.tipo };
 }
 
