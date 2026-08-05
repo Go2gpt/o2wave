@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
 import { proximaPublicacion } from "@/lib/autopost/schedule";
-import { construirPieza, featuresCandidatas, type Pieza } from "@/lib/autopost/tipos";
+import { construirPieza, featuresCandidatas, validarCopy, type Pieza } from "@/lib/autopost/tipos";
 import { reservarSiguiente, type EstadoCiclo } from "@/lib/autopost/rotacion";
 import { enviarAutopostSinNovedad } from "@/lib/emails";
 
@@ -70,10 +70,11 @@ const HASH_PUBLICO: Record<string, string[]> = {
   particular: ["#ProyectosPersonales", "#FreelanceProductivo", "#MarcaPersonal"],
   generico: ["#ONGs", "#Pymes", "#ProyectosPersonales"],
 };
+// CTAs canónicas de piezaProducto (guía v2.1.2 §1.1): señal de navegador + ✨.
 const CTAS: Record<Foco["cta"], string> = {
-  general: "Prueba o2Wave en o2wave.app",
-  curiosidad: "Descubre cómo funciona en o2wave.app",
-  beneficio: "Recupera esas horas — o2wave.app",
+  general: "Prueba o2Wave desde el navegador — o2wave.app · sin instalación ✨",
+  curiosidad: "Descubre cómo funciona · en tu navegador — o2wave.app ✨",
+  beneficio: "Recupera esas horas · directamente en tu navegador — o2wave.app ✨",
 };
 
 /** Hashtags finales (9-10): base + público (por arquetipo o genérico) + foco. */
@@ -92,7 +93,7 @@ const GUARDARRAILES = `REGLAS DURAS (no las incumplas nunca):
 - NO hagas promesas comerciales no verificadas ("gratis", "prueba 14 días", "sin tarjeta", precios) ni inventes planes.
 - o2Wave es una WEB (webapp), NO una app de móvil. PROHIBIDO: "descarga la app", "descarga o2Wave", "en la app", "instala/instalar la app", "App Store", "Google Play", "Play Store". USA: "en o2wave.app", "desde tu navegador", "en la web", "sin instalación". Toda CTA lleva SIEMPRE "o2wave.app".
 - Al hablar del "para quién", cubre SIEMPRE a "${AUDIENCIA}". Nunca reduzcas a "organización o negocio" ni a "creadores".
-- Emojis: MÁXIMO 2, solo de este set [🌊 ⏳ ✨ 🚀], al cierre o en el CTA. Nunca al principio.`;
+- Emojis: solo 🌊 o ✨, y SOLO en la CTA final (la CTA indicada ya lo trae). PROHIBIDOS ⏳ y 🚀 en cualquier posición. Nunca un emoji al principio ni suelto en el cuerpo.`;
 
 // Reglas para la escena de imagen (image_prompt_en). Muestra el MOMENTO DE TRABAJO
 // real (el problema/proceso manual), NO una escena aspiracional de éxito, pero SIN
@@ -197,19 +198,25 @@ Responde SOLO con JSON válido:
   "texto": "caption lista para publicar (máx 1500 caracteres), SIN hashtags en el cuerpo, terminando con el CTA indicado",
   "image_prompt_en": "escena en INGLÉS que cumple TODAS las reglas de imagen de arriba"
 }`;
-  try {
-    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 900, messages: [{ role: "user", content: prompt }] });
-    const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
-    const m = raw.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    const o = JSON.parse(m[0]) as Record<string, unknown>;
-    const texto = typeof o.texto === "string" ? o.texto.trim() : "";
-    const img = typeof o.image_prompt_en === "string" && o.image_prompt_en.trim().length > 10 ? o.image_prompt_en.trim() : "";
-    if (!texto || !img) return null;
-    // La spec del logo se anexa VERBATIM (misma onda en todas las piezas).
-    // Hashtags SIEMPRE de la lista canónica (el modelo no los inventa).
-    return { texto, hashtags: hashtagsDe(foco, arquetipo), img: `${img}\n\n${LOGO_SPEC}` };
-  } catch { return null; }
+  // Hasta 3 intentos: valida el copy final (§4C: señal de navegador + sin ⏳/🚀 + sin "gratis").
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await anthropic.messages.create({ model: MODEL, max_tokens: 900, messages: [{ role: "user", content: prompt }] });
+      const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (!m) continue;
+      const o = JSON.parse(m[0]) as Record<string, unknown>;
+      const texto = typeof o.texto === "string" ? o.texto.trim() : "";
+      const img = typeof o.image_prompt_en === "string" && o.image_prompt_en.trim().length > 10 ? o.image_prompt_en.trim() : "";
+      if (!texto || !img) continue;
+      const err = validarCopy(texto, "piezaProducto");
+      if (err) { console.warn(`autopost piezaProducto: copy inválido (${err}) — reintento ${i + 1}/3`); continue; }
+      // La spec del logo se anexa VERBATIM (misma onda en todas las piezas).
+      // Hashtags SIEMPRE de la lista canónica (el modelo no los inventa).
+      return { texto, hashtags: hashtagsDe(foco, arquetipo), img: `${img}\n\n${LOGO_SPEC}` };
+    } catch { /* reintento */ }
+  }
+  return null;
 }
 
 /**

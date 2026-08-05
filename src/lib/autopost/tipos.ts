@@ -22,7 +22,9 @@ export type TipoPieza =
 export interface Pieza { texto: string; hashtags: string[]; img: string }
 
 const AUDIENCIA = "ONGs, empresas y personas";
-const EMOJIS = "🌊 ⏳ ✨ 🚀";
+// v2.1.2 §4C: solo 🌊 (firma) y ✨ (descubrimiento). ⏳ y 🚀 PROHIBIDOS. El emoji
+// de cierre canónico por tipo lo aporta la CTA (código), no el modelo.
+const EMOJIS = "🌊 ✨";
 
 // Guardarraíles v2 (features A + terminología v1 + añadidos v2: anglicismos,
 // superlativos, tech-bro, nomenclatura canónica).
@@ -32,7 +34,7 @@ const GUARDARRAILES = `REGLAS DURAS (cúmplelas siempre):
 - Nomenclatura canónica: "${AUDIENCIA}". NUNCA "creadores"/"influencer" como genérico, ni "PYMEs/autónomos" para reemplazar "empresas/personas".
 - o2Wave es una WEB (webapp), NO una app de móvil. PROHIBIDO: "descarga la app", "descarga o2Wave", "en la app", "instala/instalar la app", "App Store", "Google Play", "Play Store". USA: "en o2wave.app", "desde tu navegador", "en la web", "sin instalación". Toda CTA lleva SIEMPRE "o2wave.app".
 - SIN anglicismos innecesarios (startup→proyecto, founder→fundador, engagement→interacción, reach→alcance, storytelling→narrativa, growth hacking, hack/trick→truco). SIN superlativos vacíos ("revolucionario", "el mejor", "cambia el juego"). SIN tech-bro ("disruptivo", "escalar mercados", "10x", "sinergias").
-- Emojis: máximo 2, solo del set [${EMOJIS}], al final. Nunca al principio.`;
+- Emojis: NO pongas ningún emoji en el cuerpo (el emoji de cierre lo añade el sistema en la CTA). PROHIBIDOS ⏳ y 🚀 en cualquier posición. Solo el set [${EMOJIS}] está permitido y solo al cierre.`;
 
 // Logo onda para escenas que muestran la tapa de un portátil de frente.
 const LOGO_SPEC = `LAPTOP LID LOGO — MANDATORY SPECIFICATION:
@@ -65,6 +67,63 @@ function imagen(e: Escena, permitirTexto = false): string {
 const hash = (...arrs: string[][]): string[] => Array.from(new Set(arrs.flat()));
 const HB = ["#o2Wave", "#IAparaRedes", "#ContenidoEnRedes", "#GestionDeRedes"]; // base común
 
+/* --------------------- CTAs canónicas + validador (§4C v2.1.2) -------------- */
+// CTAs LITERALES de la guía v2.1.2. Todas las de acción sobre el producto llevan
+// señal de navegador + emoji de cierre canónico por tipo.
+const CTA_ARQUETIPO = [ // ONG / Empresa / Particular → 🌊
+  "Prueba o2Wave desde tu navegador — o2wave.app 🌊",
+  "Recupera esas horas — o2wave.app · sin instalación 🌊",
+  "Empieza en o2wave.app · todo desde el navegador 🌊",
+];
+const CTA_NOVEDAD = [ // → ✨
+  "Descubre qué hay nuevo · directamente en tu navegador — o2wave.app/novedades ✨",
+  "Actualiza tu experiencia · sin instalación — o2wave.app ✨",
+];
+const CTA_DATO = [ // NO son acción sobre el producto → sin señal navegador, sin emoji
+  "Comparte con quien lo necesite",
+  "Más info en o2wave.app",
+  "Sigue por más datos como este — @o2wave.app",
+];
+
+// Señales de navegador aceptadas (regla dura 1) y emojis prohibidos (regla dura 2).
+const SENALES_NAVEGADOR = ["en tu navegador", "desde el navegador", "desde tu navegador", "sin instalación", "sin descargas"];
+const EMOJIS_PROHIBIDOS = ["⏳", "🚀"];
+// Tipos cuya CTA es acción sobre el producto → señal de navegador OBLIGATORIA.
+const REQUIERE_SENAL: TipoPieza[] = ["piezaProducto", "piezaNovedad", "piezaArquetipoONG", "piezaArquetipoEmpresa", "piezaArquetipoParticular"];
+
+/**
+ * Valida el copy final de una pieza (§4C v2.1.2). Devuelve un motivo de fallo o
+ * null si es válido. Reglas: (1) señal de navegador en CTAs de acción, (2) sin
+ * emojis prohibidos ⏳/🚀, (3) sin "gratis" salvo ONG con permiso explícito.
+ */
+export function validarCopy(texto: string, tipo: TipoPieza, opts?: { permisoGratisONG?: boolean }): string | null {
+  for (const e of EMOJIS_PROHIBIDOS) if (texto.includes(e)) return `emoji prohibido ${e}`;
+  if (/\bgratis\b/i.test(texto) && !(tipo === "piezaArquetipoONG" && opts?.permisoGratisONG)) return `"gratis" no permitido`;
+  if (REQUIERE_SENAL.includes(tipo)) {
+    const low = texto.toLowerCase();
+    if (!SENALES_NAVEGADOR.some((s) => low.includes(s))) return "falta señal de navegador en la CTA";
+  }
+  return null;
+}
+
+/**
+ * Genera el cuerpo con Claude, lo ensambla con la CTA y VALIDA (§4C). Si falla,
+ * regenera (hasta 3 intentos). Devuelve el texto válido o null (aborta la pieza).
+ */
+async function cuerpoValido(
+  prompt: string, tipo: TipoPieza, ensamblar: (body: string) => string, opts?: { permisoGratisONG?: boolean },
+): Promise<string | null> {
+  for (let i = 0; i < 3; i++) {
+    const body = await claudeTexto(prompt);
+    if (!body) continue;
+    const texto = ensamblar(body);
+    const err = validarCopy(texto, tipo, opts);
+    if (!err) return texto;
+    console.warn(`autopost ${tipo}: copy inválido (${err}) — reintento ${i + 1}/3`);
+  }
+  return null;
+}
+
 /* --------------------------------- ONG (Ana) -------------------------------- */
 // Pool genérico (a Marketing le gustó). Nota de género no forzada: si hay persona
 // focal, la coordinadora es Ana (mujer); el resto, voluntariado mixto.
@@ -80,7 +139,7 @@ const ESCENAS_ONG: Escena[] = [
 async function piezaArquetipoONG(subIndex = 0): Promise<Pieza | null> {
   const activas = (causas as { label: string; estado: string }[]).filter((c) => c.estado === "activa");
   const causa = activas[subIndex % activas.length]; // rotación determinista de causa
-  const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
+  const cta = pick(CTA_ARQUETIPO); // 🌊 + señal navegador (§4C)
   const foco = pick([
     "arranque de temporada o campaña anual tras el verano",
     "comunicar el impacto del último año con datos reales de la ONG ficticia (sin inventar cifras)",
@@ -94,10 +153,11 @@ Protagonista: Ana, que dirige o coordina una ${causa.label}, con un equipo de 3-
 o2Wave resuelve: Ana describe en una frase lo que quiere comunicar y la app genera texto e imagen listos para publicar; el equipo recupera esas horas.
 QUÉDATE EN EL CARRIL: habla SOLO de Ana y su entidad social; NO menciones empresas/pymes, "marca personal" ni "Particulares".
 OBLIGATORIO: verbo genérico ("dirige", "coordina", "impulsa"), zona genérica ("en un barrio", "en zona rural"). PROHIBIDO: nombres reales de ONGs o personas, ciudades identificables, cifras inventadas, tech-bro speak. Máx ~120 palabras.`;
-  const body = await claudeTexto(prompt);
-  if (!body) return null;
+  // permisoGratisONG por defecto false: sin autorización caso-por-caso de Marketing (§4C).
+  const texto = await cuerpoValido(prompt, "piezaArquetipoONG", (b) => `${b}\n\n${cta}`);
+  if (!texto) return null;
   return {
-    texto: `${body}\n\n${cta}`,
+    texto,
     hashtags: hash(HB, ["#ONGs", "#TercerSector", "#ComunicaciónSocial"], ["#CasoDeUso", "#InspiraciónDigital"]),
     img: `${imagen(pick(ESCENAS_ONG))}\n\n${ONG_PERSONA}`,
   };
@@ -150,7 +210,7 @@ function escenaDeSub(sub: { escenas: Escena[] }, subIndex: number, nSub: number)
 async function piezaArquetipoEmpresa(subIndex = 0): Promise<Pieza | null> {
   const sub = SUBV_EMPRESA[subIndex % SUBV_EMPRESA.length]; // rotación determinista de subvariante
   const escena = escenaDeSub(sub, subIndex, SUBV_EMPRESA.length);
-  const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
+  const cta = pick(CTA_ARQUETIPO); // 🌊 + señal navegador (§4C)
   const prompt = `${GUARDARRAILES}
 
 Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una EMPRESA / pyme / negocio local. Historia por encima del eslogan.
@@ -158,10 +218,10 @@ Protagonista: Carlos, que lleva ${sub.label}, solo o con 1-2 personas. Problema:
 o2Wave resuelve: Carlos describe en una frase lo que quiere anunciar y la app genera texto e imagen listos; los posts salen sin robarle la mañana.
 QUÉDATE EN EL CARRIL: habla SOLO de Carlos y su negocio. PROHIBIDO mencionar "marca personal", "Particulares", "personas con proyectos personales", ONGs o "creadores" — este post es de EMPRESA.
 OBLIGATORIO: verbo humano ("lleva", "gestiona", "atiende"), nunca "CEO". PROHIBIDO: nombres reales de negocios/marcas, precios concretos, "emprendedor exitoso"/"self-made", anglicismos (startup, founder, growth hacking), referencias a Musk/Jobs. Máx ~120 palabras.`;
-  const body = await claudeTexto(prompt);
-  if (!body) return null;
+  const texto = await cuerpoValido(prompt, "piezaArquetipoEmpresa", (b) => `${b}\n\n${cta}`);
+  if (!texto) return null;
   return {
-    texto: `${body}\n\n${cta}`,
+    texto,
     hashtags: hash(HB, ["#Pymes", "#EmprendedoresDigitales", "#NegocioLocal"], ["#CasoDeUso", "#InspiraciónDigital"]),
     img: `${imagen(escena)}\n\n${PERSONA_HOMBRE}`,
   };
@@ -208,7 +268,7 @@ const SUBV_PARTICULAR: { label: string; escenas: Escena[] }[] = [
 async function piezaArquetipoParticular(subIndex = 0): Promise<Pieza | null> {
   const sub = SUBV_PARTICULAR[subIndex % SUBV_PARTICULAR.length]; // rotación determinista de subvariante
   const escena = escenaDeSub(sub, subIndex, SUBV_PARTICULAR.length);
-  const cta = pick(["Prueba o2Wave en o2wave.app", "Recupera esas horas — o2wave.app"]);
+  const cta = pick(CTA_ARQUETIPO); // 🌊 + señal navegador (§4C)
   const prompt = `${GUARDARRAILES}
 
 Escribe el CUERPO (sin CTA, sin hashtags) de un post de marketing para las redes de o2Wave. Caso concreto FICTICIO y verosímil de una PARTICULAR (persona con proyecto propio). Historia por encima del eslogan.
@@ -217,10 +277,10 @@ o2Wave resuelve: María describe la reflexión o idea de la semana y la app gene
 NOMENCLATURA (guía Marketing §0): en el copy publicado di "personas" / "personas que gestionan su marca personal" — NUNCA "Particulares" (suena burocrático). A María descríbela por su oficio. Evita "creator"/"influencer" (usa "creadora"/"autora"/el oficio).
 QUÉDATE EN EL CARRIL: habla SOLO de María y su proyecto propio; NO menciones empresas ni ONGs como sujeto.
 OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "boss babe"/"girl boss", "personal branding"/"storytelling"/"content strategy", superlativos, seguidores como métrica, precios. Máx ~120 palabras.`;
-  const body = await claudeTexto(prompt);
-  if (!body) return null;
+  const texto = await cuerpoValido(prompt, "piezaArquetipoParticular", (b) => `${b}\n\n${cta}`);
+  if (!texto) return null;
   return {
-    texto: `${body}\n\n${cta}`,
+    texto,
     hashtags: hash(HB, ["#ProyectosPersonales", "#FreelanceProductivo", "#MarcaPersonal"], ["#CasoDeUso", "#InspiraciónDigital"]),
     img: `${imagen(escena)}\n\n${PERSONA_MUJER}`,
   };
@@ -244,18 +304,18 @@ const DATO_SIN_TEXTO = `NO readable text, headlines, statistics or numbers as te
 
 async function piezaDato(): Promise<Pieza | null> {
   const d = pick(datos as { frase: string; anio: string; fuente: string; afinidad: string }[]);
-  const cta = pick(["Comparte con quien lo necesite", "Más info en o2wave.app", "Sigue por más datos como este — @o2wave.app"]);
+  const cta = pick(CTA_DATO); // sin señal navegador, sin emoji (§4C: no es acción sobre el producto)
   const prompt = `${GUARDARRAILES}
 
 Escribe el CUERPO (sin CTA, sin hashtags, sin la línea de fuente) de un post de o2Wave que ancla autoridad con un dato REAL. NO vender directamente.
 Dato exacto a comunicar (no lo alteres ni redondees): "${d.frase}"
 Estructura: presenta el dato con naturalidad y añade 1-2 frases de contexto útil (por qué importa para comunicar mejor). Voz de marca, tercera persona neutra. NO fuerces "pero con o2Wave todo cambia". Máx ~90 palabras.`;
-  const body = await claudeTexto(prompt);
-  if (!body) return null;
   const contexto = d.afinidad === "ONG" ? "#TercerSector" : "#RedesSociales";
+  // Fuente OBLIGATORIA al final, antes del CTA.
+  const texto = await cuerpoValido(prompt, "piezaDato", (b) => `${b}\n\n(Fuente: ${d.fuente}, ${d.anio})\n\n${cta}`);
+  if (!texto) return null;
   return {
-    // Fuente OBLIGATORIA al final, antes del CTA.
-    texto: `${body}\n\n(Fuente: ${d.fuente}, ${d.anio})\n\n${cta}`,
+    texto,
     hashtags: hash(HB, ["#DatoInteresante", "#DatoDelDía"], [contexto]),
     // permitirTexto=false (aplica "no text, no letters") + regla anti-gibberish.
     img: `${imagen(pick(ESCENAS_DATO))}\n\n${DATO_SIN_TEXTO}`,
@@ -290,12 +350,11 @@ async function piezaEducativa(): Promise<Pieza | null> {
 Escribe el CUERPO (sin hashtags, sin CTA, sin mencionar o2Wave en el cuerpo) de un post EDUCATIVO de redes: un consejo útil de comunicación, tono editorial (parece un post orgánico, no publicitario).
 Consejo a desarrollar: "${t.tip}"
 Estructura: plantea el consejo claro y accionable + un ejemplo concreto (aunque sea genérico) de cómo aplicarlo. PROHIBIDO: mencionar features de o2Wave, "hack/trick" (usa "un consejo"/"un truco"), "engagement/reach/conversion" (usa interacción/alcance/resultado), competidores. Máx ~110 palabras.`;
-  const body = await claudeTexto(prompt);
-  if (!body) return null;
   // Patch guía v2.1.1 §1.7: SIEMPRE variante B (firma discreta) en fase de
-  // captación. Variante A (sin firma) pospuesta hasta 100 usuarios pagos / 6
-  // meses de tracción → se reactivará en v2.2.
-  const texto = `${body}\n\n${FIRMA_EDU}`;
+  // captación. La firma canónica ya lleva 🌊; el validador (§4C) veta gratis/⏳/🚀.
+  // No requiere señal de navegador (es firma, no CTA imperativa).
+  const texto = await cuerpoValido(prompt, "piezaEducativa", (b) => `${b}\n\n${FIRMA_EDU}`);
+  if (!texto) return null;
   return {
     texto,
     hashtags: hash(HB, ["#ComunicaciónEfectiva", "#TipsRedesSociales", "#ContenidoDeValor"]),
@@ -344,7 +403,7 @@ async function piezaNovedad(ctx?: { featureId?: string }): Promise<Pieza | null>
   const cands = featuresCandidatas(new Date());
   const feat = (ctx?.featureId && cands.find((f) => f.id === ctx.featureId)) || cands[0];
   if (!feat) return null; // sin candidatas → el generador ya avisa a Sebas por email
-  const cta = pick(["Descúbrelo en o2wave.app", "Entra en o2wave.app y pruébalo"]);
+  const cta = pick(CTA_NOVEDAD); // ✨ + señal navegador (§4C)
   const notas = (feat.notas_marketing ?? []).map((n) => `- ${n}`).join("\n");
   const prompt = `${GUARDARRAILES}
 
@@ -356,10 +415,10 @@ REGLAS DE ESTA PIEZA (Marketing):
 - NO inventes cifras de impacto (no hay medición): describe el beneficio en cualitativo.
 - NO nombres ninguna otra feature ni "revolucionario"/"único en el mercado". Máx ~100 palabras.
 ${notas ? `NOTAS ADICIONALES:\n${notas}` : ""}`;
-  const body = await claudeTexto(prompt);
-  if (!body) return null;
+  const texto = await cuerpoValido(prompt, "piezaNovedad", (b) => `${b}\n\n${cta}`);
+  if (!texto) return null;
   return {
-    texto: `${body}\n\n${cta}`,
+    texto,
     hashtags: hash(HB, ["#Actualización", "#MejoraDelProducto"]),
     img: imagen(pick(ESCENAS_NOVEDAD)),
   };
