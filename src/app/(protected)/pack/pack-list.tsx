@@ -7,9 +7,12 @@ import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
 import { limpiarMarkdown, quitarHashtags } from "@/lib/formatText";
-import type { PackSemanal, PackDia } from "@/types";
+import PublishInstructionsModal from "@/components/PublishInstructionsModal";
+import type { PackSemanal, PackDia, RedSocial } from "@/types";
 
 const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", tiktok: "🎵 TikTok" };
+// Red de la pieza (badge en minúsculas) → RedSocial del modal de publicación.
+const RED_MAP: Record<string, RedSocial> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
 
 function rango(fechaInicio: string): string {
   const ini = new Date(fechaInicio + "T12:00:00");
@@ -22,6 +25,46 @@ function DiaCard({ packId, dia, idx, onSustituir, onEliminar }: {
   packId: string; dia: PackDia; idx: number;
   onSustituir: (idx: number) => void; onEliminar: (idx: number) => void;
 }) {
+  const [pubOpen, setPubOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const red = RED_MAP[dia.tipo] || "Instagram";
+
+  // Caption completo = cuerpo (sin hashtags duplicados) + hashtags al final.
+  const caption = () => {
+    const cuerpo = quitarHashtags(limpiarMarkdown(dia.texto || "")).trim();
+    const tags = dia.hashtags && dia.hashtags.length ? `\n\n${dia.hashtags.join(" ")}` : "";
+    return `${cuerpo}${tags}`.trim();
+  };
+
+  // Mismo flujo que el post suelto: copiar caption + Compartir nativo (el menú del
+  // sistema deja elegir la red). Sin API: NO publica solo. En escritorio/TikTok o
+  // sin soporte de share, cae al modal guiado (copia texto + abrir la app).
+  const publicar = async () => {
+    const texto = caption();
+    try { await navigator.clipboard?.writeText(texto); } catch { /* no soportado */ }
+
+    if (dia.imagen_url && dia.tipo !== "tiktok") {
+      try {
+        setSharing(true);
+        const resp = await fetch(dia.imagen_url);
+        const blob = await resp.blob();
+        const file = new File([blob], "o2wave.png", { type: blob.type || "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], text: texto });
+          return; // compartido por el menú nativo
+        }
+        // Escritorio (sin share de archivos): descarga la imagen para la guía.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = "o2wave.png"; a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") return; // el usuario canceló el share
+        // cualquier otro fallo → sigue al modal guiado
+      } finally { setSharing(false); }
+    }
+    setPubOpen(true); // fallback guiado (escritorio / TikTok / sin imagen)
+  };
+
   return (
     <div className="rounded-xl border border-gray-100 overflow-hidden">
       <div className="px-3 py-2 bg-gray-50 flex items-center gap-2 flex-wrap">
@@ -45,8 +88,10 @@ function DiaCard({ packId, dia, idx, onSustituir, onEliminar }: {
           <Link href={`/pack/${packId}/dia/${idx}`} className="px-3 py-1.5 rounded-lg border-2 text-xs font-bold transition-all active:scale-95" style={{ borderColor: "#e5e7eb", color: "#374151" }}>✏️ Editar</Link>
           <button onClick={() => onSustituir(idx)} className="px-3 py-1.5 rounded-lg border-2 text-xs font-bold transition-all active:scale-95" style={{ borderColor: "#e5e7eb", color: "#374151" }}>↻ Sustituir</button>
           <button onClick={() => onEliminar(idx)} className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95" style={{ color: "#ef4444" }}>🗑️ Eliminar</button>
+          <button onClick={publicar} disabled={sharing} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-50" style={{ backgroundColor: "#93bf30" }}>{sharing ? "…" : "📤 Publicar"}</button>
         </div>
       </div>
+      {pubOpen && <PublishInstructionsModal redSocial={red} formato={null} caption={caption()} onClose={() => setPubOpen(false)} />}
     </div>
   );
 }
