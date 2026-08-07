@@ -8,6 +8,7 @@ import ChipsInput from "@/components/ChipsInput";
 import Spinner from "@/components/ui/Spinner";
 import Toast, { type ToastState } from "@/components/Toast";
 import { limpiarMarkdown } from "@/lib/formatText";
+import { padTopPorRed } from "@/lib/aspectPorRed";
 import type { PackDia } from "@/types";
 
 const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", tiktok: "🎵 TikTok" };
@@ -140,7 +141,7 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
       {/* Imagen (solo IG/FB) */}
       {!esTikTok && (
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
-          <div className="relative w-full bg-gray-100" style={{ paddingTop: dia.tipo === "facebook" ? "56.25%" : dia.tipo === "instagram" ? "125%" : "100%" }}>
+          <div className="relative w-full bg-gray-100" style={{ paddingTop: padTopPorRed(dia.tipo) }}>
             {imagenUrl ? (
               <img src={imagenUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (

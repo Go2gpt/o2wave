@@ -7,6 +7,7 @@ import Link from "next/link";
 import BackLink from "@/components/BackLink";
 import { createClient } from "@/lib/supabase";
 import { pollForImage, aspectFor } from "@/lib/pollImage";
+import { padTopPorRed } from "@/lib/aspectPorRed";
 import { limpiarMarkdown } from "@/lib/formatText";
 import Spinner from "@/components/ui/Spinner";
 import Toast, { type ToastState } from "@/components/Toast";
@@ -414,7 +415,7 @@ function ResultContent() {
         <>
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
           {/* Cada red en su formato nativo: Post 4:5 (1080×1350), Story 9:16, Facebook/WhatsApp como antes. */}
-          <div ref={imgBoxRef} className="relative w-full bg-gray-100" style={{ paddingTop: isStory ? "177.78%" : post.red_social === "Instagram" ? "125%" : "100%" }}>
+          <div ref={imgBoxRef} className="relative w-full bg-gray-100" style={{ paddingTop: padTopPorRed(post.red_social, post.formato) }}>
             {post.imagen_url ? (
               <img src={post.imagen_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (
