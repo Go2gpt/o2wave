@@ -52,22 +52,32 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
   const btn = "px-3.5 py-2.5 rounded-xl border-2 text-xs font-bold transition-all active:scale-95 disabled:opacity-40";
   const btnStyle = { borderColor: "#e5e7eb", color: "#374151" };
 
-  // Cambiar la RED de esta pieza (selector por pieza): persiste el nuevo tipo y
-  // regenera el día COMPLETO para esa red, de modo que texto e imagen salgan en
-  // el formato/medida correctos (IG/FB 4:5, X 16:9, LinkedIn 1:1, TikTok vídeo).
+  // Cambiar la RED de esta pieza (selector por pieza). Por defecto CONSERVA el texto
+  // y solo RE-ENCUADRA la imagen a la medida de la nueva red (IG/FB 4:5, X 16:9,
+  // LinkedIn 1:1): regenera la imagen limpia en el nuevo lienzo y RE-HORNEA el
+  // titular con composeImage, que recalcula tamaño/saltos → el titular no se sale.
+  // Solo se regenera el texto cuando el cambio implica TikTok (vídeo/guion ≠ imagen).
   const cambiarRed = async (nuevo: string) => {
     if (nuevo === tipo || ocupadoImg || regenT) return;
-    if (!confirm(`¿Cambiar la red a ${TIPO_BADGE[nuevo] || nuevo}? Se regenerarán el texto y la imagen para esa red (se pierden las ediciones manuales de esta pieza).`)) return;
+    const reescribeTexto = nuevo === "tiktok" || tipo === "tiktok"; // a/desde TikTok cambia el formato de contenido
+    const msg = reescribeTexto
+      ? `¿Cambiar la red a ${TIPO_BADGE[nuevo] || nuevo}? TikTok usa vídeo/guion en vez de imagen, así que se regenerará el texto para esa red.`
+      : `¿Cambiar la red a ${TIPO_BADGE[nuevo] || nuevo}? Se conserva el texto; solo se re-encuadra la imagen a su medida (el titular se recompone para que no se salga).`;
+    if (!confirm(msg)) return;
     setCambiandoRed(true);
     try {
-      await postJSON("/api/pack/actualizar-dia", { pack_id: packId, dia_index: diaIndex, cambios: { tipo: nuevo } });
-      // nuevo_tema = tema actual → conserva el TEMA; solo cambia el formato/medida de la red.
-      const { dia: nd } = await postJSON("/api/pack/regenerar-dia", { pack_id: packId, dia_index: diaIndex, modo: "completo", nuevo_tema: dia.tema });
+      // Persiste el nuevo tipo + las ediciones actuales (para que el titular re-horneado
+      // y el texto conservado sean los que tienes en pantalla, no los originales).
+      await postJSON("/api/pack/actualizar-dia", { pack_id: packId, dia_index: diaIndex, cambios: { tipo: nuevo, titular, texto, hashtags } });
+      // "imagen" = re-encuadra conservando texto; "completo" solo si entra/sale TikTok.
+      const modo = reescribeTexto ? "completo" : "imagen";
+      const { dia: nd } = await postJSON("/api/pack/regenerar-dia", { pack_id: packId, dia_index: diaIndex, modo, nuevo_tema: dia.tema });
       const d = nd as PackDia;
       setTipo(d.tipo);
-      setTitular(d.titular || ""); setTexto(d.texto || ""); setHashtags(d.hashtags || []); setGuion(d.guion_tiktok || null);
+      if (reescribeTexto) { setTitular(d.titular || ""); setTexto(d.texto || ""); setHashtags(d.hashtags || []); }
+      setGuion(d.guion_tiktok || null);
       setImagenUrl(d.imagen_url ?? null); setImagenLimpiaUrl(d.imagen_limpia_url ?? null);
-      setToast({ message: `Red cambiada a ${TIPO_BADGE[d.tipo] || d.tipo}`, type: "success" });
+      setToast({ message: reescribeTexto ? `Red cambiada a ${TIPO_BADGE[d.tipo] || d.tipo}` : `Imagen re-encuadrada para ${TIPO_BADGE[d.tipo] || d.tipo}`, type: "success" });
     } catch (e) {
       setToast({ message: `Error: ${e instanceof Error ? e.message : "fallo"}`, type: "error" });
     } finally { setCambiandoRed(false); }
