@@ -4,6 +4,7 @@ import { composeImage } from "@/lib/composeImage";
 import { generarImagenIA } from "@/lib/imageGen";
 import { quitarHashtags } from "@/lib/formatText";
 import { grupoCuenta } from "@/lib/copys-por-tipo";
+import { aspectPorRed } from "@/lib/aspectPorRed";
 import type { PackDia, PackFuente, GuionTikTok, ProyectoPropio, Colaboracion } from "@/types";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -290,7 +291,7 @@ ${reglaIdioma(p.idioma_principal)}`;
 
 /* --------------------------- imagen (FLUX + sharp) --------------------------- */
 
-const aspectPara = (red: string) => (red === "Facebook" ? "16:9" : "1:1");
+const aspectPara = (red: string) => aspectPorRed(red);
 
 interface ImagenResultado { url: string | null; url_limpia?: string | null; error: string | null; }
 
@@ -344,8 +345,8 @@ async function generarImagen(
   }
 }
 
-/** Aspect ratio del formato según el tipo de red del día del pack. */
-export const aspectDeTipo = (tipo: string): string => (tipo === "facebook" ? "16:9" : "1:1");
+/** Aspect ratio del formato según el tipo de red del día del pack. Fuente única: aspectPorRed. */
+export const aspectDeTipo = (tipo: string): string => aspectPorRed(tipo);
 
 /** Hornea un titular sobre una imagen limpia y sube la compuesta. Devuelve la URL o null. */
 export async function componerYSubir(

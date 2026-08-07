@@ -140,7 +140,7 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
       {/* Imagen (solo IG/FB) */}
       {!esTikTok && (
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
-          <div className="relative w-full bg-gray-100" style={{ paddingTop: dia.tipo === "facebook" ? "56.25%" : "100%" }}>
+          <div className="relative w-full bg-gray-100" style={{ paddingTop: dia.tipo === "facebook" ? "56.25%" : dia.tipo === "instagram" ? "125%" : "100%" }}>
             {imagenUrl ? (
               <img src={imagenUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (

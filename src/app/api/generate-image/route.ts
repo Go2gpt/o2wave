@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { construirImagePromptEN, generarImagenIA, generarImagenIntegrada, clausulaGenero } from "@/lib/imageGen";
 import { resolverDemoPerfil } from "@/lib/perfilDemo";
+import { aspectPorRed } from "@/lib/aspectPorRed";
 import type { ContentFormData } from "@/types";
 
 export const maxDuration = 300;
@@ -19,8 +20,7 @@ function esHeic(buffer: Buffer, mime: string): boolean {
 }
 
 function aspectDe(formData: ContentFormData): string {
-  return formData.redSocial === "Instagram" ? (formData.formatoInstagram === "Story 9:16" ? "9:16" : "4:5")
-    : formData.redSocial === "Facebook" || formData.redSocial === "LinkedIn" ? "16:9" : "1:1";
+  return aspectPorRed(formData.redSocial, formData.formatoInstagram); // fuente única
 }
 
 // Genera la imagen del post (modo 'ia' = Gemini/FLUX desde prompt) o, si llega
