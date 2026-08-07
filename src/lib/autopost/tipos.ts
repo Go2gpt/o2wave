@@ -3,6 +3,9 @@ import datos from "@/lib/autopost/data/datos-piezadato.json";
 import tips from "@/lib/autopost/data/tips-piezaeducativa.json";
 import causas from "@/lib/autopost/data/causas-piezaarquetipoONG.json";
 import featuresData from "@/lib/autopost/data/features-piezanovedad.json";
+import escDatoTercerSector from "@/lib/autopost/data/escenas-piezadato-tercer_sector.json";
+import escDatoRedesGlobales from "@/lib/autopost/data/escenas-piezadato-redes_globales.json";
+import escDatoOngsRedes from "@/lib/autopost/data/escenas-piezadato-ongs_redes.json";
 
 /**
  * Builders de los 7 tipos de pieza autopost (guía Marketing v2.1). Cada builder
@@ -88,8 +91,9 @@ const CTA_DATO = [ // NO son acción sobre el producto → sin señal navegador,
 // Señales de navegador aceptadas (regla dura 1) y emojis prohibidos (regla dura 2).
 const SENALES_NAVEGADOR = ["en tu navegador", "desde el navegador", "desde tu navegador", "sin instalación", "sin descargas"];
 const EMOJIS_PROHIBIDOS = ["⏳", "🚀"];
-// Tipos cuya CTA es acción sobre el producto → señal de navegador OBLIGATORIA.
-const REQUIERE_SENAL: TipoPieza[] = ["piezaProducto", "piezaNovedad", "piezaArquetipoONG", "piezaArquetipoEmpresa", "piezaArquetipoParticular"];
+// Tipos cuya CTA/firma debe llevar señal de navegador. v2.1.3 §6.13: se amplía a
+// piezaEducativa (la firma B ya incluye "desde el navegador") → ya no es excepción.
+const REQUIERE_SENAL: TipoPieza[] = ["piezaProducto", "piezaNovedad", "piezaArquetipoONG", "piezaArquetipoEmpresa", "piezaArquetipoParticular", "piezaEducativa"];
 
 /**
  * Valida el copy final de una pieza (§4C v2.1.2). Devuelve un motivo de fallo o
@@ -287,23 +291,22 @@ OBLIGATORIO: "su marca personal", "su trabajo", "lo que hace". PROHIBIDO: "boss 
 }
 
 /* ---------------------------------- Dato ------------------------------------ */
-// Gemini inventaba texto/cifras ilegibles ("gibberish") en periódicos/pizarras y
-// resaltaba un número que no era el del copy. Escenas 100% abstractas, SIN texto:
-// el dato vive SOLO en el copy; la imagen pone ambiente, no repite el dato.
-// Bug v2.1.1: 100% abstracta perdía ancla humana. Se añade presencia humana
-// ANÓNIMA (manos, siluetas, personas de espaldas) SIN texto — DATO_SIN_TEXTO sigue.
-const ESCENAS_DATO: Escena[] = [
-  { en: "Two people's hands collaborating over a table, passing a blank sheet of paper (nothing written on it), natural daylight." },
-  { en: "Two people seen from behind looking at abstract coloured bars and circles on a screen, blurred and unreadable, no labels." },
-  { en: "A minimalist composition of geometric shapes and generic icons with a small human figure for scale, earthy tones, no labels." },
-  { en: "Anonymous hands writing on a blank sheet beside a calculator and a small plant, no readable text, soft daylight." },
-  { en: "People from behind working together in front of a wall of abstract coloured shapes (no words, no numbers)." },
-];
-// Regla dura anti-gibberish que se anexa al prompt de imagen del Dato.
-const DATO_SIN_TEXTO = `NO readable text, headlines, statistics or numbers as text elements in the image. NO newspapers, magazines or documents with visible text. NO whiteboards with words. Use abstract visual metaphors: geometric shapes, colored bars/circles without labels, silhouettes with unreadable/blurred graphs behind, minimalist infographics with generic icons. The figure lives in the caption — the image sets ambient, it does NOT repeat the data.`;
+// v2.1.3 §1.6: escena por CATEGORÍA del dato (categoria_escena) desde 3 pools.
+// La infografía con la cifra queda RETIRADA (Gemini genera gibberish tipográfico):
+// el dato vive en el copy, no en la imagen. Cada escena lleva presencia humana +
+// dispositivo + luz cálida y NADA de texto/dashboards.
+const POOLS_DATO: Record<string, string[]> = {
+  tercer_sector: escDatoTercerSector as string[],
+  redes_globales: escDatoRedesGlobales as string[],
+  ongs_redes: escDatoOngsRedes as string[],
+};
+const DATO_REGLA_IMG = `MANDATORY: a human presence (a person, a silhouette, hands or a back view) + a device (a phone) when the fact is about time/social media, in warm lighting (window light, a desk lamp, soft backlight — never cold corporate blue). One person or a small group (2-5), never large events or corporate offices.
+NO text, numbers, headlines or statistics anywhere in the image. NO real social-media logos (Instagram/Facebook/TikTok, etc.); an abstract feed is fine (generic icons, coloured cards, no letters).
+FORBIDDEN: infographics with a big figure, clean charts/bars/lines without a human, a hand pointing at a printed chart, data projected on a big screen, a desk with a newspaper/report showing a figure, business dashboards with KPIs, aspirational "hockey stick" growth graphs, people celebrating a number, big chart-style emojis, any abstract-art scene without a human.
+Documentary photorealistic style, warm natural lighting, no watermarks.`;
 
 async function piezaDato(): Promise<Pieza | null> {
-  const d = pick(datos as { frase: string; anio: string; fuente: string; afinidad: string }[]);
+  const d = pick(datos as { frase: string; anio: string; fuente: string; afinidad: string; categoria_escena: string }[]);
   const cta = pick(CTA_DATO); // sin señal navegador, sin emoji (§4C: no es acción sobre el producto)
   const prompt = `${GUARDARRAILES}
 
@@ -314,11 +317,13 @@ Estructura: presenta el dato con naturalidad y añade 1-2 frases de contexto út
   // Fuente OBLIGATORIA al final, antes del CTA.
   const texto = await cuerpoValido(prompt, "piezaDato", (b) => `${b}\n\n(Fuente: ${d.fuente}, ${d.anio})\n\n${cta}`);
   if (!texto) return null;
+  // Escena del pool según la categoría del dato (§1.6). Fallback a tercer_sector.
+  const pool = POOLS_DATO[d.categoria_escena] ?? POOLS_DATO.tercer_sector;
+  const escenaEN = pick(pool);
   return {
     texto,
     hashtags: hash(HB, ["#DatoInteresante", "#DatoDelDía"], [contexto]),
-    // permitirTexto=false (aplica "no text, no letters") + regla anti-gibberish.
-    img: `${imagen(pick(ESCENAS_DATO))}\n\n${DATO_SIN_TEXTO}`,
+    img: `${escenaEN}\n\n${DATO_REGLA_IMG}`,
   };
 }
 
@@ -338,7 +343,8 @@ const EDU_ANIMO = "If a person appears: focused positive expression, a subtle sm
 
 // Firma canónica v2.1.1 §1.7: línea horizontal + salto DOBLE + firma. Va al final
 // del cuerpo, ANTES de los hashtags (los añade crearPieza).
-const FIRMA_EDU = "─────────────\n\nCompartido por el equipo de o2Wave · o2wave.app 🌊";
+// v2.1.3 §6.16: firma con señal de navegador informativa ("desde el navegador").
+const FIRMA_EDU = "─────────────\n\nContenido de o2Wave · desde el navegador en o2wave.app 🌊";
 
 async function piezaEducativa(): Promise<Pieza | null> {
   // Pool general: excluye tips restringidos (compatibles_con != null, p. ej. #13
