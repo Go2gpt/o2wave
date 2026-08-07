@@ -24,7 +24,7 @@ const NARANJA = "#f9b23b";
 const GRIS = "#6b7280";
 const AZUL = "#1e40af";
 
-const RED_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+const RED_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", x: "X", tiktok: "TikTok" };
 
 const s = StyleSheet.create({
   page: { paddingTop: 36, paddingBottom: 40, paddingHorizontal: 40, fontSize: 11, color: "#111827", fontFamily: "NotoSans" },

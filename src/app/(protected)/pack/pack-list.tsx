@@ -8,11 +8,11 @@ import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
 import { limpiarMarkdown, quitarHashtags } from "@/lib/formatText";
 import PublishInstructionsModal from "@/components/PublishInstructionsModal";
-import type { PackSemanal, PackDia, RedSocial } from "@/types";
+import type { PackSemanal, PackDia } from "@/types";
 
-const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", tiktok: "🎵 TikTok" };
-// Red de la pieza (badge en minúsculas) → RedSocial del modal de publicación.
-const RED_MAP: Record<string, RedSocial> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", x: "𝕏 X", linkedin: "💼 LinkedIn", tiktok: "🎵 TikTok" };
+// Red de la pieza (badge en minúsculas) → nombre para el modal de publicación.
+const RED_MAP: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", x: "X", linkedin: "LinkedIn", tiktok: "TikTok" };
 
 function rango(fechaInicio: string): string {
   const ini = new Date(fechaInicio + "T12:00:00");

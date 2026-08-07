@@ -1,9 +1,7 @@
 "use client";
 
-import type { RedSocial } from "@/types";
-
 interface Props {
-  redSocial: RedSocial;
+  redSocial: string;
   formato?: string | null;
   caption: string;
   onClose: () => void;
@@ -13,10 +11,12 @@ interface Props {
 const APP: Record<string, { scheme: string; web: string; nombre: string }> = {
   Instagram: { scheme: "instagram://", web: "https://www.instagram.com", nombre: "Instagram" },
   Facebook: { scheme: "fb://", web: "https://www.facebook.com", nombre: "Facebook" },
+  X: { scheme: "twitter://", web: "https://x.com", nombre: "X" },
+  LinkedIn: { scheme: "linkedin://", web: "https://www.linkedin.com", nombre: "LinkedIn" },
   WhatsApp: { scheme: "whatsapp://send", web: "https://web.whatsapp.com", nombre: "WhatsApp" },
 };
 
-function pasos(red: RedSocial, esStory: boolean): string[] {
+function pasos(red: string, esStory: boolean): string[] {
   if (red === "Instagram" && esStory) {
     return [
       "Abre Instagram desde el icono.",

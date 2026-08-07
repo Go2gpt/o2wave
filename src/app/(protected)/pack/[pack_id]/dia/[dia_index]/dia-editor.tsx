@@ -11,7 +11,12 @@ import { limpiarMarkdown } from "@/lib/formatText";
 import { padTopPorRed } from "@/lib/aspectPorRed";
 import type { PackDia } from "@/types";
 
-const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", tiktok: "🎵 TikTok" };
+const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", x: "𝕏 X", linkedin: "💼 LinkedIn", tiktok: "🎵 TikTok" };
+// Redes que ofrece el pack (selector por pieza). Cada una genera en su medida.
+const REDES_EDITOR: { v: string; l: string }[] = [
+  { v: "instagram", l: "📸 Instagram · 4:5" }, { v: "facebook", l: "👥 Facebook · 4:5" },
+  { v: "x", l: "𝕏 X · 16:9" }, { v: "linkedin", l: "💼 LinkedIn · 1:1" }, { v: "tiktok", l: "🎵 TikTok · vídeo" },
+];
 
 async function postJSON(url: string, body: unknown) {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -22,7 +27,8 @@ async function postJSON(url: string, body: unknown) {
 
 export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; diaIndex: number; dia: PackDia }) {
   const router = useRouter();
-  const esTikTok = dia.tipo === "tiktok";
+  const [tipo, setTipo] = useState(dia.tipo);
+  const esTikTok = tipo === "tiktok";
 
   const [titular, setTitular] = useState(dia.titular || "");
   const [texto, setTexto] = useState(dia.texto || "");
@@ -38,12 +44,34 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
   const [regenI, setRegenI] = useState(false);
   const [savingTitular, setSavingTitular] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [cambiandoRed, setCambiandoRed] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const ocupadoImg = regenI || uploading || savingTitular; // alguna operación de imagen en curso
+  const ocupadoImg = regenI || uploading || savingTitular || cambiandoRed; // alguna operación de imagen en curso
 
   const btn = "px-3.5 py-2.5 rounded-xl border-2 text-xs font-bold transition-all active:scale-95 disabled:opacity-40";
   const btnStyle = { borderColor: "#e5e7eb", color: "#374151" };
+
+  // Cambiar la RED de esta pieza (selector por pieza): persiste el nuevo tipo y
+  // regenera el día COMPLETO para esa red, de modo que texto e imagen salgan en
+  // el formato/medida correctos (IG/FB 4:5, X 16:9, LinkedIn 1:1, TikTok vídeo).
+  const cambiarRed = async (nuevo: string) => {
+    if (nuevo === tipo || ocupadoImg || regenT) return;
+    if (!confirm(`¿Cambiar la red a ${TIPO_BADGE[nuevo] || nuevo}? Se regenerarán el texto y la imagen para esa red (se pierden las ediciones manuales de esta pieza).`)) return;
+    setCambiandoRed(true);
+    try {
+      await postJSON("/api/pack/actualizar-dia", { pack_id: packId, dia_index: diaIndex, cambios: { tipo: nuevo } });
+      // nuevo_tema = tema actual → conserva el TEMA; solo cambia el formato/medida de la red.
+      const { dia: nd } = await postJSON("/api/pack/regenerar-dia", { pack_id: packId, dia_index: diaIndex, modo: "completo", nuevo_tema: dia.tema });
+      const d = nd as PackDia;
+      setTipo(d.tipo);
+      setTitular(d.titular || ""); setTexto(d.texto || ""); setHashtags(d.hashtags || []); setGuion(d.guion_tiktok || null);
+      setImagenUrl(d.imagen_url ?? null); setImagenLimpiaUrl(d.imagen_limpia_url ?? null);
+      setToast({ message: `Red cambiada a ${TIPO_BADGE[d.tipo] || d.tipo}`, type: "success" });
+    } catch (e) {
+      setToast({ message: `Error: ${e instanceof Error ? e.message : "fallo"}`, type: "error" });
+    } finally { setCambiandoRed(false); }
+  };
 
   // Regenerar texto (y guion si TikTok). Descarta ediciones manuales.
   const regenerarTexto = async () => {
@@ -133,15 +161,23 @@ export default function DiaEditor({ packId, diaIndex, dia }: { packId: string; d
         <Logo size="sm" />
       </div>
 
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ backgroundColor: "#fff8ef", color: "#f9b23b" }}>{TIPO_BADGE[dia.tipo] || dia.tipo}</span>
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
         <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-500">{dia.nombre_dia} · {dia.fecha}</span>
+      </div>
+      <div className="mb-4">
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Red de esta pieza</label>
+        <select value={tipo} onChange={(e) => cambiarRed(e.target.value)} disabled={ocupadoImg || regenT}
+          className="w-full border-2 border-gray-100 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none disabled:opacity-50"
+          style={{ color: "#374151" }}>
+          {REDES_EDITOR.map((r) => <option key={r.v} value={r.v}>{r.l}</option>)}
+        </select>
+        {cambiandoRed && <p className="text-[11px] text-gray-400 mt-1">Regenerando para {TIPO_BADGE[tipo] || tipo}… (texto + imagen)</p>}
       </div>
 
       {/* Imagen (solo IG/FB) */}
       {!esTikTok && (
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
-          <div className="relative w-full bg-gray-100" style={{ paddingTop: padTopPorRed(dia.tipo) }}>
+          <div className="relative w-full bg-gray-100" style={{ paddingTop: padTopPorRed(tipo) }}>
             {imagenUrl ? (
               <img src={imagenUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (

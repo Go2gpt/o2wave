@@ -220,7 +220,7 @@ interface OpcionesTexto { instruccion?: string; imgCtx?: { pais?: string | null;
 /** Genera titular + texto + hashtags (Instagram/Facebook) y, aparte, la descripción visual. */
 async function generarTextoRed(p: PerfilPack, tema: string, red: string, opts: OpcionesTexto = {}): Promise<TextoRed> {
   try {
-    const limite = red === "Instagram" ? "máximo 150 palabras" : "máximo 200 palabras";
+    const limite = red === "X" ? "máximo 280 caracteres, muy conciso" : red === "Instagram" ? "máximo 150 palabras" : "máximo 200 palabras";
     const prompt = `Genera un post para ${red} de "${p.nombre_entidad || `la ${enteDe(p)}`}" (${p.tipo_entidad || "ong"}).
 Tema: ${tema}
 ${contextoDe(p)}
@@ -377,7 +377,8 @@ export async function subirImagenLimpia(
 
 /* --------------------------- distribución de redes --------------------------- */
 
-const PESOS: Record<string, number> = { instagram: 0.7, facebook: 0.2, tiktok: 0.1 };
+// Pesos de reparto entre las redes activas del perfil (se normalizan por las activas).
+const PESOS: Record<string, number> = { instagram: 0.7, facebook: 0.2, linkedin: 0.15, x: 0.1, tiktok: 0.1 };
 
 export function distribuirRedes(redes: string[], n: number): string[] {
   const activas = (redes || []).filter((r) => r in PESOS);
@@ -395,7 +396,7 @@ export function distribuirRedes(redes: string[], n: number): string[] {
   return out;
 }
 
-const RED_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+const RED_LABEL: Record<string, string> = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", x: "X", tiktok: "TikTok" };
 
 /* --------------------------------- principal --------------------------------- */
 

@@ -69,6 +69,8 @@ const ESTADO_PLAN: Record<string, { label: string; bg: string; color: string }> 
 const REDES_PACK = [
   { value: "instagram", label: "Instagram", emoji: "📸" },
   { value: "facebook", label: "Facebook", emoji: "👥" },
+  { value: "x", label: "X", emoji: "𝕏" },
+  { value: "linkedin", label: "LinkedIn", emoji: "💼" },
   { value: "tiktok", label: "TikTok", emoji: "🎵" },
 ];
 const DIAS_SEMANA_OPC = [3, 4, 5, 6, 7];

@@ -5,7 +5,9 @@ import type { PackDia } from "@/types";
 export const dynamic = "force-dynamic";
 
 // Campos editables manualmente desde el editor de día.
-const CAMPOS_EDITABLES: (keyof PackDia)[] = ["titular", "texto", "hashtags", "imagen_url"];
+const CAMPOS_EDITABLES: (keyof PackDia)[] = ["titular", "texto", "hashtags", "imagen_url", "tipo"];
+// Redes válidas del pack (el selector por pieza solo puede fijar una de estas).
+const TIPOS_VALIDOS = new Set(["instagram", "facebook", "x", "linkedin", "tiktok"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +20,9 @@ export async function POST(request: NextRequest) {
     const dias: PackDia[] = pack.contenido?.dias || [];
     if (dia_index < 0 || dia_index >= dias.length) return NextResponse.json({ error: "Índice fuera de rango" }, { status: 400 });
 
+    if ("tipo" in cambios && !TIPOS_VALIDOS.has(String(cambios.tipo))) {
+      return NextResponse.json({ error: "Red no válida" }, { status: 400 });
+    }
     const patch: Partial<PackDia> = {};
     for (const k of CAMPOS_EDITABLES) {
       if (k in cambios) (patch as Record<string, unknown>)[k] = cambios[k];
