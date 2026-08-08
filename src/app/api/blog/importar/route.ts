@@ -32,6 +32,26 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   const hoy = new Date().toISOString().slice(0, 10);
+
+  // Copiamos la imagen del blog (WordPress) al almacenamiento propio de o2Wave.
+  // Así queda en el MISMO origen que el resto del pack: el botón "Publicar" puede
+  // descargarla para el Compartir nativo sin bloqueo CORS (antes fallaba y caía
+  // al modal). Si la copia falla, se mantiene la URL de WordPress como respaldo.
+  let imagenUrl = entrada.imagenUrl;
+  if (imagenUrl) {
+    try {
+      const imgRes = await fetch(imagenUrl);
+      if (imgRes.ok) {
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        const ct = imgRes.headers.get("content-type") || "image/png";
+        const ext = ct.includes("jpeg") || ct.includes("jpg") ? "jpg" : ct.includes("webp") ? "webp" : "png";
+        const path = `blog/${uid}/${id}-${Date.now()}.${ext}`;
+        const { error: upErr } = await admin.storage.from("post-images").upload(path, buf, { contentType: ct, upsert: false });
+        if (!upErr) imagenUrl = admin.storage.from("post-images").getPublicUrl(path).data.publicUrl;
+      }
+    } catch { /* mantiene la URL de WordPress si la copia falla */ }
+  }
+
   // tipo "instagram" por defecto; el usuario puede cambiar la red en el editor
   // (re-encuadra la imagen a la medida de esa red).
   const dia: PackDia = {
@@ -39,7 +59,7 @@ export async function POST(request: Request) {
     nombre_dia: "Noticia",
     tipo: "instagram",
     tema: entrada.titulo,
-    imagen_url: entrada.imagenUrl,
+    imagen_url: imagenUrl,
     imagen_limpia_url: null,
     titular: entrada.titulo.slice(0, 100),
     texto: entrada.texto,
