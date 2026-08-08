@@ -9,6 +9,7 @@ import Toast, { type ToastState } from "@/components/Toast";
 import { limpiarMarkdown, quitarHashtags } from "@/lib/formatText";
 import PublishInstructionsModal from "@/components/PublishInstructionsModal";
 import type { PackSemanal, PackDia } from "@/types";
+import type { EntradaBlog } from "@/lib/blog";
 
 const TIPO_BADGE: Record<string, string> = { instagram: "📸 Instagram", facebook: "👥 Facebook", x: "𝕏 X", linkedin: "💼 LinkedIn", tiktok: "🎵 TikTok" };
 // Red de la pieza (badge en minúsculas) → nombre para el modal de publicación.
@@ -103,6 +104,10 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
   const [sust, setSust] = useState<{ packId: string; idx: number; tema: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
+  const [blogOpen, setBlogOpen] = useState(false);
+  const [entradas, setEntradas] = useState<EntradaBlog[] | null>(null);
+  const [blogBusy, setBlogBusy] = useState(false);
+  const [importId, setImportId] = useState<number | null>(null);
 
   const descargarPdf = (pack: PackSemanal) => window.open(`/api/pack/${pack.id}/pdf`, "_blank");
 
@@ -151,6 +156,34 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
     finally { setBusy(false); }
   };
 
+  // Importar del blog: lista las noticias publicadas en WordPress y, al elegir una,
+  // crea un día del pack (pendiente de revisión) con su texto e imagen → luego el
+  // usuario ajusta la red y publica con el botón de siempre.
+  const abrirBlog = async () => {
+    setBlogOpen(true); setBlogBusy(true); setEntradas(null);
+    try {
+      const res = await fetch("/api/blog/importar");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error");
+      setEntradas(data.entradas || []);
+    } catch (e) {
+      setToast({ message: `Error: ${e instanceof Error ? e.message : "fallo"}`, type: "error" });
+      setBlogOpen(false);
+    } finally { setBlogBusy(false); }
+  };
+  const importarNoticia = async (id: number) => {
+    setImportId(id);
+    try {
+      const res = await fetch("/api/blog/importar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error");
+      setBlogOpen(false);
+      router.push(`/pack/${data.pack_id}/dia/${data.dia_index}`);
+    } catch (e) {
+      setToast({ message: `Error: ${e instanceof Error ? e.message : "fallo"}`, type: "error" });
+    } finally { setImportId(null); }
+  };
+
   return (
     <div className="max-w-lg mx-auto pb-8">
       <Toast toast={toast} onClose={() => setToast(null)} />
@@ -161,6 +194,7 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
       <div className="px-5 pb-4">
         <h1 className="text-xl font-bold text-gray-900">Pack semanal</h1>
         <p className="text-sm text-gray-500 mt-0.5">Tu plan de contenido, listo cada semana</p>
+        <button onClick={abrirBlog} className="mt-3 text-xs font-bold px-3 py-1.5 rounded-lg border-2 transition-all active:scale-95" style={{ borderColor: "#e5e7eb", color: "#374151" }}>📰 Importar del blog</button>
       </div>
 
       {packs.length === 0 ? (
@@ -228,6 +262,38 @@ export default function PackList({ packs, abrirInicial }: { packs: PackSemanal[]
               {busy ? "Regenerando…" : "Regenerar día"}
             </button>
             <button onClick={() => setSust(null)} disabled={busy} className="w-full py-2.5 text-sm text-gray-500 font-medium">Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Importar del blog: elegir una noticia publicada para llevarla a redes. */}
+      {blogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4" onClick={() => importId === null && setBlogOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full sm:max-w-md max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 mb-1">Importar del blog</h3>
+            <p className="text-xs text-gray-400 mb-4">Elige una noticia publicada. Se añadirá a tu pack como borrador para que la ajustes y publiques.</p>
+            {blogBusy ? (
+              <p className="text-sm text-gray-500 py-6 text-center">Cargando noticias…</p>
+            ) : !entradas || entradas.length === 0 ? (
+              <p className="text-sm text-gray-500 py-6 text-center">No hay noticias publicadas en el blog todavía. Publica una en WordPress y aparecerá aquí.</p>
+            ) : (
+              <div className="space-y-2">
+                {entradas.map((e) => (
+                  <div key={e.id} className="flex gap-3 items-center border border-gray-100 rounded-xl p-2.5">
+                    {e.imagenUrl && <img src={e.imagenUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-gray-900 leading-snug line-clamp-2">{e.titulo}</p>
+                      <p className="text-[11px] text-gray-400">{e.fecha}</p>
+                    </div>
+                    <button onClick={() => importarNoticia(e.id)} disabled={importId !== null}
+                      className="flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ backgroundColor: "#93bf30" }}>
+                      {importId === e.id ? "…" : "Importar"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setBlogOpen(false)} disabled={importId !== null} className="w-full py-2.5 text-sm text-gray-500 font-medium mt-3">Cerrar</button>
           </div>
         </div>
       )}
