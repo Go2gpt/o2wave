@@ -307,6 +307,7 @@ ${redSocial === "LinkedIn" ? `Publicación para LinkedIn, registro PROFESIONAL (
 - Primer renglón fuerte (gancho), luego 2-3 párrafos cortos separados por línea en blanco, y una llamada a la acción al final.
 - Tono profesional y narrativo. Emojis: mejor ninguno; como mucho 2-3 sutiles si aportan.
 - Termina con 3-5 hashtags relevantes para LinkedIn (NO genéricos), en el idioma indicado. Ejemplos por contexto: #Liderazgo #Emprendimiento #ImpactoSocial #ComunicaciónDigital #TercerSector (o sus equivalentes en el idioma).` : ""}
+${redSocial === "X" ? "Publicación para X (Twitter): MÁXIMO 280 caracteres en total, contando los hashtags si los hay. Un solo mensaje directo y conciso con gancho al inicio. Como mucho 1-2 hashtags relevantes (o ninguno). Nada de hilos." : ""}
 ${esWhatsApp ? "Mensaje para difundir por WhatsApp: breve y conversacional (máximo 80 palabras), cercano y directo como un mensaje a la comunidad. NO incluyas hashtags ni el símbolo #." : ""}${bloqueVision}${bloquePremio ? `\n${bloquePremio}\n` : ""}${bloqueMencion}
 Texto listo para publicar, sin explicaciones:`;
 

@@ -7,7 +7,7 @@ export type TipoEntidad =
   | "ong_mediana"
   | "empresa"
   | "particular";
-export type RedSocial = "Instagram" | "Facebook" | "LinkedIn" | "TikTok" | "WhatsApp";
+export type RedSocial = "Instagram" | "Facebook" | "X" | "LinkedIn" | "TikTok" | "WhatsApp";
 export type FormatoInstagram = "Post 1080×1080" | "Story 9:16";
 export type Tono = "Motivador" | "Informativo" | "Cercano" | "Urgente";
 
