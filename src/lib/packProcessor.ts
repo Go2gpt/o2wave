@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { composeImage } from "@/lib/composeImage";
+import { composeImage, bannerMarca } from "@/lib/composeImage";
 import { generarImagenIA } from "@/lib/imageGen";
 import { quitarHashtags } from "@/lib/formatText";
 import { grupoCuenta } from "@/lib/copys-por-tipo";
@@ -348,6 +348,51 @@ async function generarImagen(
 /** Aspect ratio del formato según el tipo de red del día del pack. Fuente única: aspectPorRed. */
 export const aspectDeTipo = (tipo: string): string => aspectPorRed(tipo);
 
+/* ---------------------------------------------------------------------------
+ * Banner de marca vs foto IA por tipo de contenido. Piezas de MENSAJE (idea,
+ * dato, actualidad, día mundial, conversación) → banner tipográfico; piezas de
+ * HISTORIA (proyecto propio, colaboración) → foto IA. Da variedad y quita la
+ * monotonía de "siempre una foto".
+ * ------------------------------------------------------------------------- */
+const ESTILO_IMAGEN: Record<string, "banner" | "foto"> = {
+  conversacion: "banner", actualidad: "banner", dia_mundial: "banner",
+  propio: "foto", colaboracion: "foto",
+};
+const PILL_CONTENIDO: Record<string, string> = {
+  conversacion: "Para pensar", actualidad: "Actualidad", dia_mundial: "Efeméride",
+  propio: "Nuestro trabajo", colaboracion: "Colaboramos",
+};
+/** Subtítulo del banner = primera frase del cuerpo (sin hashtags), recortada. */
+function subtituloBanner(texto: string): string {
+  const limpio = quitarHashtags(texto || "").replace(/\s+/g, " ").trim();
+  const frase = limpio.split(/(?<=[.!?])\s/)[0] || limpio;
+  return frase.length > 95 ? `${frase.slice(0, 92).trimEnd()}…` : frase;
+}
+/** Color del banner por paridad del día del mes → días consecutivos alternan; estable en regeneración. */
+function varianteBanner(fecha: string): "dark" | "light" {
+  const d = parseInt((fecha || "").slice(8, 10), 10);
+  return Number.isFinite(d) && d % 2 === 0 ? "dark" : "light";
+}
+/** Genera el banner de marca de un día y lo sube. Rápido (sin IA de imagen). */
+async function generarBanner(admin: SupabaseClient, userId: string, d: PackDia, perfil: PerfilPack, label: string): Promise<ImagenResultado> {
+  try {
+    const png = await bannerMarca({
+      aspectRatio: aspectDeTipo(d.tipo),
+      variante: varianteBanner(d.fecha),
+      pill: PILL_CONTENIDO[d.tipo_contenido || ""] || "o2Wave",
+      titulo: d.titular || d.tema,
+      subtitulo: subtituloBanner(d.texto || ""),
+      organizacion: perfil.nombre_entidad || "",
+    });
+    const url = await subirImagenLimpia(admin, userId, png, "image/png");
+    if (!url) return { url: null, error: "storage banner" };
+    return { url, url_limpia: null, error: null };
+  } catch (e) {
+    console.error(`${label}: banner FALLÓ:`, e);
+    return { url: null, error: `banner: ${e instanceof Error ? e.message : String(e)}`.slice(0, 150) };
+  }
+}
+
 /** Hornea un titular sobre una imagen limpia y sube la compuesta. Devuelve la URL o null. */
 export async function componerYSubir(
   admin: SupabaseClient, userId: string, cleanBuffer: Buffer, titular: string, aspect: string,
@@ -541,10 +586,10 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
     const imgCtx = (plan.imgPais || plan.imgBase) ? { pais: plan.imgPais, base: plan.imgBase } : undefined;
     if (red === "tiktok") {
       const g = await generarGuionTikTok(perfil, plan.tema, plan.instruccion);
-      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, imagen_limpia_url: null, titular: g.titular, texto: g.texto, hashtags: g.hashtags, guion_tiktok: g.guion, fuente: plan.fuente });
+      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, tipo_contenido: plan.tipo_contenido, imagen_url: null, imagen_limpia_url: null, titular: g.titular, texto: g.texto, hashtags: g.hashtags, guion_tiktok: g.guion, fuente: plan.fuente });
     } else {
       const r = await generarTextoRed(perfil, plan.tema, RED_LABEL[red] || "Instagram", { instruccion: plan.instruccion, imgCtx });
-      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, imagen_url: null, imagen_limpia_url: null, titular: r.titular, texto: r.texto, hashtags: r.hashtags, prompt_imagen: r.prompt_imagen, guion_tiktok: null, fuente: plan.fuente });
+      contenido.push({ fecha: plan.fecha, nombre_dia: plan.nombre_dia, tipo, tema: plan.tema, tipo_contenido: plan.tipo_contenido, imagen_url: null, imagen_limpia_url: null, titular: r.titular, texto: r.texto, hashtags: r.hashtags, prompt_imagen: r.prompt_imagen, guion_tiktok: null, fuente: plan.fuente });
     }
   }
 
@@ -554,8 +599,10 @@ export async function procesarPackJob(admin: SupabaseClient, jobId: string): Pro
   if (TIEMPO_TOTAL_MS - (Date.now() - t0) >= MIN_MS_PARA_IMAGEN) {
     const objetivos = contenido.map((d, i) => ({ d, i })).filter((x) => x.d.tipo !== "tiktok");
     const resultados = await mapLimit(objetivos, CONCURRENCIA_IMAGENES, ({ d, i }) => {
-      const presupuesto = TIEMPO_TOTAL_MS - (Date.now() - t0); // recalculado por llamada
       const label = `Día ${i + 1} (${d.tipo})`;
+      // Piezas de mensaje → banner de marca (rápido, sin IA); historias → foto IA.
+      if ((ESTILO_IMAGEN[d.tipo_contenido || ""] || "foto") === "banner") return generarBanner(admin, userId, d, perfil, label);
+      const presupuesto = TIEMPO_TOTAL_MS - (Date.now() - t0); // recalculado por llamada
       if (presupuesto < MIN_MS_PARA_IMAGEN) return Promise.resolve({ url: null, error: `presupuesto agotado (${presupuesto}ms)` } as ImagenResultado);
       return generarImagen(admin, userId, d.prompt_imagen || promptImagenFallback(d.tema), d.titular || d.tema, RED_LABEL[d.tipo] || "Instagram", presupuesto, label);
     });
@@ -606,11 +653,14 @@ export async function regenerarDia(
   }
 
   const out: PackDia = { ...dia, tema };
+  const esBanner = (ESTILO_IMAGEN[dia.tipo_contenido || ""] || "foto") === "banner";
 
   // --- Solo imagen ---
   if (modo === "imagen") {
     if (red === "tiktok") return { ...out, imagen_url: null, imagen_limpia_url: null };
-    const img = await generarImagen(admin, userId, dia.prompt_imagen || promptImagenFallback(out.tema), dia.titular || out.tema, label, 110_000, `Regenerar imagen (${red})`);
+    const img = esBanner
+      ? await generarBanner(admin, userId, out, perfil, `Regenerar banner (${red})`)
+      : await generarImagen(admin, userId, dia.prompt_imagen || promptImagenFallback(out.tema), dia.titular || out.tema, label, 110_000, `Regenerar imagen (${red})`);
     return { ...out, imagen_url: img.url, imagen_limpia_url: img.url_limpia ?? null };
   }
 
@@ -624,8 +674,10 @@ export async function regenerarDia(
 
   if (modo === "texto") return conTexto; // conserva imagen actual
 
-  // --- Completo: texto + imagen nueva ---
-  const img = await generarImagen(admin, userId, r.prompt_imagen, r.titular, label, 110_000, `Regenerar completo (${red})`);
+  // --- Completo: texto + imagen nueva (banner o foto según el tipo) ---
+  const img = esBanner
+    ? await generarBanner(admin, userId, conTexto, perfil, `Regenerar completo banner (${red})`)
+    : await generarImagen(admin, userId, r.prompt_imagen, r.titular, label, 110_000, `Regenerar completo (${red})`);
   return { ...conTexto, imagen_url: img.url, imagen_limpia_url: img.url_limpia ?? null };
 }
 

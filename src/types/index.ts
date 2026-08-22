@@ -122,6 +122,7 @@ export interface PackDia {
   fecha: string;
   nombre_dia: string;
   tipo: string;            // "instagram" | "facebook" | "tiktok"
+  tipo_contenido?: string; // "conversacion" | "actualidad" | "dia_mundial" | "propio" | "colaboracion" — decide banner vs foto
   tema: string;
   imagen_url?: string | null;
   imagen_limpia_url?: string | null; // imagen sin titular horneado (para recomponer)

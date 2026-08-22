@@ -258,3 +258,90 @@ export async function composeImage({
     .png()
     .toBuffer();
 }
+
+/* ============================================================================
+ * Banner de marca tipográfico (estilo del blog) — alternativa a la foto IA para
+ * piezas de mensaje del pack. Fondo sólido (oscuro/claro), barra degradada, pill
+ * del tipo, titular grande, regla naranja, subtítulo y pie con la marca del
+ * usuario. Texto como PATHS (mismos helpers que composeImage → portable en Vercel).
+ * ==========================================================================*/
+const BANNER_COLORS: Record<string, { bg: string; title: string; sub: string; org: string; pillBg: string; pillText: string; rule: string }> = {
+  dark:  { bg: "#101010", title: "#f4efe2", sub: "#f6c56a", org: "#f4efe2", pillBg: "#93bf30", pillText: "#22330a", rule: "#f9b23b" },
+  light: { bg: "#f7f2e4", title: "#17140d", sub: "#5b5647", org: "#3b6d11", pillBg: "#93bf30", pillText: "#22330a", rule: "#f9b23b" },
+};
+
+export interface BannerOptions {
+  aspectRatio: string;
+  variante: "dark" | "light";
+  pill: string;
+  titulo: string;
+  subtitulo?: string | null;
+  organizacion?: string | null;
+}
+
+export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitulo, organizacion }: BannerOptions): Promise<Buffer> {
+  const { w: width, h: height } = DIMS[aspectRatio] || DIMS["4:5"];
+  const c = BANNER_COLORS[variante] || BANNER_COLORS.dark;
+  const margin = Math.round(width * 0.074);
+  const maxW = width - margin * 2;
+  const layers: sharp.OverlayOptions[] = [];
+
+  // Barra degradada superior (verde → naranja).
+  const barH = Math.max(6, Math.round(height * 0.009));
+  const barSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${barH}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#93bf30"/><stop offset="55%" stop-color="#b7c22a"/><stop offset="100%" stop-color="#f9b23b"/></linearGradient></defs><rect width="${width}" height="${barH}" fill="url(#g)"/></svg>`;
+  layers.push({ input: await sharp(Buffer.from(barSvg)).png().toBuffer(), top: 0, left: 0 });
+
+  // Pill (tipo de pieza).
+  const pillFont = Math.round(width * 0.024);
+  const pillBuf = await renderLineas([pill.toUpperCase()], pillFont, c.pillText, "left");
+  const pm = await sharp(pillBuf).metadata();
+  const padX = Math.round(pillFont * 0.8), padY = Math.round(pillFont * 0.5);
+  const pillW = (pm.width || 100) + padX * 2, pillH = (pm.height || pillFont) + padY * 2;
+  const pillTop = Math.round(height * 0.066);
+  const pillRect = `<svg xmlns="http://www.w3.org/2000/svg" width="${pillW}" height="${pillH}"><rect width="${pillW}" height="${pillH}" rx="${Math.round(pillH / 2)}" ry="${Math.round(pillH / 2)}" fill="${c.pillBg}"/></svg>`;
+  layers.push({ input: await sharp(Buffer.from(pillRect)).png().toBuffer(), top: pillTop, left: margin });
+  layers.push({ input: pillBuf, top: pillTop + padY, left: margin + padX });
+
+  // Titular (word-wrap + auto-shrink).
+  const tl = layoutTitular(titulo, maxW, Math.round(width * 0.058), Math.round(width * 0.04));
+  const titleBuf = await renderLineas(tl.lineas, tl.fontSize, c.title, "left");
+  const titleH = (await sharp(titleBuf).metadata()).height || tl.fontSize;
+
+  // Regla naranja.
+  const ruleW = Math.round(width * 0.06), ruleH = Math.max(4, Math.round(height * 0.005));
+  const ruleBuf = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${ruleW}" height="${ruleH}"><rect width="${ruleW}" height="${ruleH}" rx="${Math.round(ruleH / 2)}" fill="${c.rule}"/></svg>`)).png().toBuffer();
+
+  // Subtítulo (opcional).
+  let subBuf: Buffer | null = null, subH = 0;
+  if (subtitulo && subtitulo.trim()) {
+    const sl = layoutTitular(subtitulo, maxW, Math.round(width * 0.026), Math.round(width * 0.02));
+    subBuf = await renderLineas(sl.lineas, sl.fontSize, c.sub, "left");
+    subH = (await sharp(subBuf).metadata()).height || 0;
+  }
+
+  // Pie: dos barritas (verde/naranja) + organización del usuario.
+  const dotW = Math.round(width * 0.022), dotH = Math.round(dotW * 0.6), dotGap = Math.round(dotW * 0.35);
+  const dotsBuf = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${dotW * 2 + dotGap}" height="${dotH}"><rect width="${dotW}" height="${dotH}" rx="2" fill="#93bf30"/><rect x="${dotW + dotGap}" width="${dotW}" height="${dotH}" rx="2" fill="#f9b23b"/></svg>`)).png().toBuffer();
+  let footH = dotH, orgBuf: Buffer | null = null;
+  const org = (organizacion || "").trim();
+  if (org) {
+    const orgFont = Math.round(width * 0.026);
+    orgBuf = await renderLineas([org], orgFont, c.org, "left");
+    footH = Math.max(footH, (await sharp(orgBuf).metadata()).height || orgFont);
+  }
+  const footTop = height - margin - footH;
+  layers.push({ input: dotsBuf, top: footTop + Math.round((footH - dotH) / 2), left: margin });
+  if (orgBuf) layers.push({ input: orgBuf, top: footTop, left: margin + dotW * 2 + dotGap + Math.round(width * 0.02) });
+
+  // Bloque central (titular + regla + subtítulo) centrado verticalmente.
+  const ruleGap = Math.round(height * 0.02), subGap = Math.round(height * 0.012);
+  const blockH = titleH + ruleGap + ruleH + (subBuf ? subGap + subH : 0);
+  const zoneTop = pillTop + pillH + Math.round(height * 0.03);
+  const zoneBot = footTop - Math.round(height * 0.03);
+  let y = zoneTop + Math.max(0, Math.round((zoneBot - zoneTop - blockH) / 2));
+  layers.push({ input: titleBuf, top: y, left: margin }); y += titleH + ruleGap;
+  layers.push({ input: ruleBuf, top: y, left: margin }); y += ruleH + subGap;
+  if (subBuf) layers.push({ input: subBuf, top: y, left: margin });
+
+  return sharp({ create: { width, height, channels: 3, background: c.bg } }).composite(layers).png().toBuffer();
+}
