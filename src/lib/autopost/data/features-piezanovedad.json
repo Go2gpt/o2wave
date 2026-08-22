@@ -47,6 +47,56 @@
         "No usar 'novedad' de forma redundante.",
         "Cifras del cambio: no inventar (no hay medición). Solo describir cualitativamente."
       ]
+    },
+    {
+      "id": "v2.5-mas-redes-x-linkedin",
+      "activa": true,
+      "version": "v2.5",
+      "nombre_interno": "mas-redes-x-linkedin",
+      "titulo_corto": "X entra al pack, cada red en su medida",
+      "descripcion_beneficio_usuario": "El pack semanal ya genera contenido para X, además de Instagram, Facebook, TikTok y LinkedIn. Y cada imagen sale en la medida óptima de cada red — vertical para Instagram y Facebook, horizontal para X, cuadrada para LinkedIn — sin que tengas que reencuadrar nada. Puedes elegir en qué red va cada pieza del pack.",
+      "detalle_tecnico_ficha": "X añadido al pack semanal. Selector de red por pieza + re-encuadre automático conservando texto y marco visual. Aplica SOLO al pack semanal — en 'Crear contenido' (post suelto) X sigue pendiente.",
+      "fecha_lanzamiento": "2026-08-07",
+      "fecha_anuncio_externo": null,
+      "caducidad_automatica_semanas": 4,
+      "publicos_relevantes": ["ONG", "Empresa", "Particular"],
+      "focos_sugeridos": [
+        "Anuncio directo: 'X entra al pack semanal + cada red en su medida óptima automática'",
+        "Contraste operativo: 'Antes reencuadrabas manual para X e Instagram. Ahora sale ya en la medida de cada una.'",
+        "Foco Empresa/Particular: 'Si tu público está en X o LinkedIn, el pack ya lo cubre esta semana'"
+      ],
+      "notas_marketing": [
+        "CRÍTICO — dejar claro que aplica al PACK SEMANAL. En 'Crear contenido' (post suelto) X sigue pendiente. Prohibido 'X en todo o2Wave' o 'X disponible en la app'.",
+        "Reformular título/copy para que la novedad sea 'X entra' + 'medidas por red automáticas', NO 'LinkedIn se añade' (LinkedIn está desde v2.3).",
+        "Prohibido 'hoy lanzamos' — feature del 07-ago. Usar 'desde este mes', 'en la última actualización'.",
+        "Sin cifras inventadas de tiempo ahorrado por reencuadre."
+      ]
+    },
+    {
+      "id": "v2.5-publicar-desde-pack",
+      "activa": true,
+      "version": "v2.5",
+      "nombre_interno": "publicar-desde-pack",
+      "titulo_corto": "Publica cada pieza con un toque",
+      "descripcion_beneficio_usuario": "Cada día del pack semanal ahora tiene su propio botón para publicar directamente en la red correspondiente. Sin cambiar de pestaña ni salir de la app. Preparas el pack, revisas, y publicas cuando toca — desde la misma pantalla.",
+      "detalle_tecnico_ficha": "Botón 'publicar' por cada pieza del pack. Usa el Compartir nativo del sistema: copia el texto y abre la red con la imagen. NO requiere conectar cuentas ni existe conexión de redes al perfil (corregido por Code 22-ago: la ficha original de Marketing lo afirmaba por error). Web-only, sin instalación.",
+      "fecha_lanzamiento": "2026-08-07",
+      "fecha_anuncio_externo": null,
+      "caducidad_automatica_semanas": 4,
+      "publicos_relevantes": ["ONG", "Empresa", "Particular"],
+      "focos_sugeridos": [
+        "Anuncio directo: 'Ahora publicas cada pieza del pack con un botón, desde la misma pantalla'",
+        "Contraste operativo: 'Antes copiabas y pegabas en cada red. Ahora un toque desde el pack.'",
+        "Foco Particular/Freelance: 'Si el pack semanal es tu única presencia en redes, ya no tienes que salir de o2Wave para publicar'"
+      ],
+      "notas_marketing": [
+        "El botón usa el Compartir nativo del sistema (copia el texto + abre la red con la imagen). NO requiere conectar cuentas — esa función NO existe. PROHIBIDO decir 'conecta tus redes primero' o dar a entender que sin conexión no publica.",
+        "En Instagram el texto se copia al portapapeles y lo pegas al publicar → no afirmar 'sin copiar y pegar' de forma absoluta; usar 'desde la misma pantalla' / 'sin salir de la app'.",
+        "Prohibido 'publicación automática total' o 'programación autopiloto'. Es publicar con confirmación por pieza, no autopiloto.",
+        "Consistencia con webapp: 'sin salir de la app', 'desde la misma pantalla'. Nunca tech-bro.",
+        "Prohibido 'hoy lanzamos' — feature del 07-ago.",
+        "Sin cifras inventadas de tiempo ahorrado."
+      ]
     }
   ],
   "features_backlog_no_activas": [
