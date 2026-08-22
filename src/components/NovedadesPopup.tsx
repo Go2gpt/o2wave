@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -29,10 +29,17 @@ interface Props {
 export default function NovedadesPopup({ columna, titulo, subtitulo, items, ctaPrincipal, ctaSecundario }: Props) {
   const router = useRouter();
   const supabase = createClient();
-  const [abierto, setAbierto] = useState(true);
+  const [abierto, setAbierto] = useState(false);
   const [ocupado, setOcupado] = useState(false);
 
+  // Se muestra una vez por dispositivo vía localStorage (sin migración). El guardado
+  // en BD sigue como extra tolerante en marcarVisto (por si la columna existe).
+  useEffect(() => {
+    try { if (!localStorage.getItem(`novedad_${columna}`)) setAbierto(true); } catch { setAbierto(true); }
+  }, [columna]);
+
   const marcarVisto = async () => {
+    try { localStorage.setItem(`novedad_${columna}`, "1"); } catch { /* sin localStorage */ }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) await supabase.from("profiles").update({ [columna]: true }).eq("id", user.id);

@@ -11,8 +11,6 @@ import Avatar from "@/components/Avatar";
 import GenerarPackButton from "./GenerarPackButton";
 import NovedadesPopup from "@/components/NovedadesPopup";
 
-// URL del roadmap (blog de Generación o2).
-const ROADMAP_URL = "https://generacion-o2.org/hacia-donde-va-o2wave-roadmap-2026/";
 
 // El pack se envía LUNES 09:00 (Europa/Madrid). Devuelve el próximo lunes desde
 // `desde`; si hoy es lunes, devuelve el de la semana siguiente.
@@ -129,24 +127,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   // Popup de novedades v1: solo si el flag es explícitamente false (= migración
   // aplicada y el usuario aún no lo ha visto). undefined (pre-migración) → no se muestra.
-  const mostrarNovedades = profile?.popup_novedades_v1_visto === false;
 
   return (
     <div className="max-w-lg mx-auto">
-      {mostrarNovedades && (
-        <NovedadesPopup
-          columna="popup_novedades_v1_visto"
-          titulo="Esta semana, 3 mejoras que nos pediste tú"
-          subtitulo="Más formas de registrarte, posts a partir de una foto, y los 3 idiomas que más usas."
-          items={[
-            { icono: "🪪", titulo: "Más documentos al registrarte", descripcion: "DNI, NIE, Pasaporte y NIF/CIF (todos los planes)" },
-            { icono: "📸", titulo: "Foto → post automático", descripcion: "Sube una imagen y la IA escribe lo que ve (planes de pago)" },
-            { icono: "🌐", titulo: "Elige idioma por post", descripcion: "Español, català o english, con hashtags nativos (todos los planes)" },
-          ]}
-          ctaPrincipal={{ label: "Probar ahora", href: "/create" }}
-          ctaSecundario={{ label: "Ver el roadmap", href: ROADMAP_URL }}
-        />
-      )}
+      <NovedadesPopup
+        columna="popup_novedades_v25_visto"
+        titulo="Novedades: X y publicar desde el pack"
+        subtitulo="El pack ahora llega a X, cada imagen en la medida de su red, y publicas cada pieza con un botón."
+        items={[
+          { icono: "𝕏", titulo: "X entra al pack", descripcion: "El pack semanal ya genera para X, y cada imagen sale en la medida de su red (IG y Facebook vertical, X horizontal, LinkedIn cuadrada)." },
+          { icono: "📤", titulo: "Publica desde el pack", descripcion: "Cada día del pack tiene su botón para publicar en su red, sin salir de la app." },
+        ]}
+        ctaPrincipal={{ label: "Ver el pack", href: "/pack" }}
+        ctaSecundario={{ label: "Ver novedades", href: "https://generacion-o2.org/o2wave/#novedades" }}
+      />
       {/* Header */}
       <div className="px-5 pt-8 pb-4 flex items-center justify-between">
         <Logo size="md" />
