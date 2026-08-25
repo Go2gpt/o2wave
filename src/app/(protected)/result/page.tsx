@@ -245,6 +245,20 @@ function ResultContent() {
   const handleDownload = async () => {
     if (!post?.imagen_url) return;
     setDownloading(true);
+    // Banner: imagen final, se descarga tal cual (sin recompose del titular).
+    if (/\/banner-/.test(post.imagen_url)) {
+      try {
+        const r = await fetch(post.imagen_url);
+        const blob = await r.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `o2wave-${id}.png`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch { window.open(post.imagen_url, "_blank"); }
+      finally { setDownloading(false); }
+      return;
+    }
     try {
       const aspect = aspectFor(post.red_social, post.formato);
       const res = await fetch("/api/compose-and-download", {
@@ -314,6 +328,22 @@ function ResultContent() {
 
   const shareImage = () => {
     if (!post?.imagen_url) return;
+    // Banner: imagen final. Copia el caption y comparte el fichero tal cual.
+    if (/\/banner-/.test(post.imagen_url)) {
+      const caption = limpiarMarkdown(post.texto || "");
+      try { navigator.clipboard?.writeText(caption); } catch { /* no soportado */ }
+      const urlBanner = post.imagen_url;
+      void (async () => {
+        try {
+          const r = await fetch(urlBanner);
+          const blob = await r.blob();
+          const file = new File([blob], `o2wave-${id}.png`, { type: blob.type || "image/png" });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) { toastCopiado(); await navigator.share({ files: [file], text: caption }); }
+          else window.open(urlBanner, "_blank");
+        } catch (e) { if (!silenciable(e)) setToast({ message: "Error al compartir. Inténtalo de nuevo.", type: "error" }); }
+      })();
+      return;
+    }
     // Clipboard adapta el texto: en Story solo titular+hashtags (el caption no
     // cabe). El text del share es SIEMPRE el caption íntegro, para que Notas/
     // WhatsApp/Mail reciban el texto completo (Instagram Story ignora el text
@@ -388,6 +418,9 @@ function ResultContent() {
 
   const isStory = post.formato === "Story 9:16";
   const isTikTok = post.red_social === "TikTok";
+  // Banner de marca (prefijo banner- en el fichero): imagen FINAL, sin editor de
+  // titular superpuesto y sin recompose — se descarga/comparte tal cual.
+  const esBanner = /\/banner-/.test(post.imagen_url || "");
   const guion = post.guion_tiktok && Array.isArray(post.guion_tiktok.guion) && post.guion_tiktok.guion.length
     ? post.guion_tiktok
     : null;
@@ -432,8 +465,14 @@ function ResultContent() {
               </span>
             )}
 
-            {/* Overlay del titular (preview que imita el horneado) */}
-            {post.imagen_url && textEnabled && headline.trim() && (
+            {/* Badge: banner de marca (imagen final, texto ya horneado). */}
+            {post.imagen_url && esBanner && (
+              <span className="absolute top-2 left-2 text-[11px] font-bold px-2 py-1 rounded-full text-white pointer-events-none"
+                style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>🎨 Banner de marca</span>
+            )}
+
+            {/* Overlay del titular (preview que imita el horneado) — no en banners. */}
+            {post.imagen_url && !esBanner && textEnabled && headline.trim() && (
               <>
                 <div className="absolute left-0 right-0 pointer-events-none"
                   style={{
@@ -468,8 +507,8 @@ function ResultContent() {
             )}
           </div>
 
-          {/* Controles del editor de texto */}
-          {post.imagen_url && (
+          {/* Controles del editor de texto — no aplican al banner (texto horneado). */}
+          {post.imagen_url && !esBanner && (
             <div className="px-4 pt-3 space-y-3 border-b border-gray-100 pb-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Texto sobre la imagen</span>
@@ -544,9 +583,13 @@ function ResultContent() {
             <button onClick={handleDownload} disabled={!post.imagen_url || downloading} className={btn} style={btnStyle}>
               {downloading ? "Preparando..." : "↓ Descargar"}
             </button>
-            <button onClick={regenerateImage} disabled={regenImg || uploading} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
-            <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir una imagen tuya</button>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
+            {!esBanner && (
+              <>
+                <button onClick={regenerateImage} disabled={regenImg || uploading} className={btn} style={btnStyle}>↻ Regenerar imagen</button>
+                <button onClick={() => fileInputRef.current?.click()} disabled={regenImg || uploading} className={btn} style={btnStyle}>⬆ Subir una imagen tuya</button>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
+              </>
+            )}
           </div>
           {/* Caso B: soporta texto pero no archivos → sugerir descargar para compartir */}
           {!canShareFiles && canShareText && (

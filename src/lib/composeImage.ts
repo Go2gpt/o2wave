@@ -291,16 +291,19 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
   const barSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${barH}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#93bf30"/><stop offset="55%" stop-color="#b7c22a"/><stop offset="100%" stop-color="#f9b23b"/></linearGradient></defs><rect width="${width}" height="${barH}" fill="url(#g)"/></svg>`;
   layers.push({ input: await sharp(Buffer.from(barSvg)).png().toBuffer(), top: 0, left: 0 });
 
-  // Pill (tipo de pieza).
-  const pillFont = Math.round(width * 0.024);
-  const pillBuf = await renderLineas([pill.toUpperCase()], pillFont, c.pillText, "left");
-  const pm = await sharp(pillBuf).metadata();
-  const padX = Math.round(pillFont * 0.8), padY = Math.round(pillFont * 0.5);
-  const pillW = (pm.width || 100) + padX * 2, pillH = (pm.height || pillFont) + padY * 2;
+  // Pill (tipo de pieza) — opcional: si viene vacío, no se dibuja.
   const pillTop = Math.round(height * 0.066);
-  const pillRect = `<svg xmlns="http://www.w3.org/2000/svg" width="${pillW}" height="${pillH}"><rect width="${pillW}" height="${pillH}" rx="${Math.round(pillH / 2)}" ry="${Math.round(pillH / 2)}" fill="${c.pillBg}"/></svg>`;
-  layers.push({ input: await sharp(Buffer.from(pillRect)).png().toBuffer(), top: pillTop, left: margin });
-  layers.push({ input: pillBuf, top: pillTop + padY, left: margin + padX });
+  let pillH = 0;
+  if (pill && pill.trim()) {
+    const pillFont = Math.round(width * 0.024);
+    const pillBuf = await renderLineas([pill.trim().toUpperCase()], pillFont, c.pillText, "left");
+    const pm = await sharp(pillBuf).metadata();
+    const padX = Math.round(pillFont * 0.8), padY = Math.round(pillFont * 0.5);
+    const pillW = (pm.width || 100) + padX * 2; pillH = (pm.height || pillFont) + padY * 2;
+    const pillRect = `<svg xmlns="http://www.w3.org/2000/svg" width="${pillW}" height="${pillH}"><rect width="${pillW}" height="${pillH}" rx="${Math.round(pillH / 2)}" ry="${Math.round(pillH / 2)}" fill="${c.pillBg}"/></svg>`;
+    layers.push({ input: await sharp(Buffer.from(pillRect)).png().toBuffer(), top: pillTop, left: margin });
+    layers.push({ input: pillBuf, top: pillTop + padY, left: margin + padX });
+  }
 
   // Titular (word-wrap + auto-shrink).
   const tl = layoutTitular(titulo, maxW, Math.round(width * 0.058), Math.round(width * 0.04));

@@ -149,6 +149,11 @@ function CreateInner() {
   const set = <K extends keyof ContentFormData>(k: K, v: ContentFormData[K]) =>
     setForm(f => ({ ...f, [k]: v }));
 
+  // Estilo de imagen del post suelto: foto IA (default) o banner de marca tipográfico.
+  const [estiloImagen, setEstiloImagen] = useState<"foto" | "banner">("foto");
+  const [bannerPill, setBannerPill] = useState("");
+  const [bannerColor, setBannerColor] = useState<"dark" | "light">("dark");
+
   // Foto propia (opcional): si la sube, nos saltamos la generación IA.
   const elegirFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -188,13 +193,15 @@ function CreateInner() {
       //  - "vision" (pago) → foto tal cual + texto generado analizando la imagen.
       //  - "propia" → foto tal cual (sin IA).
       //  - sin foto → IA pura desde el prompt.
-      const integrar = !!fotoPropia && modoFoto === "integrada" && puedeIntegrar;
-      const vision = !!fotoPropia && modoFoto === "vision" && puedeIntegrar;
-      const modoImagen: "ia" | "propia" | "integrada" = integrar ? "integrada" : fotoPropia ? "propia" : "ia";
+      const esBanner = estiloImagen === "banner" && form.redSocial !== "TikTok";
+      const integrar = !esBanner && !!fotoPropia && modoFoto === "integrada" && puedeIntegrar;
+      const vision = !esBanner && !!fotoPropia && modoFoto === "vision" && puedeIntegrar;
+      const modoImagen: "ia" | "propia" | "integrada" = esBanner ? "ia" : integrar ? "integrada" : fotoPropia ? "propia" : "ia";
       // Perfil de demo: solo se envía si el usuario es admin (el backend lo ignora si no).
       const demoExtra = gating?.es_admin ? { demo_profile: demoPerfil } : {};
       const imageReq = (() => {
         if (form.redSocial === "TikTok") return Promise.resolve(null);
+        if (esBanner) return Promise.resolve(null); // el banner se genera tras el texto (necesita el titular)
         if (integrar) {
           const fd = new FormData();
           fd.append("payload", JSON.stringify({ formData: form }));
@@ -245,7 +252,18 @@ function CreateInner() {
         throw new Error(imageData?.mensaje || imageData?.error || "No se pudo procesar tu foto. Inténtalo de nuevo.");
       }
       let imagenUrl: string | undefined;
-      if (imageData?.imagenUrl) {
+      if (esBanner) {
+        // Banner de marca: se genera con el titular ya disponible. Subtítulo = 1ª frase del cuerpo (sin hashtags).
+        const cuerpo = (textData.texto || "").replace(/#[^\s#]+/g, "").replace(/\s+/g, " ").trim();
+        const sub = (cuerpo.split(/(?<=[.!?])\s/)[0] || cuerpo).slice(0, 95);
+        const br = await fetch("/api/generate-banner", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ titulo: textData.titular || form.tema, subtitulo: sub, pill: bannerPill, variante: bannerColor, red: form.redSocial, organizacion: form.nombreOrganizacion }),
+        });
+        const bd = await br.json();
+        if (!br.ok || !bd.imagenUrl) throw new Error(bd.error || "No se pudo generar el banner");
+        imagenUrl = bd.imagenUrl;
+      } else if (imageData?.imagenUrl) {
         imagenUrl = imageData.imagenUrl;
       } else if (imageData?.predictionId) {
         imagenUrl = (await pollForImage(imageData.predictionId)) ?? undefined;
@@ -475,8 +493,53 @@ function CreateInner() {
           </div>
         </div>
 
-        {/* Tu foto (opcional): si la sube, se salta la generación IA. No TikTok (genera guion). */}
+        {/* Estilo de imagen: foto IA o banner de marca tipográfico. No TikTok (genera guion). */}
         {form.redSocial !== "TikTok" && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Estilo de imagen</label>
+            <div className="flex gap-2">
+              {([["foto", "🖼️ Foto IA"], ["banner", "🎨 Banner de marca"]] as const).map(([val, lbl]) => {
+                const activo = estiloImagen === val;
+                return (
+                  <button key={val} type="button" onClick={() => setEstiloImagen(val)}
+                    className="flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all active:scale-95"
+                    style={activo ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" } : { borderColor: "#e5e7eb", color: "#6b7280" }}>
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+            {estiloImagen === "banner" && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Etiqueta (opcional)</label>
+                  <input value={bannerPill} onChange={(e) => setBannerPill(e.target.value)} maxLength={24} placeholder="p. ej. Consejo, Dato, Novedad"
+                    className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none"
+                    onFocus={(e) => (e.target.style.borderColor = "#f9b23b")} onBlur={(e) => (e.target.style.borderColor = "#f3f4f6")} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Color de fondo</label>
+                  <div className="flex gap-2">
+                    {([["dark", "Oscuro"], ["light", "Claro"]] as const).map(([val, lbl]) => {
+                      const activo = bannerColor === val;
+                      return (
+                        <button key={val} type="button" onClick={() => setBannerColor(val)}
+                          className="flex-1 py-2 rounded-xl border-2 text-sm font-semibold transition-all"
+                          style={activo ? { borderColor: "#f9b23b", backgroundColor: "#fff8ef", color: "#f9b23b" } : { borderColor: "#e5e7eb", color: "#9ca3af" }}>
+                          {lbl}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-400 leading-snug">El banner usa el titular generado y la primera frase del texto, con el nombre de tu organización al pie.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tu foto (opcional): si la sube, se salta la generación IA. Solo con estilo Foto IA. No TikTok. */}
+        {form.redSocial !== "TikTok" && estiloImagen === "foto" && (
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tu foto (opcional)</label>
             <p className="text-xs text-gray-400 mb-3">
