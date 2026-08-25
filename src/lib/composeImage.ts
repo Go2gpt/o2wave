@@ -317,45 +317,53 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
   let pillH = 0;
   if (pillL) {
     const pillFont = Math.round(width * 0.024);
-    const pillBuf = await renderLineas([pillL.toUpperCase()], pillFont, c.pillText, "left");
+    const pillBuf = await renderLineas([pillL.toUpperCase()], pillFont, c.pillText, "center");
     const pm = await sharp(pillBuf).metadata();
     const padX = Math.round(pillFont * 0.8), padY = Math.round(pillFont * 0.5);
     const pillW = (pm.width || 100) + padX * 2; pillH = (pm.height || pillFont) + padY * 2;
+    const pillLeft = Math.round((width - pillW) / 2);
     const pillRect = `<svg xmlns="http://www.w3.org/2000/svg" width="${pillW}" height="${pillH}"><rect width="${pillW}" height="${pillH}" rx="${Math.round(pillH / 2)}" ry="${Math.round(pillH / 2)}" fill="${c.pillBg}"/></svg>`;
-    layers.push({ input: await sharp(Buffer.from(pillRect)).png().toBuffer(), top: pillTop, left: margin });
-    layers.push({ input: pillBuf, top: pillTop + padY, left: margin + padX });
+    layers.push({ input: await sharp(Buffer.from(pillRect)).png().toBuffer(), top: pillTop, left: pillLeft });
+    layers.push({ input: pillBuf, top: pillTop + padY, left: pillLeft + padX });
   }
 
   // Titular (word-wrap + auto-shrink).
   const tl = layoutTitular(tituloL, maxW, Math.round(width * 0.064), Math.round(width * 0.045));
-  const titleBuf = await renderLineas(tl.lineas, tl.fontSize, c.title, "left");
-  const titleH = (await sharp(titleBuf).metadata()).height || tl.fontSize;
+  const titleBuf = await renderLineas(tl.lineas, tl.fontSize, c.title, "center");
+  const tMeta = await sharp(titleBuf).metadata();
+  const titleH = tMeta.height || tl.fontSize, titleW = tMeta.width || maxW;
 
   // Regla naranja.
   const ruleW = Math.round(width * 0.06), ruleH = Math.max(4, Math.round(height * 0.005));
   const ruleBuf = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${ruleW}" height="${ruleH}"><rect width="${ruleW}" height="${ruleH}" rx="${Math.round(ruleH / 2)}" fill="${c.rule}"/></svg>`)).png().toBuffer();
 
   // Subtítulo (opcional).
-  let subBuf: Buffer | null = null, subH = 0;
+  let subBuf: Buffer | null = null, subH = 0, subW = 0;
   if (subL) {
     const sl = layoutTitular(subL, maxW, Math.round(width * 0.028), Math.round(width * 0.022));
-    subBuf = await renderLineas(sl.lineas, sl.fontSize, c.sub, "left");
-    subH = (await sharp(subBuf).metadata()).height || 0;
+    subBuf = await renderLineas(sl.lineas, sl.fontSize, c.sub, "center");
+    const sMeta = await sharp(subBuf).metadata();
+    subH = sMeta.height || 0; subW = sMeta.width || maxW;
   }
 
   // Pie: dos barritas (verde/naranja) + organización del usuario.
   const dotW = Math.round(width * 0.022), dotH = Math.round(dotW * 0.6), dotGap = Math.round(dotW * 0.35);
   const dotsBuf = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${dotW * 2 + dotGap}" height="${dotH}"><rect width="${dotW}" height="${dotH}" rx="2" fill="#93bf30"/><rect x="${dotW + dotGap}" width="${dotW}" height="${dotH}" rx="2" fill="#f9b23b"/></svg>`)).png().toBuffer();
-  let footH = dotH, orgBuf: Buffer | null = null;
+  let footH = dotH, orgBuf: Buffer | null = null, orgW = 0;
   const org = (organizacion || "").trim();
+  const gapOrg = Math.round(width * 0.02);
   if (org) {
     const orgFont = Math.round(width * 0.026);
     orgBuf = await renderLineas([org], orgFont, c.org, "left");
-    footH = Math.max(footH, (await sharp(orgBuf).metadata()).height || orgFont);
+    const oMeta = await sharp(orgBuf).metadata();
+    orgW = oMeta.width || 0; footH = Math.max(footH, oMeta.height || orgFont);
   }
   const footTop = height - margin - footH;
-  layers.push({ input: dotsBuf, top: footTop + Math.round((footH - dotH) / 2), left: margin });
-  if (orgBuf) layers.push({ input: orgBuf, top: footTop, left: margin + dotW * 2 + dotGap + Math.round(width * 0.02) });
+  const dotsW = dotW * 2 + dotGap;
+  const footContentW = orgBuf ? dotsW + gapOrg + orgW : dotsW;
+  const footLeft = Math.round((width - footContentW) / 2);
+  layers.push({ input: dotsBuf, top: footTop + Math.round((footH - dotH) / 2), left: footLeft });
+  if (orgBuf) layers.push({ input: orgBuf, top: footTop, left: footLeft + dotsW + gapOrg });
 
   // Bloque (titular + regla + subtítulo) centrado entre el pill y el pie → el
   // espacio negativo se reparte arriba y abajo (equilibrado, estilo editorial).
@@ -364,9 +372,9 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
   const zoneTop = pillTop + pillH + Math.round(height * 0.035);
   const zoneBot = footTop - Math.round(height * 0.035);
   let y = zoneTop + Math.max(0, Math.round((zoneBot - zoneTop - blockH) / 2));
-  layers.push({ input: titleBuf, top: y, left: margin }); y += titleH + ruleGap;
-  layers.push({ input: ruleBuf, top: y, left: margin }); y += ruleH + subGap;
-  if (subBuf) layers.push({ input: subBuf, top: y, left: margin });
+  layers.push({ input: titleBuf, top: y, left: Math.round((width - titleW) / 2) }); y += titleH + ruleGap;
+  layers.push({ input: ruleBuf, top: y, left: Math.round((width - ruleW) / 2) }); y += ruleH + subGap;
+  if (subBuf) layers.push({ input: subBuf, top: y, left: Math.round((width - subW) / 2) });
 
   return sharp({ create: { width, height, channels: 3, background: c.bg } }).composite(layers).png().toBuffer();
 }
