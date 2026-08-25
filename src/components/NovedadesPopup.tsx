@@ -35,7 +35,10 @@ export default function NovedadesPopup({ columna, titulo, subtitulo, items, ctaP
   // Se muestra una vez por dispositivo vía localStorage (sin migración). El guardado
   // en BD sigue como extra tolerante en marcarVisto (por si la columna existe).
   useEffect(() => {
-    try { if (!localStorage.getItem(`novedad_${columna}`)) setAbierto(true); } catch { setAbierto(true); }
+    try {
+      // No aparecer a la vez que el tour de bienvenida: esperar a que se haya visto.
+      if (localStorage.getItem("onboarding_visto") && !localStorage.getItem(`novedad_${columna}`)) setAbierto(true);
+    } catch { setAbierto(true); }
   }, [columna]);
 
   const marcarVisto = async () => {
