@@ -151,7 +151,8 @@ function CreateInner() {
 
   // Estilo de imagen del post suelto: foto IA (default) o banner de marca tipográfico.
   const [estiloImagen, setEstiloImagen] = useState<"foto" | "banner">("foto");
-  const [bannerPill, setBannerPill] = useState("");
+  const [bannerCategoria, setBannerCategoria] = useState("Buenas noticias");
+  const [bannerSeccion, setBannerSeccion] = useState("");
   const [bannerColor, setBannerColor] = useState<"dark" | "light">("dark");
 
   // Foto propia (opcional): si la sube, nos saltamos la generación IA.
@@ -255,10 +256,11 @@ function CreateInner() {
       if (esBanner) {
         // Banner de marca: se genera con el titular ya disponible. Subtítulo = 1ª frase del cuerpo (sin hashtags).
         const cuerpo = (textData.texto || "").replace(/#[^\s#]+/g, "").replace(/\s+/g, " ").trim();
-        const sub = (cuerpo.split(/(?<=[.!?])\s/)[0] || cuerpo).slice(0, 95);
+        let sub = cuerpo.split(/(?<=[.!?])\s/)[0] || cuerpo;
+        if (sub.length > 140) sub = `${sub.slice(0, 137).replace(/\s+\S*$/, "")}…`; // corte por palabra, no a media
         const br = await fetch("/api/generate-banner", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ titulo: textData.titular || form.tema, subtitulo: sub, pill: bannerPill, variante: bannerColor, red: form.redSocial, organizacion: form.nombreOrganizacion }),
+          body: JSON.stringify({ titulo: textData.titular || form.tema, subtitulo: sub, pill: bannerSeccion.trim() ? `${bannerCategoria} · ${bannerSeccion.trim()}` : bannerCategoria, variante: bannerColor, red: form.redSocial, organizacion: form.nombreOrganizacion }),
         });
         const bd = await br.json();
         if (!br.ok || !bd.imagenUrl) throw new Error(bd.error || "No se pudo generar el banner");
@@ -512,10 +514,18 @@ function CreateInner() {
             {estiloImagen === "banner" && (
               <div className="mt-3 space-y-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Etiqueta (opcional)</label>
-                  <input value={bannerPill} onChange={(e) => setBannerPill(e.target.value)} maxLength={24} placeholder="p. ej. Consejo, Dato, Novedad"
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Categoría</label>
+                  <select value={bannerCategoria} onChange={(e) => setBannerCategoria(e.target.value)}
+                    className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none">
+                    {["Buenas noticias", "Actualidad", "Día mundial", "Consejo", "Novedad", "Dato"].map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Sección (opcional)</label>
+                  <input value={bannerSeccion} onChange={(e) => setBannerSeccion(e.target.value)} maxLength={20} placeholder="p. ej. Diversidad, Salud, Comunidad"
                     className="w-full border-2 border-gray-100 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none"
                     onFocus={(e) => (e.target.style.borderColor = "#f9b23b")} onBlur={(e) => (e.target.style.borderColor = "#f3f4f6")} />
+                  <p className="text-[11px] text-gray-400 mt-1">Saldrá como «{bannerCategoria}{bannerSeccion.trim() ? ` · ${bannerSeccion.trim()}` : ""}» en la etiqueta.</p>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Color de fondo</label>

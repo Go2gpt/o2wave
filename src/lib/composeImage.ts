@@ -24,6 +24,22 @@ const DIMS: Record<string, { w: number; h: number }> = {
 const MIN_FONT_SIZE = 32; // px (ref. 1080) — por debajo no reducimos más
 const MAX_LINEAS = 3;
 
+/**
+ * Limpia el texto ANTES de hornearlo: quita markdown (**negrita**, *cursiva*,
+ * `código`, # títulos) y descarta los caracteres que la fuente no puede dibujar
+ * (emojis → glifo .notdef, que salían como cuadrado "tofu" □). Colapsa espacios.
+ */
+export function soloGlifos(text: string): string {
+  const sinMd = (text || "")
+    .replace(/\*\*/g, "").replace(/[*_`~]/g, "")
+    .replace(/^#{1,6}\s*/gm, "");
+  let out = "";
+  for (const ch of sinMd) {
+    if (ch === " " || ch === "\n" || FONT.charToGlyph(ch).index !== 0) out += ch;
+  }
+  return out.replace(/\s+/g, " ").trim();
+}
+
 /** Ancho real de un texto sumando el avance de cada glifo (escalado a fontSize). */
 function medirAncho(text: string, fontSize: number): number {
   const scale = fontSize / FONT.unitsPerEm;
@@ -197,7 +213,8 @@ export async function composeImage({
   const { w: width, h: height } = DIMS[aspectRatio] || DIMS["1:1"];
   const base = sharp(imageBuffer).resize(width, height, { fit: "cover" });
 
-  if (!headline || !headline.trim()) {
+  const headlineLimpio = soloGlifos(headline || "");
+  if (!headlineLimpio) {
     return base.png().toBuffer();
   }
 
@@ -208,7 +225,7 @@ export async function composeImage({
 
   // Calculamos el layout (word wrap real + auto-shrink) UNA vez y lo compartimos
   // entre el texto blanco y su sombra negra → geometría idéntica.
-  const { lineas, fontSize: sizeFinal } = layoutTitular(headline, maxTextWidth, size, minFont);
+  const { lineas, fontSize: sizeFinal } = layoutTitular(headlineLimpio, maxTextWidth, size, minFont);
   const blanco = await renderLineas(lineas, sizeFinal, "#FFFFFF", textAlign);
   const negro = await renderLineas(lineas, sizeFinal, "#000000", textAlign);
   const sombra = await sharp(negro).blur(4).toBuffer();
@@ -285,6 +302,10 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
   const margin = Math.round(width * 0.074);
   const maxW = width - margin * 2;
   const layers: sharp.OverlayOptions[] = [];
+  // Limpieza: sin markdown ni emojis (la fuente no los dibuja → cuadrado "tofu").
+  const tituloL = soloGlifos(titulo);
+  const subL = subtitulo ? soloGlifos(subtitulo) : "";
+  const pillL = soloGlifos(pill || "");
 
   // Barra degradada superior (verde → naranja).
   const barH = Math.max(6, Math.round(height * 0.009));
@@ -294,9 +315,9 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
   // Pill (tipo de pieza) — opcional: si viene vacío, no se dibuja.
   const pillTop = Math.round(height * 0.066);
   let pillH = 0;
-  if (pill && pill.trim()) {
+  if (pillL) {
     const pillFont = Math.round(width * 0.024);
-    const pillBuf = await renderLineas([pill.trim().toUpperCase()], pillFont, c.pillText, "left");
+    const pillBuf = await renderLineas([pillL.toUpperCase()], pillFont, c.pillText, "left");
     const pm = await sharp(pillBuf).metadata();
     const padX = Math.round(pillFont * 0.8), padY = Math.round(pillFont * 0.5);
     const pillW = (pm.width || 100) + padX * 2; pillH = (pm.height || pillFont) + padY * 2;
@@ -306,7 +327,7 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
   }
 
   // Titular (word-wrap + auto-shrink).
-  const tl = layoutTitular(titulo, maxW, Math.round(width * 0.058), Math.round(width * 0.04));
+  const tl = layoutTitular(tituloL, maxW, Math.round(width * 0.064), Math.round(width * 0.045));
   const titleBuf = await renderLineas(tl.lineas, tl.fontSize, c.title, "left");
   const titleH = (await sharp(titleBuf).metadata()).height || tl.fontSize;
 
@@ -316,8 +337,8 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
 
   // Subtítulo (opcional).
   let subBuf: Buffer | null = null, subH = 0;
-  if (subtitulo && subtitulo.trim()) {
-    const sl = layoutTitular(subtitulo, maxW, Math.round(width * 0.026), Math.round(width * 0.02));
+  if (subL) {
+    const sl = layoutTitular(subL, maxW, Math.round(width * 0.028), Math.round(width * 0.022));
     subBuf = await renderLineas(sl.lineas, sl.fontSize, c.sub, "left");
     subH = (await sharp(subBuf).metadata()).height || 0;
   }
@@ -336,11 +357,12 @@ export async function bannerMarca({ aspectRatio, variante, pill, titulo, subtitu
   layers.push({ input: dotsBuf, top: footTop + Math.round((footH - dotH) / 2), left: margin });
   if (orgBuf) layers.push({ input: orgBuf, top: footTop, left: margin + dotW * 2 + dotGap + Math.round(width * 0.02) });
 
-  // Bloque central (titular + regla + subtítulo) centrado verticalmente.
-  const ruleGap = Math.round(height * 0.02), subGap = Math.round(height * 0.012);
+  // Bloque (titular + regla + subtítulo) centrado entre el pill y el pie → el
+  // espacio negativo se reparte arriba y abajo (equilibrado, estilo editorial).
+  const ruleGap = Math.round(height * 0.022), subGap = Math.round(height * 0.014);
   const blockH = titleH + ruleGap + ruleH + (subBuf ? subGap + subH : 0);
-  const zoneTop = pillTop + pillH + Math.round(height * 0.03);
-  const zoneBot = footTop - Math.round(height * 0.03);
+  const zoneTop = pillTop + pillH + Math.round(height * 0.035);
+  const zoneBot = footTop - Math.round(height * 0.035);
   let y = zoneTop + Math.max(0, Math.round((zoneBot - zoneTop - blockH) / 2));
   layers.push({ input: titleBuf, top: y, left: margin }); y += titleH + ruleGap;
   layers.push({ input: ruleBuf, top: y, left: margin }); y += ruleH + subGap;

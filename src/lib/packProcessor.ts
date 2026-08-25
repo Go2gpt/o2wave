@@ -365,8 +365,9 @@ const PILL_CONTENIDO: Record<string, string> = {
 /** Subtítulo del banner = primera frase del cuerpo (sin hashtags), recortada. */
 function subtituloBanner(texto: string): string {
   const limpio = quitarHashtags(texto || "").replace(/\s+/g, " ").trim();
-  const frase = limpio.split(/(?<=[.!?])\s/)[0] || limpio;
-  return frase.length > 95 ? `${frase.slice(0, 92).trimEnd()}…` : frase;
+  let frase = limpio.split(/(?<=[.!?])\s/)[0] || limpio;
+  if (frase.length > 140) frase = `${frase.slice(0, 137).replace(/\s+\S*$/, "")}…`; // corte por palabra
+  return frase;
 }
 /** Color del banner por paridad del día del mes → días consecutivos alternan; estable en regeneración. */
 function varianteBanner(fecha: string): "dark" | "light" {
