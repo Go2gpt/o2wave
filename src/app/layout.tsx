@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   openGraph: {
     title: "o2Wave — La IA que no se nota",
-    description: "La IA que no se nota. Tu community manager personal. Para ONGs y pequeñas empresas.",
+    description: "La IA que no se nota. Tu community manager personal. Para ONGs, empresas y personas.",
     url: "https://www.o2wave.app/",
     type: "website",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],

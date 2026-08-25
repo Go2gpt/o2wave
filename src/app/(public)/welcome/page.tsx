@@ -44,7 +44,7 @@ export default function WelcomePage({ searchParams }: { searchParams: { cuenta_e
 
         <p className="text-gray-400 text-sm leading-relaxed max-w-xs mb-5">
           Genera contenido para redes sociales con IA.
-          Diseñado para ONGs y PYMEs que quieren comunicar mejor, sin perder tiempo.
+          Diseñado para ONGs, empresas y personas que quieren comunicar mejor, sin perder tiempo.
         </p>
 
         {/* Badge: probado en Generación o2 (enlace a la web de la asociación) */}
