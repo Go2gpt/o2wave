@@ -34,7 +34,17 @@ export default function OnboardingTour() {
   };
   const irPerfil = () => { cerrar(); router.push("/perfil"); };
 
-  if (!visible) return null;
+  // Cuando el tour no está abierto, dejamos un botón flotante "?" para reabrirlo
+  // (por si el usuario lo saltó y luego lo necesita). Visible en todas las pantallas.
+  if (!visible) {
+    return (
+      <button onClick={() => { setI(0); setVisible(true); }} aria-label="Ver tutorial"
+        className="fixed z-40 rounded-full bg-white flex items-center justify-center font-black transition-all active:scale-95"
+        style={{ bottom: "5.25rem", right: "1rem", width: 42, height: 42, border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.12)", color: "#f9b23b", fontSize: 20 }}>
+        ?
+      </button>
+    );
+  }
   const s = SLIDES[i];
   const ultimo = i === SLIDES.length - 1;
 

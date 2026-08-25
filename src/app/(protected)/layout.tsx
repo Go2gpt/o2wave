@@ -1,4 +1,5 @@
 import NavBottom from "@/components/NavBottom";
+import OnboardingTour from "@/components/OnboardingTour";
 import IdleLogout from "@/components/IdleLogout";
 import InstallPrompt from "@/components/InstallPrompt";
 import PagoFallidoBanner from "@/components/PagoFallidoBanner";
@@ -27,6 +28,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       <InstallPrompt />
       {mostrarBanner && <PagoFallidoBanner />}
       {children}
+      <OnboardingTour />
       <NavBottom />
     </div>
   );

@@ -10,7 +10,6 @@ import Logo from "@/components/Logo";
 import Avatar from "@/components/Avatar";
 import GenerarPackButton from "./GenerarPackButton";
 import NovedadesPopup from "@/components/NovedadesPopup";
-import OnboardingTour from "@/components/OnboardingTour";
 
 
 // El pack se envía LUNES 09:00 (Europa/Madrid). Devuelve el próximo lunes desde
@@ -131,7 +130,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   return (
     <div className="max-w-lg mx-auto">
-      <OnboardingTour />
       <NovedadesPopup
         columna="popup_novedades_v25_visto"
         titulo="Novedades: X y publicar desde el pack"
