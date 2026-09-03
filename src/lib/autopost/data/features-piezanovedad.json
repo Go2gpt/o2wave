@@ -3,7 +3,7 @@
     "archivo": "src/lib/autopost/data/features-piezanovedad.json",
     "version_guia": "v2.1 (2026-08-02)",
     "propuesta_marketing_fecha": "2026-08-03 10:00 Madrid",
-    "estado": "APLICADA al repo Code (v2.1 iteración final).",
+    "estado": "APLICADA al repo Code (v2.1 iteración final). 2026-09-03: caducidad de las 2 features v2.5 extendida de 4→6 semanas (caducan 18-sep) para no dejar hueco de novedad hasta que salga el anuncio de Pricing v3.0. Marker: go2-whitelist-extend-v25-2026-09-03.",
     "regla_filtro_code": [
       "El generador SOLO puede elegir una feature que cumpla LAS TRES condiciones:",
       "  1. activa === true",
@@ -58,7 +58,7 @@
       "detalle_tecnico_ficha": "X añadido al pack semanal. Selector de red por pieza + re-encuadre automático conservando texto y marco visual. Aplica SOLO al pack semanal — en 'Crear contenido' (post suelto) X sigue pendiente.",
       "fecha_lanzamiento": "2026-08-07",
       "fecha_anuncio_externo": null,
-      "caducidad_automatica_semanas": 4,
+      "caducidad_automatica_semanas": 6,
       "publicos_relevantes": ["ONG", "Empresa", "Particular"],
       "focos_sugeridos": [
         "Anuncio directo: 'X entra al pack semanal + cada red en su medida óptima automática'",
@@ -82,7 +82,7 @@
       "detalle_tecnico_ficha": "Botón 'publicar' por cada pieza del pack. Usa el Compartir nativo del sistema: copia el texto y abre la red con la imagen. NO requiere conectar cuentas ni existe conexión de redes al perfil (corregido por Code 22-ago: la ficha original de Marketing lo afirmaba por error). Web-only, sin instalación.",
       "fecha_lanzamiento": "2026-08-07",
       "fecha_anuncio_externo": null,
-      "caducidad_automatica_semanas": 4,
+      "caducidad_automatica_semanas": 6,
       "publicos_relevantes": ["ONG", "Empresa", "Particular"],
       "focos_sugeridos": [
         "Anuncio directo: 'Ahora publicas cada pieza del pack con un botón, desde la misma pantalla'",
