@@ -29,7 +29,8 @@ function importeTexto(plan: PlanActual, ciclo: PlanCiclo): string {
   if (!m) return "";
   const precio = ciclo === "anual" ? m.precioAnual : m.precioMensual;
   if (precio == null) return "Gratis";
-  return `${precio}€${ciclo === "anual" ? "/año" : "/mes"}`;
+  const p = Number.isInteger(precio) ? String(precio) : precio.toFixed(2).replace(".", ",");
+  return `${p}€${ciclo === "anual" ? "/año" : "/mes"}`;
 }
 
 function featuresHtml(plan: PlanActual): string {

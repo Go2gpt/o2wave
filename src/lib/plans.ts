@@ -101,11 +101,11 @@ export const PLANES: PlanMeta[] = [
     noIncluye: ["X, LinkedIn y TikTok", "Pack semanal automático", "Posts ilimitados"],
   },
   {
-    id: "pro", nombre: "Pro", para: "empresa", precioMensual: 4.9, precioAnual: null, destacado: true,
+    id: "pro", nombre: "Pro", para: "empresa", precioMensual: 4.95, precioAnual: null, destacado: true,
     features: ["Posts ilimitados", "Todas las redes (IG, FB, X, LinkedIn, TikTok)", "Scheduling avanzado", "Generación IA superior", "Plantillas de marca"],
   },
   {
-    id: "pro_nonprofit", nombre: "Pro Nonprofit", para: "ong", precioMensual: 1.99, precioAnual: null,
+    id: "pro_nonprofit", nombre: "Pro Nonprofit", para: "ong", precioMensual: 1.95, precioAnual: null,
     features: ["Todo lo de Pro, al mismo nivel", "Precio especial para ONG con CIF/NIF verificado", "60% de descuento sobre Pro"],
   },
 ];
