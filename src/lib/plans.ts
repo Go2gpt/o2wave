@@ -3,12 +3,19 @@ import type { PlanActual, PlanCiclo } from "@/types";
 /* ------------------------------ Feature gating ------------------------------ */
 
 /** Qué features incluye cada plan. Las redes usan slug en minúscula (instagram/facebook/tiktok/whatsapp). */
+const FEATURES_FULL = ["instagram", "facebook", "whatsapp", "tiktok", "linkedin", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados", "multi_marca", "api_access"];
+const FEATURES_FREE = ["instagram", "facebook", "whatsapp", "text_image", "dias_clave", "stats_basic"];
+
 export const FEATURES: Record<string, string[]> = {
-  ong_pequena: ["instagram", "facebook", "whatsapp", "text_image", "dias_clave", "stats_basic"],
+  // Modelo vigente v3.0: free (limitado) / pro y pro_nonprofit (idénticos, full).
+  free:          FEATURES_FREE,
+  pro:           FEATURES_FULL,
+  pro_nonprofit: FEATURES_FULL,
+  // Legacy (sin usuarios de pago; ong_pequena = alias del tier gratuito).
+  ong_pequena: FEATURES_FREE,
   ong_mediana: ["instagram", "facebook", "whatsapp", "tiktok", "linkedin", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados"],
   earlybird:   ["instagram", "facebook", "whatsapp", "tiktok", "linkedin", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced"],
   standard:    ["instagram", "facebook", "whatsapp", "tiktok", "linkedin", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced"],
-  pro:         ["instagram", "facebook", "whatsapp", "tiktok", "linkedin", "text_image", "dias_clave", "stats_basic", "pack_semanal", "stats_advanced", "posts_ilimitados", "multi_marca", "api_access"],
 };
 
 /** Posts gratuitos al mes para ong_pequena (reset el día 1 de cada mes). */
@@ -89,26 +96,17 @@ export interface PlanMeta {
 
 export const PLANES: PlanMeta[] = [
   {
-    id: "ong_pequena", nombre: "ONG pequeña", para: "ong", precioMensual: 0, precioAnual: 0,
-    features: ["Instagram y Facebook", "Texto + imágenes con IA", "Calendario de días clave", "Stats básicas"],
-    noIncluye: ["TikTok", "Pack semanal automático"],
+    id: "free", nombre: "Free", para: "ong", precioMensual: 0, precioAnual: 0,
+    features: ["Instagram y Facebook", "Texto + imágenes con IA", "Calendario de días clave", "10 publicaciones al mes"],
+    noIncluye: ["X, LinkedIn y TikTok", "Pack semanal automático", "Posts ilimitados"],
   },
   {
-    id: "ong_mediana", nombre: "ONG mediana", para: "ong", precioMensual: 9, precioAnual: 90, destacado: true,
-    features: ["Todo lo de ONG pequeña", "TikTok", "Pack semanal automático", "Stats avanzadas", "Posts ilimitados"],
+    id: "pro", nombre: "Pro", para: "empresa", precioMensual: 4.9, precioAnual: null, destacado: true,
+    features: ["Posts ilimitados", "Todas las redes (IG, FB, X, LinkedIn, TikTok)", "Scheduling avanzado", "Generación IA superior", "Plantillas de marca"],
   },
   {
-    id: "earlybird", nombre: "Empresa Early Bird", para: "empresa", precioMensual: 9, precioAnual: 90, destacado: true,
-    features: ["9€/mes durante 12 meses", "Todo lo de Standard", "Luego pasa a Standard (19€)"],
-  },
-  {
-    id: "standard", nombre: "Empresa Standard", para: "empresa", precioMensual: 19, precioAnual: 190,
-    features: ["Instagram y Facebook", "Texto + imágenes con IA", "Hasta 30 posts/mes", "Stats básicas"],
-    noIncluye: ["TikTok", "Pack semanal automático"],
-  },
-  {
-    id: "pro", nombre: "Empresa Pro", para: "empresa", precioMensual: 39, precioAnual: 390,
-    features: ["Todo lo de Standard", "TikTok", "Posts ilimitados", "Pack semanal automático", "Stats avanzadas"],
+    id: "pro_nonprofit", nombre: "Pro Nonprofit", para: "ong", precioMensual: 1.99, precioAnual: null,
+    features: ["Todo lo de Pro, al mismo nivel", "Precio especial para ONG con CIF/NIF verificado", "60% de descuento sobre Pro"],
   },
 ];
 
@@ -117,44 +115,38 @@ export function planMeta(id: PlanActual): PlanMeta | undefined {
 }
 
 /**
- * Planes visibles para un grupo de cuenta. Empresa y particular comparten los
- * MISMOS productos de Stripe (earlybird/standard/pro): solo cambia el nombre
- * mostrado (ver nombrePlanPorGrupo), no el precio ni el price ID.
+ * Planes visibles para un grupo de cuenta (v3.0). TODOS ven Free y Pro (mismo
+ * producto y precio para ONG, empresa y particular). Pro Nonprofit (1,99€) solo
+ * se ofrece a ONG, y además requiere CIF/NIF verificado para poder contratarlo
+ * (el gating real lo aplica el endpoint de checkout).
  */
 export function planesParaGrupo(grupo: "ong" | "empresa" | "particular"): PlanMeta[] {
-  return grupo === "ong"
-    ? PLANES.filter((p) => p.para === "ong")
-    : PLANES.filter((p) => p.para === "empresa");
+  return PLANES.filter((p) => p.id !== "pro_nonprofit" || grupo === "ong");
 }
 
-/** Nombre visible del plan para particulares (mismo producto, etiqueta distinta). */
-const NOMBRE_PARTICULAR: Record<string, string> = {
-  earlybird: "Particular Early Bird",
-  standard: "Particular Standard",
-  pro: "Particular Pro",
-};
-
-/** Nombre del plan adaptado al grupo de cuenta. Particular → "Particular …". */
-export function nombrePlanPorGrupo(plan: PlanMeta, grupo: "ong" | "empresa" | "particular"): string {
-  if (grupo === "particular") return NOMBRE_PARTICULAR[plan.id] ?? plan.nombre;
+/** Nombre del plan adaptado al grupo de cuenta. En v3.0 el nombre es el mismo para todos. */
+export function nombrePlanPorGrupo(plan: PlanMeta, _grupo: "ong" | "empresa" | "particular"): string {
   return plan.nombre;
 }
 
 /** Variable de entorno que contiene el price ID para un plan+ciclo. */
 const ENV_KEY: Record<string, string> = {
+  // Modelo vigente v3.0. STRIPE_PRICE_PRO_MENSUAL se repunta al nuevo precio 4,90€.
+  pro_mensual: "STRIPE_PRICE_PRO_MENSUAL",
+  pro_nonprofit_mensual: "STRIPE_PRICE_PRO_NONPROFIT_MENSUAL",
+  // Legacy (huérfanos, sin plan que los use; se conservan por si acaso).
   ong_mediana_mensual: "STRIPE_PRICE_ONG_MEDIANA_MENSUAL",
   ong_mediana_anual: "STRIPE_PRICE_ONG_MEDIANA_ANUAL",
   earlybird_mensual: "STRIPE_PRICE_EARLYBIRD_MENSUAL",
   earlybird_anual: "STRIPE_PRICE_EARLYBIRD_ANUAL",
   standard_mensual: "STRIPE_PRICE_STANDARD_MENSUAL",
   standard_anual: "STRIPE_PRICE_STANDARD_ANUAL",
-  pro_mensual: "STRIPE_PRICE_PRO_MENSUAL",
   pro_anual: "STRIPE_PRICE_PRO_ANUAL",
 };
 
 /** Devuelve el price ID de Stripe para un plan+ciclo (solo servidor). null si no aplica. */
 export function priceId(plan: PlanActual, ciclo: PlanCiclo): string | null {
-  if (plan === "ong_pequena") return null; // gratis, sin producto Stripe
+  if (plan === "free" || plan === "ong_pequena") return null; // gratis, sin producto Stripe
   const env = ENV_KEY[`${plan}_${ciclo}`];
   return (env && process.env[env]) || null;
 }

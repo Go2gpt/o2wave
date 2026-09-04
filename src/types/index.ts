@@ -12,7 +12,11 @@ export type FormatoInstagram = "Post 1080×1080" | "Story 9:16";
 export type Tono = "Motivador" | "Informativo" | "Cercano" | "Urgente";
 
 // --- Suscripciones (Stripe) ---
-export type PlanActual = "ong_pequena" | "ong_mediana" | "earlybird" | "standard" | "pro";
+// Modelo vigente (v3.0, 2026-09-03): free / pro (4,90€) / pro_nonprofit (1,99€).
+// Los ids ong_pequena/ong_mediana/earlybird/standard son LEGACY (sin usuarios de
+// pago; ong_pequena sigue actuando como alias del tier gratuito). Se conservan en
+// el tipo para no romper los mapas de etiquetas de los paneles admin/emails.
+export type PlanActual = "free" | "pro" | "pro_nonprofit" | "ong_pequena" | "ong_mediana" | "earlybird" | "standard";
 export type PlanCiclo = "mensual" | "anual";
 export type PlanEstado = "activa" | "cancelada" | "suspendida" | "trial";
 

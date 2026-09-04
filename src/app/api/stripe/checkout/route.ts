@@ -9,7 +9,8 @@ import type { PlanActual, PlanCiclo } from "@/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const PLANES_VALIDOS: PlanActual[] = ["ong_mediana", "earlybird", "standard", "pro"];
+// Planes cobrables en v3.0. Free no pasa por checkout (sin producto Stripe).
+const PLANES_VALIDOS: PlanActual[] = ["pro", "pro_nonprofit"];
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +26,16 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
     const { data: profile } = await supabase
-      .from("profiles").select("stripe_customer_id, nombre_entidad").eq("id", user.id).single();
+      .from("profiles").select("stripe_customer_id, nombre_entidad, estado_verificacion").eq("id", user.id).single();
+
+    // Gating Pro Nonprofit (1,99€): solo ONG con CIF/NIF verificado. Sin verificar
+    // → se le redirige a contratar Pro normal (4,90€) o a completar la verificación.
+    if (plan === "pro_nonprofit" && profile?.estado_verificacion !== "verificada") {
+      return NextResponse.json(
+        { error: "El plan Pro Nonprofit (1,99€) requiere verificar el CIF/NIF de tu ONG. Verifícalo primero o contrata Pro (4,90€).", code: "cif_no_verificado" },
+        { status: 403 },
+      );
+    }
 
     const stripe = getStripe();
 

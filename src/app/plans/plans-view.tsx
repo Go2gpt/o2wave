@@ -11,6 +11,10 @@ import { COPY_SIN_SUB, type GrupoCuenta } from "@/lib/copys-por-tipo";
 import { BETA_ACTIVA } from "@/lib/constants";
 import type { PlanActual, PlanCiclo } from "@/types";
 
+// Formatea el precio en euros: entero → "4"; con decimales → "4,90" / "1,99".
+const fmtPrecio = (n: number | null): string =>
+  n == null ? "" : Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ",");
+
 // Requisitos que el usuario debe confirmar ACTIVAMENTE para el plan gratuito.
 const REQUISITOS_GRATIS = [
   "Es una entidad sin ánimo de lucro legalmente constituida (CIF G/R/V/N).",
@@ -210,8 +214,9 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
       <div className="px-5 space-y-3">
         {planes.map((plan) => {
           const esActual = autenticado && !esAdmin && plan.id === planActual;
-          const precio = ciclo === "mensual" ? plan.precioMensual : plan.precioAnual;
-          const esGratis = plan.id === "ong_pequena";
+          // v3.0 solo ofrece ciclo mensual (precioAnual = null); fallback a mensual por seguridad.
+          const precio = (ciclo === "mensual" ? plan.precioMensual : plan.precioAnual) ?? plan.precioMensual;
+          const esGratis = plan.id === "free" || plan.precioMensual === 0;
           const color = plan.destacado ? "#f9b23b" : "#374151";
           const anualSinDescuento = plan.precioMensual != null ? plan.precioMensual * 12 : null;
           const ahorro = ciclo === "anual" && anualSinDescuento != null && plan.precioAnual != null ? anualSinDescuento - plan.precioAnual : 0;
@@ -233,8 +238,8 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
                       <p className="text-2xl font-black" style={{ color }}>Gratis</p>
                     ) : (
                       <>
-                        {mostrarAhorro && <p className="text-xs text-gray-400 line-through leading-none mb-0.5">{anualSinDescuento}€</p>}
-                        <p className="text-2xl font-black leading-none" style={{ color }}>{precio}€</p>
+                        {mostrarAhorro && <p className="text-xs text-gray-400 line-through leading-none mb-0.5">{fmtPrecio(anualSinDescuento)}€</p>}
+                        <p className="text-2xl font-black leading-none" style={{ color }}>{fmtPrecio(precio)}€</p>
                         <p className="text-[10px] text-gray-400 mt-0.5">{ciclo === "mensual" ? "/mes" : "/año"}</p>
                         {mostrarAhorro && (
                           <span className="inline-block mt-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0f7e6", color: "#93bf30" }}>
