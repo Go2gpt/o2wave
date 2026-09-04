@@ -60,9 +60,8 @@ export async function POST(request: NextRequest) {
             </ul>
             <p>Sin embargo, te queremos tener en o2Wave igualmente. Puedes acceder con:</p>
             <ul style="padding-left:20px">
-              <li>Empresa Early Bird: 9€/mes durante 12 meses.</li>
-              <li>Empresa Standard: 19€/mes.</li>
-              <li>Empresa Pro: 39€/mes.</li>
+              <li>Pro Nonprofit: 1,95€/mes (para ONG con CIF/NIF verificado).</li>
+              <li>Pro: 4,95€/mes.</li>
             </ul>
             <p>Detalles en <a href="${SITE_URL}/plans" style="color:#93bf30;font-weight:bold">o2wave.app/plans</a>.</p>
             <p>Si quieres seguir con un plan de pago, házmelo saber y te ayudo a configurarlo.</p>

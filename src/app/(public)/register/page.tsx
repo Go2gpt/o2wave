@@ -20,7 +20,7 @@ const BLOQUES = [
     bg: "#f0f7e6",
     opciones: [
       { id: "ong_pequena", label: "Pequeña · Gratis" },
-      { id: "ong_mediana", label: "Mediana · 9€/mes" },
+      { id: "ong_mediana", label: "Mediana · desde 1,95€/mes (ONG verificada)" },
     ],
   },
   {
@@ -30,7 +30,7 @@ const BLOQUES = [
     color: "#f9b23b",
     bg: "#fff8ef",
     opciones: [
-      { id: "empresa", label: "Desde 9€/mes" },
+      { id: "empresa", label: "Desde 4,95€/mes" },
     ],
   },
   {
@@ -40,7 +40,7 @@ const BLOQUES = [
     color: "#f9b23b",
     bg: "#fff8ef",
     opciones: [
-      { id: "particular", label: "Desde 9€/mes" },
+      { id: "particular", label: "Desde 4,95€/mes" },
     ],
   },
 ];
@@ -54,11 +54,14 @@ const TIPO_COLOR: Record<string, string> = {
 
 // Mapea el plan elegido en /plans al tipo de entidad del registro.
 const PLAN_A_TIPO: Record<string, string> = {
+  free: "ong_pequena",
   ong_pequena: "ong_pequena",
+  pro_nonprofit: "ong_mediana",
   ong_mediana: "ong_mediana",
+  pro: "empresa",
+  // Legacy (sin uso en v3.0):
   earlybird: "empresa",
   standard: "empresa",
-  pro: "empresa",
 };
 
 export default function RegisterPage() {
