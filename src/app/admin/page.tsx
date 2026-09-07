@@ -56,6 +56,12 @@ export default async function AdminPage() {
             title="Auto-publicación (Fase 1a)"
             description="Cuentas internas Generación o2: conectar redes, revisar y programar posts."
           />
+          <AdminCard
+            href="/admin/beta"
+            icon="🎟️"
+            title="Programa Beta"
+            description="Genera los 100 códigos de invitación (Pro gratis 6 meses) para que Growth los reparta."
+          />
         </div>
       </div>
     </main>
