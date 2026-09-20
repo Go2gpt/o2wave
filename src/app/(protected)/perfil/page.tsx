@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import ProfileForm, { type ProfileData } from "./profile-form";
+import CuentasSociales, { type CuentaSocial } from "./cuentas-sociales";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +18,23 @@ export default async function PerfilPage() {
     .from("categorias_usuario").select("categoria").eq("user_id", user.id);
   const categorias = (catRows || []).map((c) => c.categoria);
 
+  // Cuentas sociales conectadas (RLS: solo las del propio usuario). Sin el token.
+  const { data: cuentasRows } = await supabase
+    .from("user_social_accounts")
+    .select("id, etiqueta, ig_username, fb_page_nombre, es_predeterminada")
+    .eq("user_id", user.id).eq("activo", true)
+    .order("es_predeterminada", { ascending: false }).order("created_at", { ascending: true });
+
   return (
-    <ProfileForm
-      initial={data as ProfileData}
-      categoriasIniciales={categorias}
-      mostrarDiasEspana={data.mostrar_dias_espana !== false}
-    />
+    <>
+      <ProfileForm
+        initial={data as ProfileData}
+        categoriasIniciales={categorias}
+        mostrarDiasEspana={data.mostrar_dias_espana !== false}
+      />
+      <Suspense fallback={null}>
+        <CuentasSociales cuentas={(cuentasRows || []) as CuentaSocial[]} />
+      </Suspense>
+    </>
   );
 }
