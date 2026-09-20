@@ -8,6 +8,7 @@ import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
 import { limpiarMarkdown, quitarHashtags } from "@/lib/formatText";
 import PublishInstructionsModal from "@/components/PublishInstructionsModal";
+import PublicarEnCuenta from "../result/publicar-en-cuenta";
 import type { PackSemanal, PackDia } from "@/types";
 import type { EntradaBlog } from "@/lib/blog";
 
@@ -89,9 +90,11 @@ function DiaCard({ packId, dia, idx, onSustituir, onEliminar }: {
           <Link href={`/pack/${packId}/dia/${idx}`} className="px-3 py-1.5 rounded-lg border-2 text-xs font-bold transition-all active:scale-95" style={{ borderColor: "#e5e7eb", color: "#374151" }}>✏️ Editar</Link>
           <button onClick={() => onSustituir(idx)} className="px-3 py-1.5 rounded-lg border-2 text-xs font-bold transition-all active:scale-95" style={{ borderColor: "#e5e7eb", color: "#374151" }}>↻ Sustituir</button>
           <button onClick={() => onEliminar(idx)} className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95" style={{ color: "#ef4444" }}>🗑️ Eliminar</button>
-          <button onClick={publicar} disabled={sharing} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-50" style={{ backgroundColor: "#93bf30" }}>{sharing ? "…" : "📤 Publicar"}</button>
+          <button onClick={publicar} disabled={sharing} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-50" style={{ backgroundColor: "#93bf30" }}>{sharing ? "…" : "📤 Compartir"}</button>
         </div>
       </div>
+      {/* Publicación directa en la cuenta conectada (server-side). Auto-oculto salvo IG/FB. */}
+      <PublicarEnCuenta redSocial={red} texto={caption()} imagenUrl={dia.imagen_url ?? null} />
       {pubOpen && <PublishInstructionsModal redSocial={red} formato={null} caption={caption()} onClose={() => setPubOpen(false)} />}
     </div>
   );

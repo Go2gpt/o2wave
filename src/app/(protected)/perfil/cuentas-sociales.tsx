@@ -99,8 +99,15 @@ export default function CuentasSociales({ cuentas }: { cuentas: CuentaSocial[] }
           ))}
         </div>
 
+        <div className="mt-4 rounded-xl px-3 py-2.5 flex items-start gap-2" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
+          <span className="text-base leading-none">💻</span>
+          <p className="text-xs leading-relaxed" style={{ color: "#1e40af" }}>
+            <strong>Conecta desde un ordenador.</strong> El proceso de permisos de Meta es bastante más sencillo en el navegador de un ordenador que en el móvil. Una vez conectada, podrás publicar desde el teléfono sin problema.
+          </p>
+        </div>
+
         <a href="/api/meta/oauth/user-start"
-          className="mt-4 block w-full text-center py-3 rounded-xl font-bold text-white text-sm active:scale-[0.98] transition-all"
+          className="mt-3 block w-full text-center py-3 rounded-xl font-bold text-white text-sm active:scale-[0.98] transition-all"
           style={{ backgroundColor: "#f9b23b" }}>
           + Conectar una cuenta
         </a>
