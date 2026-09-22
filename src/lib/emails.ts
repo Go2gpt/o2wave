@@ -225,6 +225,18 @@ export async function enviarAutopostSinNovedad(p: { motivo: string }): Promise<v
   await enviar(NOTIFICATION_EMAIL, "📣 Autopost: no hay features candidatas a novedad", html, "autopost-sin-novedad");
 }
 
+/** Recordatorio semanal: toca crear y publicar el Reel (mientras es manual). */
+export async function enviarRecordatorioReel(p: { cuentas: string }): Promise<void> {
+  const panel = `${SITE_URL}/admin/autopost`;
+  const html = layout(`
+    <h2 style="margin:0 0 8px">🎬 Toca publicar el Reel de la semana</h2>
+    <p>Recordatorio para que no se te olvide: entra en el panel, pulsa <strong>“Generar Reel de prueba”</strong> en ${esc(p.cuentas)}, revisa que quede bien y dale a <strong>“Publicar Reel”</strong>. Son un par de clics.</p>
+    ${boton(panel, "Crear y publicar el Reel")}
+    <p style="color:#6b7280;font-size:13px">Cuando veamos que los Reels salen bien de forma consistente, automatizaremos también este paso.</p>
+  `);
+  await enviar(NOTIFICATION_EMAIL, "🎬 Toca publicar el Reel de la semana", html, "reel-recordatorio");
+}
+
 /** Aviso de fallo al publicar una pieza (tras agotar reintentos). */
 export async function enviarAutopostFallo(p: { cuenta: string; motivo: string }): Promise<void> {
   const panel = `${SITE_URL}/admin/autopost`;

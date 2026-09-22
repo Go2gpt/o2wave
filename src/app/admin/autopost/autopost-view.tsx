@@ -82,7 +82,8 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const [novFeature, setNovFeature] = useState(FEATURES[0]?.id || "");
   const [novBusy, setNovBusy] = useState(false);
   const [reelBusy, setReelBusy] = useState(false);
-  const [reelUrl, setReelUrl] = useState<string | null>(null);
+  const [reel, setReel] = useState<{ video_url: string; caption: string } | null>(null);
+  const [reelPub, setReelPub] = useState(false);
   const sem = semaforo(c.token_expira_at);
   const esOng = perfil === "ong_general";
 
@@ -109,18 +110,34 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
     } catch { notify("Error de red", "error"); } finally { setGenerando(false); }
   };
 
-  // Prototipo Reel: genera un vídeo de prueba (no publica) para validar calidad.
+  // Genera un Reel (vídeo + caption automático). No publica: valida calidad primero.
   const generarReel = async () => {
-    setReelBusy(true); setReelUrl(null);
+    setReelBusy(true); setReel(null);
     try {
       const res = await fetch("/api/admin/autopost/reel-prueba", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cuenta_id: c.id }),
       });
       const data = await res.json();
-      if (res.ok && data.video_url) { setReelUrl(data.video_url); notify("Reel de prueba generado.", "success"); }
+      if (res.ok && data.video_url) { setReel({ video_url: data.video_url, caption: data.caption || "" }); notify("Reel generado. Revísalo y publícalo.", "success"); }
       else notify(data.error || "No se pudo generar el Reel", "error");
     } catch { notify("Error de red", "error"); } finally { setReelBusy(false); }
+  };
+
+  // Publica el Reel generado (vídeo + caption) en la cuenta, sin copiar/pegar.
+  const publicarReelAhora = async () => {
+    if (!reel) return;
+    if (!confirm("¿Publicar este Reel ahora en Instagram y Facebook?")) return;
+    setReelPub(true);
+    try {
+      const res = await fetch("/api/admin/autopost/reel-publicar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cuenta_id: c.id, video_url: reel.video_url, caption: reel.caption }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) { notify("Reel publicado ✓", "success"); setReel(null); }
+      else notify(data.error || "No se pudo publicar el Reel", "error");
+    } catch { notify("Error de red", "error"); } finally { setReelPub(false); }
   };
 
   const guardar = async () => {
@@ -172,14 +189,22 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
         </div>
       </div>
 
-      {/* Prototipo Reel: previsualización del vídeo generado (aún NO se publica). */}
-      {reelUrl && (
-        <div className="mb-3 flex items-start gap-3">
-          <video src={reelUrl} controls playsInline className="w-[160px] rounded-lg bg-black flex-shrink-0" />
-          <div className="text-xs text-white/60 leading-relaxed">
-            <p className="font-semibold text-white/80">Reel de prueba 🎬</p>
-            <p>Revisa la calidad. Aún no se publica.</p>
-            <a href={reelUrl} target="_blank" rel="noopener" className="underline text-white/50">Abrir a tamaño real</a>
+      {/* Reel generado: previsualización + caption automático + publicar (1 clic). */}
+      {reel && (
+        <div className="mb-3 rounded-lg border border-white/10 p-3">
+          <div className="flex items-start gap-3">
+            <video src={reel.video_url} controls playsInline className="w-[150px] rounded-lg bg-black flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-white/80 mb-1">Reel generado 🎬 — revísalo antes de publicar</p>
+              <p className="text-[11px] text-white/50 whitespace-pre-wrap line-clamp-5">{reel.caption}</p>
+              <a href={reel.video_url} target="_blank" rel="noopener" className="text-[11px] underline text-white/40">Abrir vídeo</a>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button onClick={publicarReelAhora} disabled={reelPub} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>
+              {reelPub ? "Publicando Reel…" : "📤 Publicar Reel ahora"}
+            </button>
+            <button onClick={() => setReel(null)} disabled={reelPub} className={`${btn} border border-white/15 text-white/70`}>Descartar</button>
           </div>
         </div>
       )}
@@ -197,7 +222,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
           </select>
         </label>
         <label className="flex items-center justify-between gap-2 text-sm">
-          <span className="text-white/70">Auto-aprobar {esOng && <em className="text-[10px] text-white/30">(no en ONG)</em>}</span>
+          <span className="text-white/70">Autopublicar <em className="text-[10px] text-white/30">(publica sin que revises){esOng && " · no en ONG"}</em></span>
           <input type="checkbox" checked={autoApprove && !esOng} disabled={esOng} onChange={(e) => setAutoApprove(e.target.checked)} className="w-4 h-4" style={{ accentColor: "#f9b23b" }} />
         </label>
         <label className="flex items-center justify-between gap-2 text-sm">

@@ -125,6 +125,70 @@ export async function publicarEnFacebook(
 }
 
 /**
+ * Publica un Reel en Instagram: contenedor con media_type=REELS + video_url →
+ * poll (el vídeo tarda más en procesarse) → media_publish. Mismo page token.
+ */
+export async function publicarReelEnInstagram(
+  igUserId: string, pageToken: string, videoUrl: string, caption: string,
+): Promise<ResultadoRed> {
+  try {
+    if (!/^https:\/\//i.test(videoUrl)) return { ok: false, error: "El vídeo debe servirse por HTTPS público." };
+    const cont = await graphPost<{ id: string }>(`/${igUserId}/media`, {
+      media_type: "REELS", video_url: videoUrl, caption, share_to_feed: "true", access_token: pageToken,
+    });
+    // Poll del contenedor hasta FINISHED (vídeo: hasta ~3 min).
+    let estado = "";
+    for (let i = 0; i < 60; i++) {
+      await dormir(3000);
+      const st = await graphGet<{ status_code: string }>(`/${cont.id}`, { fields: "status_code", access_token: pageToken });
+      estado = st.status_code;
+      if (estado === "FINISHED") break;
+      if (estado === "ERROR" || estado === "EXPIRED") return { ok: false, error: `Contenedor Reel IG en estado ${estado}` };
+    }
+    if (estado !== "FINISHED") return { ok: false, error: "El Reel de IG no quedó listo a tiempo." };
+
+    const pub = await graphPost<{ id: string }>(`/${igUserId}/media_publish`, { creation_id: cont.id, access_token: pageToken });
+    let url: string | undefined;
+    try {
+      const perma = await graphGet<{ permalink: string }>(`/${pub.id}`, { fields: "permalink", access_token: pageToken });
+      url = perma.permalink;
+    } catch { /* permalink opcional */ }
+    return { ok: true, id: pub.id, url };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "fallo Reel IG" };
+  }
+}
+
+/** Publica un vídeo en una Página de Facebook (/videos con file_url). */
+export async function publicarReelEnFacebook(
+  pageId: string, token: string, videoUrl: string, description: string,
+): Promise<ResultadoRed> {
+  try {
+    const r = await graphPost<{ id: string }>(`/${pageId}/videos`, { file_url: videoUrl, description, access_token: token });
+    return { ok: true, id: r.id, url: `https://www.facebook.com/${r.id}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "fallo vídeo FB" };
+  }
+}
+
+/** Publica un Reel en la(s) red(es) de una cuenta (fan-out). `red`: fb|ig|ambas. */
+export async function publicarReel(
+  cuenta: CuentaPublicable,
+  reel: { videoUrl: string; caption: string; red: string },
+): Promise<ResultadoPublicacion> {
+  const out: ResultadoPublicacion = {};
+  const quiere = (r: string) => reel.red === r || reel.red === "ambas";
+  const pageToken = descifrarToken(cuenta.token_cifrado);
+  if (quiere("facebook") && cuenta.fb_page_id) {
+    out.facebook = await publicarReelEnFacebook(cuenta.fb_page_id, pageToken, reel.videoUrl, reel.caption);
+  }
+  if (quiere("instagram") && cuenta.ig_user_id) {
+    out.instagram = await publicarReelEnInstagram(cuenta.ig_user_id, pageToken, reel.videoUrl, reel.caption);
+  }
+  return out;
+}
+
+/**
  * Publica una pieza en la(s) red(es) indicadas de una cuenta (fan-out).
  * `red`: 'facebook' | 'instagram' | 'ambas'. IG requiere imagen.
  */

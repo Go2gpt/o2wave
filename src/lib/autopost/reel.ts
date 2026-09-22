@@ -1,6 +1,25 @@
+import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
 import { generarVideoIA } from "@/lib/videoGen";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const MODEL = "claude-sonnet-4-6";
+const HASHTAGS_REEL = ["#o2Wave", "#IAparaRedes", "#ContenidoEnRedes", "#GestionDeRedes", "#Reels"];
+const CTA_REEL = "Pruébalo desde tu navegador — o2wave.app ✨";
+
+/** Caption automático del Reel (cuerpo IA + CTA + hashtags). Sin copiar/pegar. */
+async function generarCaptionReel(): Promise<string> {
+  const cierre = `\n\n${CTA_REEL}\n\n${HASHTAGS_REEL.join(" ")}`;
+  const fallback = `Crea el contenido de tus redes en un momento, sin pelearte con la página en blanco.${cierre}`;
+  try {
+    const prompt = `Eres el community manager de o2Wave (herramienta web que genera texto e imágenes para redes con IA, para ONGs, empresas y personas). Escribe un caption CORTO para un Reel de Instagram (máx 4-5 líneas), cercano y claro. PROHIBIDO: emojis en el cuerpo, hashtags (se añaden aparte), cifras/estadísticas inventadas, nombres de features, "descarga la app" (es web). NO cierres con CTA (se añade aparte). Devuelve SOLO el texto del cuerpo.`;
+    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 250, messages: [{ role: "user", content: prompt }] });
+    const body = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
+    if (body.length > 20) return `${body}${cierre}`;
+  } catch { /* usa fallback */ }
+  return fallback;
+}
 
 /**
  * Reel de autopost (prototipo): genera un fotograma on-brand 9:16 con el pipeline
@@ -18,7 +37,7 @@ const MOTION = `Subtle cinematic motion: slow gentle camera push-in, soft rising
 
 export async function generarReelPrueba(
   admin: SupabaseClient, cuentaId: string,
-): Promise<{ video_url: string; keyframe_url: string } | { error: string }> {
+): Promise<{ video_url: string; keyframe_url: string; caption: string } | { error: string }> {
   // 1) Fotograma base on-brand (9:16).
   const img = await generarImagenIA(ESCENA_KEYFRAME, "9:16");
   if (!img) return { error: "No se pudo generar el fotograma base (Gemini/Replicate)." };
@@ -35,5 +54,7 @@ export async function generarReelPrueba(
   if (upV.error) return { error: `No se pudo subir el vídeo: ${upV.error.message}` };
   const video_url = admin.storage.from("post-images").getPublicUrl(vPath).data.publicUrl;
 
-  return { video_url, keyframe_url };
+  // 3) Caption automático (para publicar sin copiar/pegar).
+  const caption = await generarCaptionReel();
+  return { video_url, keyframe_url, caption };
 }
