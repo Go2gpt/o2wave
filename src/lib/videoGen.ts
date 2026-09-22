@@ -50,3 +50,51 @@ export async function generarVideoIA(
     return { error: e instanceof Error ? e.message : "error de vídeo" };
   }
 }
+
+/**
+ * Genera una pista de música ORIGINAL con IA (Replicate meta/musicgen). Original
+ * = sin problemas de derechos. Devuelve el audio (mp3) en Buffer o un error.
+ */
+export async function generarMusicaIA(
+  segundos = 8,
+  deadlineMs = 120000,
+): Promise<{ buffer: Buffer; fuente: string } | { error: string }> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) return { error: "Falta REPLICATE_API_TOKEN." };
+  try {
+    const startRes = await fetch("https://api.replicate.com/v1/models/meta/musicgen/predictions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: {
+          prompt: "calm uplifting modern corporate background music, gentle piano and soft light beat, hopeful and clean, instrumental",
+          duration: segundos,
+          output_format: "mp3",
+        },
+      }),
+    });
+    if (!startRes.ok) return { error: `Replicate music create ${startRes.status}: ${(await startRes.text()).slice(0, 200)}` };
+    const id = (await startRes.json()).id as string;
+
+    const deadline = Date.now() + deadlineMs;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const st = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+      });
+      if (!st.ok) continue;
+      const d = await st.json();
+      if (d.status === "succeeded") {
+        const out = d.output;
+        const url = typeof out === "string" ? out : Array.isArray(out) ? out[0] : out?.audio ?? null;
+        if (!url) return { error: "MusicGen no devolvió audio." };
+        const a = await fetch(url);
+        return { buffer: Buffer.from(await a.arrayBuffer()), fuente: "meta/musicgen" };
+      }
+      if (d.status === "failed" || d.status === "canceled") return { error: `MusicGen ${d.status}` };
+    }
+    return { error: "Tiempo agotado generando la música." };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "error de música" };
+  }
+}

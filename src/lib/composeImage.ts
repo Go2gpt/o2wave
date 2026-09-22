@@ -276,6 +276,45 @@ export async function composeImage({
     .toBuffer();
 }
 
+/**
+ * Overlay TRANSPARENTE (RGBA) para un Reel 9:16: titular grande en el tercio
+ * inferior (blanco con sombra) + CTA opcional abajo (naranja). Se compone sobre
+ * el vídeo con ffmpeg → texto NÍTIDO (no "horneado" en el keyframe, que el modelo
+ * de vídeo deformaría). Devuelve un PNG 1080×1920 con canal alfa.
+ */
+export async function overlayReelPNG({
+  headline, cta, width = 1080, height = 1920,
+}: { headline: string; cta?: string | null; width?: number; height?: number }): Promise<Buffer> {
+  const layers: sharp.OverlayOptions[] = [];
+  const maxW = width - 160;
+
+  const h = soloGlifos(headline || "");
+  if (h) {
+    const { lineas, fontSize } = layoutTitular(h, maxW, Math.round(width * 0.09), MIN_FONT_SIZE);
+    const blanco = await renderLineas(lineas, fontSize, "#FFFFFF", "center");
+    const sombra = await sharp(await renderLineas(lineas, fontSize, "#000000", "center")).blur(5).toBuffer();
+    const m = await sharp(blanco).metadata();
+    const tw = m.width || maxW, th = m.height || fontSize;
+    const top = Math.round(height * 0.70 - th / 2), left = Math.round((width - tw) / 2);
+    layers.push({ input: sombra, top: top + 3, left: left + 3 }, { input: blanco, top, left });
+  }
+
+  const c = soloGlifos(cta || "");
+  if (c) {
+    const size = Math.round(width * 0.036);
+    const { lineas, fontSize } = layoutTitular(c, maxW, size, size);
+    const naranja = await renderLineas(lineas, fontSize, "#f9b23b", "center");
+    const sombra = await sharp(await renderLineas(lineas, fontSize, "#000000", "center")).blur(4).toBuffer();
+    const m = await sharp(naranja).metadata();
+    const tw = m.width || maxW, th = m.height || fontSize;
+    const top = Math.round(height * 0.88 - th / 2), left = Math.round((width - tw) / 2);
+    layers.push({ input: sombra, top: top + 2, left: left + 2 }, { input: naranja, top, left });
+  }
+
+  return sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(layers).png().toBuffer();
+}
+
 /* ============================================================================
  * Banner de marca tipográfico (estilo del blog) — alternativa a la foto IA para
  * piezas de mensaje del pack. Fondo sólido (oscuro/claro), barra degradada, pill

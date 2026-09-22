@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
-import { generarVideoIA } from "@/lib/videoGen";
+import { generarVideoIA, generarMusicaIA } from "@/lib/videoGen";
+import { overlayReelPNG } from "@/lib/composeImage";
+import { componerReel } from "@/lib/reelCompose";
+import { generarTitular } from "@/lib/autopost/generator";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-4-6";
@@ -46,15 +49,36 @@ export async function generarReelPrueba(
   if (upKf.error) return { error: `No se pudo subir el fotograma: ${upKf.error.message}` };
   const keyframe_url = admin.storage.from("post-images").getPublicUrl(kfPath).data.publicUrl;
 
-  // 2) Animar el fotograma a vídeo (Replicate necesita la URL pública del keyframe).
-  const vid = await generarVideoIA(keyframe_url, MOTION);
+  // 2) En paralelo (independientes): animar el fotograma limpio a vídeo, música IA
+  //    y el caption. Ahorra tiempo de servidor (todo dentro del maxDuration).
+  const [vid, musica, caption] = await Promise.all([
+    generarVideoIA(keyframe_url, MOTION, 220000),
+    generarMusicaIA(8),
+    generarCaptionReel(),
+  ]);
   if ("error" in vid) return { error: vid.error };
+
+  // 3) Gancho de portada (texto en pantalla) derivado del caption.
+  const hook = await generarTitular(caption);
+
+  // 4) Componer: overlay de texto NÍTIDO + música IA sobre el vídeo (ffmpeg).
+  //    Tolerante: si falla la composición o la música, sube el vídeo tal cual.
+  let finalBuffer = vid.buffer;
+  try {
+    const overlay = await overlayReelPNG({ headline: hook, cta: "Pruébalo en o2wave.app" });
+    const musicBuf = "buffer" in musica ? musica.buffer : null;
+    const comp = await componerReel(vid.buffer, overlay, musicBuf);
+    if ("buffer" in comp) finalBuffer = comp.buffer;
+    else console.warn("reel: composición falló, se sube el vídeo sin texto/música:", comp.error);
+  } catch (e) {
+    console.warn("reel: fallo componiendo, se sube el vídeo en crudo:", e instanceof Error ? e.message : e);
+  }
+
+  // 5) Subir el Reel final.
   const vPath = `reels/${cuentaId}/${Date.now()}-reel.mp4`;
-  const upV = await admin.storage.from("post-images").upload(vPath, vid.buffer, { contentType: "video/mp4", upsert: false });
+  const upV = await admin.storage.from("post-images").upload(vPath, finalBuffer, { contentType: "video/mp4", upsert: false });
   if (upV.error) return { error: `No se pudo subir el vídeo: ${upV.error.message}` };
   const video_url = admin.storage.from("post-images").getPublicUrl(vPath).data.publicUrl;
 
-  // 3) Caption automático (para publicar sin copiar/pegar).
-  const caption = await generarCaptionReel();
   return { video_url, keyframe_url, caption };
 }
