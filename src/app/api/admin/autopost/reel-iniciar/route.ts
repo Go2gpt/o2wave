@@ -4,7 +4,7 @@ import { iniciarReel } from "@/lib/autopost/reel";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300; // genera el fotograma (Gemini/FLUX) antes de arrancar el vídeo
 
 // FASE 1 del Reel: arranca la generación (fotograma + vídeo + música) y devuelve
 // los IDs para que el cliente haga polling con /reel-estado. Responde rápido. Solo admin.

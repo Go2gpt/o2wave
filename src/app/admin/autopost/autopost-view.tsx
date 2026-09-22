@@ -117,10 +117,12 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const generarReel = async () => {
     setReelBusy(true); setReel(null);
     try {
-      const ini = await fetch("/api/admin/autopost/reel-iniciar", {
+      const iniRes = await fetch("/api/admin/autopost/reel-iniciar", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cuenta_id: c.id }),
-      }).then((r) => r.json());
-      if (!ini.ok || !ini.video_id) { notify(ini.error || "No se pudo iniciar el Reel", "error"); setReelBusy(false); return; }
+      });
+      if (!iniRes.ok) { notify(`No se pudo iniciar el Reel (${iniRes.status}). Reinténtalo en un momento.`, "error"); setReelBusy(false); return; }
+      const ini = await iniRes.json().catch(() => null);
+      if (!ini || !ini.ok || !ini.video_id) { notify(ini?.error || "No se pudo iniciar el Reel", "error"); setReelBusy(false); return; }
 
       const body = { cuenta_id: c.id, video_id: ini.video_id, music_id: ini.music_id, caption: ini.caption };
       const inicio = Date.now();
