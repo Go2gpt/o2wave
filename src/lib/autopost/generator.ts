@@ -222,7 +222,7 @@ async function bannerCampos(caption: string, tipo: string): Promise<{ titulo: st
   const esDato = tipo === "piezaDato";
   const instruccion = esDato
     ? `TÍTULO: la cifra o el dato principal con gancho, usando la CIFRA EXACTA que aparece en el post (NO la redondees ni la cambies), en pocas palabras (ej. "El 73% de las ONGs no mide sus redes"). SUBTÍTULO: una frase corta de contexto (por qué importa), máx ~12 palabras.`
-    : `TÍTULO: el consejo en una frase corta y accionable (máx ~10 palabras). SUBTÍTULO: un matiz o mini-ejemplo muy corto, máx ~12 palabras.`;
+    : `TÍTULO: la idea principal del post como gancho corto y potente (máx ~9 palabras). SUBTÍTULO: una frase de apoyo muy corta (máx ~12 palabras).`;
   try {
     const prompt = `Eres director de arte de carteles para Instagram. Convierte este post en un cartel tipográfico.
 ${instruccion}
@@ -246,15 +246,16 @@ Responde SOLO con JSON válido: {"titulo": "...", "subtitulo": "..."}`;
   return { titulo: frase.split(/\s+/).slice(0, 10).join(" "), subtitulo: "" };
 }
 
-/** Genera el banner tipográfico (4:5) de una pieza de mensaje. null si falla. */
-async function generarBanner(caption: string, tipo: string): Promise<Buffer | null> {
+/** Genera el banner tipográfico (4:5) de una pieza. `opts.variante` fuerza claro/
+ * oscuro (si no, alterna); `opts.pill` sobreescribe la etiqueta. null si falla. */
+async function generarBanner(caption: string, tipo: string, opts?: { variante?: "dark" | "light"; pill?: string }): Promise<Buffer | null> {
   try {
     const { titulo, subtitulo } = await bannerCampos(caption, tipo);
     if (!titulo) return null;
-    const variante = Math.random() < 0.5 ? "dark" : "light"; // alterna para variar la parrilla
+    const variante = opts?.variante ?? (Math.random() < 0.5 ? "dark" : "light"); // alterna si no se fuerza
+    const pill = opts?.pill ?? PILL_POR_TIPO[tipo] ?? "";
     return await bannerMarca({
-      aspectRatio: "4:5", variante,
-      pill: PILL_POR_TIPO[tipo] || "",
+      aspectRatio: "4:5", variante, pill,
       titulo, subtitulo: subtitulo || null,
       organizacion: "o2wave.app",
     });
@@ -266,16 +267,24 @@ async function generarBanner(caption: string, tipo: string): Promise<Buffer | nu
  * nueva del copy, la genera con el mismo pipeline que C4 (generarImagenIA) y la
  * sube a post-images/autopost. Devuelve la URL pública o un error legible.
  */
-export async function regenerarImagenAutopost(admin: SupabaseClient, cuentaId: string, texto: string, tipo?: string): Promise<{ url: string } | { error: string }> {
+export async function regenerarImagenAutopost(
+  admin: SupabaseClient, cuentaId: string, texto: string, tipo?: string,
+  opts?: { formato?: "foto" | "banner"; variante?: "dark" | "light" },
+): Promise<{ url: string } | { error: string }> {
   try {
+    const formato = opts?.formato;
+    // Banner si se pide explícitamente, o (sin elección) si el tipo es de mensaje.
+    const quiereBanner = formato === "banner" || (!formato && !!tipo && TIPOS_BANNER.has(tipo));
     let buffer: Buffer | null = null;
-    if (tipo && TIPOS_BANNER.has(tipo)) buffer = await generarBanner(texto, tipo); // dato/educativa → banner
-    if (!buffer) { // resto de tipos, o fallback si el banner falla
+    if (quiereBanner) buffer = await generarBanner(texto, tipo ?? "", { variante: opts?.variante });
+    // Foto: si se pidió foto, o (sin forzar banner) como fallback del banner automático.
+    if (!buffer && formato !== "banner") {
       const escena = await escenaDesdeTexto(texto);
       const gen = await generarImagenIA(escena, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
       if (!gen) return { error: "No se pudo generar la imagen (Gemini/Replicate)." };
       buffer = await estamparTitular(gen.buffer, texto); // gancho de portada sobre la foto
     }
+    if (!buffer) return { error: "No se pudo generar el banner." };
     const path = `autopost/${cuentaId}/${Date.now()}-regen.png`;
     const { error } = await admin.storage.from("post-images").upload(path, buffer, { contentType: "image/png", upsert: false });
     if (error) return { error: `No se pudo subir la imagen: ${error.message}` };

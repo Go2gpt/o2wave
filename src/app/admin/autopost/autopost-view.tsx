@@ -266,13 +266,17 @@ function PiezaPendiente({ p, onChanged, notify, cuentaEtiqueta }: { p: Post; onC
       else notify(data.error || "No se pudo guardar", "error");
     } catch { notify("Error de red", "error"); } finally { setBusy(false); }
   };
-  const regenerar = async () => {
+  // Regenera la imagen. Sin opts → tipo automático. Con {formato,variante} el admin
+  // elige a mano foto o banner claro/oscuro (con su texto y diseño), y luego publica.
+  const regenerar = async (opts?: { formato?: "foto" | "banner"; variante?: "dark" | "light" }) => {
     setRegenerando(true);
     try {
-      const res = await fetch(`/api/admin/autopost/posts/${p.id}/regenerate-image`, { method: "POST" });
+      const res = await fetch(`/api/admin/autopost/posts/${p.id}/regenerate-image`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts || {}),
+      });
       const data = await res.json();
-      if (res.ok && data.imagen_url) { setImagenUrl(data.imagen_url); notify("Imagen regenerada.", "success"); }
-      else notify(data.error || "No se pudo regenerar la imagen", "error");
+      if (res.ok && data.imagen_url) { setImagenUrl(data.imagen_url); notify("Imagen actualizada.", "success"); }
+      else notify(data.error || "No se pudo generar la imagen", "error");
     } catch { notify("Error de red", "error"); } finally { setRegenerando(false); }
   };
 
@@ -287,7 +291,9 @@ function PiezaPendiente({ p, onChanged, notify, cuentaEtiqueta }: { p: Post; onC
       <button onClick={ahora} disabled={busy || regenerando} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>{busy ? "…" : "Publicar ahora"}</button>
       <button onClick={() => accion("aprobar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Aprobar (programar)</button>
       <button onClick={() => setEditando(true)} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>Editar texto</button>
-      <button onClick={regenerar} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>{regenerando ? "Generando…" : "Regenerar imagen"}</button>
+      <button onClick={() => regenerar({ formato: "foto" })} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>{regenerando ? "Generando…" : "🖼 Foto"}</button>
+      <button onClick={() => regenerar({ formato: "banner", variante: "dark" })} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>🌑 Banner oscuro</button>
+      <button onClick={() => regenerar({ formato: "banner", variante: "light" })} disabled={busy || regenerando} className={`${btn} border border-white/15 text-white/90`}>☀️ Banner claro</button>
       <button onClick={() => accion("rechazar")} disabled={busy || regenerando} className={`${btn} border border-white/15 text-red-300`}>Rechazar</button>
     </>
   );
