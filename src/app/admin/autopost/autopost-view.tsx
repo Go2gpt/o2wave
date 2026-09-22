@@ -130,7 +130,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const diagnostico = async () => {
     setDiagBusy(true); setDiag(null);
     try {
-      const res = await fetch("/api/admin/autopost/diagnostico");
+      const res = await fetch(`/api/admin/autopost/diagnostico?t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setDiag(JSON.stringify(data, null, 2));
     } catch (e) { setDiag(`Error: ${e instanceof Error ? e.message : e}`); } finally { setDiagBusy(false); }
