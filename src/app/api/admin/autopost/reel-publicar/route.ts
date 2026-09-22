@@ -25,10 +25,15 @@ export async function POST(request: Request) {
     const resultado = await publicarReel(cuenta as CuentaPublicable, { videoUrl: video_url, caption, red: "ambas" });
     const ig = resultado.instagram, fb = resultado.facebook;
     const algunOk = ig?.ok || fb?.ok;
+    // Detalle por red (para diagnosticar): IG y FB con su ok/error.
+    const detalle = [
+      ig ? `IG: ${ig.ok ? "publicado ✓" : ig.error}` : "IG: no intentado",
+      fb ? `FB: ${fb.ok ? "publicado ✓" : fb.error}` : "FB: no intentado",
+    ].join(" · ");
     if (!algunOk) {
-      return NextResponse.json({ error: ig?.error || fb?.error || "No se pudo publicar el Reel" }, { status: 502 });
+      return NextResponse.json({ error: detalle }, { status: 502 });
     }
-    return NextResponse.json({ ok: true, instagram: ig, facebook: fb, url: ig?.url || fb?.url });
+    return NextResponse.json({ ok: true, url: ig?.url || fb?.url, detalle });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Error al publicar el Reel" }, { status: 500 });
   }

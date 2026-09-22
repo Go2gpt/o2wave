@@ -82,7 +82,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const [novFeature, setNovFeature] = useState(FEATURES[0]?.id || "");
   const [novBusy, setNovBusy] = useState(false);
   const [reelBusy, setReelBusy] = useState(false);
-  const [reel, setReel] = useState<{ video_url: string; caption: string } | null>(null);
+  const [reel, setReel] = useState<{ video_url: string; caption: string; aviso?: string } | null>(null);
   const [reelPub, setReelPub] = useState(false);
   const sem = semaforo(c.token_expira_at);
   const esOng = perfil === "ong_general";
@@ -119,7 +119,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
         body: JSON.stringify({ cuenta_id: c.id }),
       });
       const data = await res.json();
-      if (res.ok && data.video_url) { setReel({ video_url: data.video_url, caption: data.caption || "" }); notify("Reel generado. Revísalo y publícalo.", "success"); }
+      if (res.ok && data.video_url) { setReel({ video_url: data.video_url, caption: data.caption || "", aviso: data.aviso }); notify(data.aviso ? "Reel generado (con aviso)." : "Reel generado. Revísalo y publícalo.", data.aviso ? "info" : "success"); }
       else notify(data.error || "No se pudo generar el Reel", "error");
     } catch { notify("Error de red", "error"); } finally { setReelBusy(false); }
   };
@@ -135,7 +135,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
         body: JSON.stringify({ cuenta_id: c.id, video_url: reel.video_url, caption: reel.caption }),
       });
       const data = await res.json();
-      if (res.ok && data.ok) { notify("Reel publicado ✓", "success"); setReel(null); }
+      if (res.ok && data.ok) { notify(`Reel publicado ✓${data.detalle ? " — " + data.detalle : ""}`, "success"); setReel(null); }
       else notify(data.error || "No se pudo publicar el Reel", "error");
     } catch { notify("Error de red", "error"); } finally { setReelPub(false); }
   };
@@ -198,6 +198,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
               <p className="text-xs font-semibold text-white/80 mb-1">Reel generado 🎬 — revísalo antes de publicar</p>
               <p className="text-[11px] text-white/50 whitespace-pre-wrap line-clamp-5">{reel.caption}</p>
               <a href={reel.video_url} target="_blank" rel="noopener" className="text-[11px] underline text-white/40">Abrir vídeo</a>
+              {reel.aviso && <p className="text-[11px] mt-1" style={{ color: "#f9b23b" }}>⚠️ {reel.aviso}</p>}
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-3">

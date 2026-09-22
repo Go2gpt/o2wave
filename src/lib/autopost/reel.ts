@@ -40,7 +40,7 @@ const MOTION = `Subtle cinematic motion: slow gentle camera push-in, soft rising
 
 export async function generarReelPrueba(
   admin: SupabaseClient, cuentaId: string,
-): Promise<{ video_url: string; keyframe_url: string; caption: string } | { error: string }> {
+): Promise<{ video_url: string; keyframe_url: string; caption: string; aviso?: string } | { error: string }> {
   // 1) Fotograma base on-brand (9:16).
   const img = await generarImagenIA(ESCENA_KEYFRAME, "9:16");
   if (!img) return { error: "No se pudo generar el fotograma base (Gemini/Replicate)." };
@@ -62,16 +62,19 @@ export async function generarReelPrueba(
   const hook = await generarTitular(caption);
 
   // 4) Componer: overlay de texto NÍTIDO + música IA sobre el vídeo (ffmpeg).
-  //    Tolerante: si falla la composición o la música, sube el vídeo tal cual.
+  //    Tolerante: si falla la composición o la música, sube el vídeo tal cual y avisa.
   let finalBuffer = vid.buffer;
+  let aviso: string | undefined;
   try {
     const overlay = await overlayReelPNG({ headline: hook, cta: "Pruébalo en o2wave.app" });
     const musicBuf = "buffer" in musica ? musica.buffer : null;
+    if (!("buffer" in musica)) aviso = `música falló (${musica.error})`;
     const comp = await componerReel(vid.buffer, overlay, musicBuf);
     if ("buffer" in comp) finalBuffer = comp.buffer;
-    else console.warn("reel: composición falló, se sube el vídeo sin texto/música:", comp.error);
+    else { aviso = `vídeo SIN texto/música — ${comp.error}`; console.warn("reel compose:", comp.error); }
   } catch (e) {
-    console.warn("reel: fallo componiendo, se sube el vídeo en crudo:", e instanceof Error ? e.message : e);
+    aviso = `vídeo SIN texto/música — ${e instanceof Error ? e.message : e}`;
+    console.warn("reel compose exception:", aviso);
   }
 
   // 5) Subir el Reel final.
@@ -80,5 +83,5 @@ export async function generarReelPrueba(
   if (upV.error) return { error: `No se pudo subir el vídeo: ${upV.error.message}` };
   const video_url = admin.storage.from("post-images").getPublicUrl(vPath).data.publicUrl;
 
-  return { video_url, keyframe_url, caption };
+  return { video_url, keyframe_url, caption, aviso };
 }
