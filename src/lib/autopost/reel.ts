@@ -105,10 +105,13 @@ export async function finalizarReel(
     const hook = await generarTitular(job.caption);
     const overlay = await overlayReelPNG({ headline: hook, cta: "Pruébalo en o2wave.app" });
     const comp = await componerReel(videoBuffer, overlay, musicBuf);
-    if ("buffer" in comp) finalBuffer = comp.buffer;
-    else aviso = `vídeo SIN texto/música — ${comp.error}`;
+    // Solo usamos la versión compuesta si es un vídeo VÁLIDO (grande). Si la
+    // composición devuelve algo diminuto/vacío, subimos el vídeo de wan en crudo
+    // (que es válido) → nunca un MP4 vacío. Así siempre hay un Reel que se ve.
+    if ("buffer" in comp && comp.buffer.length > 20000) finalBuffer = comp.buffer;
+    else aviso = `Reel sin texto/música (composición devolvió ${"buffer" in comp ? comp.buffer.length + " bytes" : comp.error}).`;
   } catch (e) {
-    aviso = `vídeo SIN texto/música — ${e instanceof Error ? e.message : e}`;
+    aviso = `Reel sin texto/música — ${e instanceof Error ? e.message : e}`;
   }
 
   const vPath = `reels/${cuentaId}/${Date.now()}-reel.mp4`;
