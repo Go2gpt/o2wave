@@ -21,7 +21,7 @@ const MODEL = "claude-sonnet-4-6";
 const HASHTAGS_REEL = ["#o2Wave", "#IAparaRedes", "#ContenidoEnRedes", "#GestionDeRedes", "#Reels"];
 const CTA_REEL = "Pruébalo desde tu navegador — o2wave.app ✨";
 
-const ESCENA_KEYFRAME = `A tidy desk in warm afternoon light, vertical composition: an open laptop with its OUTER LID facing the camera (dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee with soft rising steam, an open notebook and a small plant; a person calmly working, focused but not exhausted, natural window light, neutral-to-positive mood. Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
+const ESCENA_KEYFRAME = `A tidy desk in warm afternoon light, vertical composition: an open laptop with its OUTER LID facing the camera (dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee with soft rising steam, an open notebook and a small plant; a person calmly working, focused but not exhausted, natural window light, neutral-to-positive mood. Documentary photorealistic. STRICT: no real brand logos, no text, no letters, no numbers, no watermarks, no icons, no app icons, no screens showing content, no UI elements, no stickers, no decals, no symbols or badges on any object, no floating graphics. Clean real-world objects only.`;
 const MOTION = `Subtle cinematic motion: slow gentle camera push-in, soft rising steam from the coffee, slight natural ambient movement, calm and smooth. Keep the scene stable and realistic. No text, no letters, no logos.`;
 
 /** Caption automático del Reel (cuerpo IA + CTA + hashtags). Sin copiar/pegar. */
