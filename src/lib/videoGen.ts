@@ -62,10 +62,20 @@ export async function generarMusicaIA(
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) return { error: "Falta REPLICATE_API_TOKEN." };
   try {
-    const startRes = await fetch("https://api.replicate.com/v1/models/meta/musicgen/predictions", {
+    // meta/musicgen no expone el endpoint /models/.../predictions → buscamos su
+    // última versión y creamos la predicción versionada (/v1/predictions).
+    const modelRes = await fetch("https://api.replicate.com/v1/models/meta/musicgen", {
+      headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+    });
+    if (!modelRes.ok) return { error: `Replicate music model ${modelRes.status}: ${(await modelRes.text()).slice(0, 150)}` };
+    const version = (await modelRes.json())?.latest_version?.id as string | undefined;
+    if (!version) return { error: "MusicGen: no se encontró la versión del modelo." };
+
+    const startRes = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
+        version,
         input: {
           prompt: "calm uplifting modern corporate background music, gentle piano and soft light beat, hopeful and clean, instrumental",
           duration: segundos,
