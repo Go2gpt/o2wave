@@ -51,9 +51,11 @@ export async function generarReelPrueba(
 
   // 2) En paralelo (independientes): animar el fotograma limpio a vídeo, música IA
   //    y el caption. Ahorra tiempo de servidor (todo dentro del maxDuration).
+  // Vídeo con más margen (Replicate varía); música con tope corto para que no
+  // alargue el total (es opcional, si no llega se compone sin ella).
   const [vid, musica, caption] = await Promise.all([
-    generarVideoIA(keyframe_url, MOTION, 220000),
-    generarMusicaIA(8),
+    generarVideoIA(keyframe_url, MOTION, 255000),
+    generarMusicaIA(8, 80000),
     generarCaptionReel(),
   ]);
   if ("error" in vid) return { error: vid.error };
