@@ -84,6 +84,8 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const [reelBusy, setReelBusy] = useState(false);
   const [reel, setReel] = useState<{ video_url: string; caption: string; aviso?: string } | null>(null);
   const [reelPub, setReelPub] = useState(false);
+  const [diag, setDiag] = useState<string | null>(null);
+  const [diagBusy, setDiagBusy] = useState(false);
   const sem = semaforo(c.token_expira_at);
   const esOng = perfil === "ong_general";
 
@@ -122,6 +124,16 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
       if (res.ok && data.video_url) { setReel({ video_url: data.video_url, caption: data.caption || "", aviso: data.aviso }); notify(data.aviso ? "Reel generado (con aviso)." : "Reel generado. Revísalo y publícalo.", data.aviso ? "info" : "success"); }
       else notify(data.error || "No se pudo generar el Reel", "error");
     } catch { notify("Error de red", "error"); } finally { setReelBusy(false); }
+  };
+
+  // Diagnóstico: estado real de ffmpeg (Vercel) y del token de Meta.
+  const diagnostico = async () => {
+    setDiagBusy(true); setDiag(null);
+    try {
+      const res = await fetch("/api/admin/autopost/diagnostico");
+      const data = await res.json();
+      setDiag(JSON.stringify(data, null, 2));
+    } catch (e) { setDiag(`Error: ${e instanceof Error ? e.message : e}`); } finally { setDiagBusy(false); }
   };
 
   // Publica el Reel generado (vídeo + caption) en la cuenta, sin copiar/pegar.
@@ -185,9 +197,14 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
               {reelBusy ? "Generando Reel… (1-2 min)" : "🎬 Generar Reel de prueba"}
             </button>
           )}
+          <button onClick={diagnostico} disabled={diagBusy} className={`${btn} border border-white/15 text-white/70`}>{diagBusy ? "Diagnosticando…" : "🔧 Diagnóstico"}</button>
           <button onClick={desconectar} className={`${btn} border border-white/15 text-red-300`}>Desconectar</button>
         </div>
       </div>
+
+      {diag && (
+        <pre className="mb-3 text-[10px] leading-snug text-white/70 bg-black/40 border border-white/10 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-all">{diag}</pre>
+      )}
 
       {/* Reel generado: previsualización + caption automático + publicar (1 clic). */}
       {reel && (

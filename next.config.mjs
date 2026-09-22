@@ -17,6 +17,7 @@ const nextConfig = {
     // Reel, si no en Vercel no existe. Solo la ruta que lo usa.
     outputFileTracingIncludes: {
       "/api/admin/autopost/reel-prueba": ["./node_modules/ffmpeg-static/**"],
+      "/api/admin/autopost/diagnostico": ["./node_modules/ffmpeg-static/**"],
     },
   },
 };
