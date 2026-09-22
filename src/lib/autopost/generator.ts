@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
-import { composeImage } from "@/lib/composeImage";
+import { composeImage, bannerMarca } from "@/lib/composeImage";
 import { proximaPublicacion } from "@/lib/autopost/schedule";
 import { construirPieza, featuresCandidatas, validarCopy, type Pieza } from "@/lib/autopost/tipos";
 import { reservarSiguiente, type EstadoCiclo } from "@/lib/autopost/rotacion";
@@ -200,17 +200,82 @@ async function estamparTitular(imageBuffer: Buffer, caption: string): Promise<Bu
   }
 }
 
+/* ============================================================================
+ * Banner tipográfico para piezas de MENSAJE (dato / educativa). El mensaje rinde
+ * más en letra grande que en una foto → sin llamada a Gemini (más barato/rápido,
+ * legibilidad perfecta). Usa bannerMarca (mismo módulo que composeImage).
+ * ==========================================================================*/
+const TIPOS_BANNER = new Set(["piezaDato", "piezaEducativa"]);
+const PILL_POR_TIPO: Record<string, string> = { piezaDato: "Dato", piezaEducativa: "Consejo" };
+
+/** Limpia el caption a solo cuerpo (sin CTA/URL/hashtags/fuente/firma). */
+function cuerpoCaption(caption: string): string {
+  return (caption || "")
+    .split("\n")
+    .filter((l) => !/o2wave\.app|https?:\/\/|^\s*#|^\s*\(fuente|^\s*─/i.test(l))
+    .join(" ").replace(/\s+/g, " ").trim();
+}
+
+/** Título grande + subtítulo para el banner, a partir del copy. Fallback tolerante. */
+async function bannerCampos(caption: string, tipo: string): Promise<{ titulo: string; subtitulo: string }> {
+  const cuerpo = cuerpoCaption(caption);
+  const esDato = tipo === "piezaDato";
+  const instruccion = esDato
+    ? `TÍTULO: la cifra o el dato principal con gancho, usando la CIFRA EXACTA que aparece en el post (NO la redondees ni la cambies), en pocas palabras (ej. "El 73% de las ONGs no mide sus redes"). SUBTÍTULO: una frase corta de contexto (por qué importa), máx ~12 palabras.`
+    : `TÍTULO: el consejo en una frase corta y accionable (máx ~10 palabras). SUBTÍTULO: un matiz o mini-ejemplo muy corto, máx ~12 palabras.`;
+  try {
+    const prompt = `Eres director de arte de carteles para Instagram. Convierte este post en un cartel tipográfico.
+${instruccion}
+REGLAS: español, sin emojis, sin hashtags, sin comillas, sin la marca "o2Wave" ni URLs. El TÍTULO manda: potente y legible de un vistazo.
+
+POST:
+${cuerpo.slice(0, 700)}
+
+Responde SOLO con JSON válido: {"titulo": "...", "subtitulo": "..."}`;
+    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 200, messages: [{ role: "user", content: prompt }] });
+    const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) {
+      const o = JSON.parse(m[0]) as Record<string, unknown>;
+      const titulo = typeof o.titulo === "string" ? o.titulo.trim() : "";
+      const subtitulo = typeof o.subtitulo === "string" ? o.subtitulo.trim() : "";
+      if (titulo) return { titulo, subtitulo };
+    }
+  } catch { /* usa fallback */ }
+  const frase = cuerpo.split(/(?<=[.!?])\s/)[0] || cuerpo;
+  return { titulo: frase.split(/\s+/).slice(0, 10).join(" "), subtitulo: "" };
+}
+
+/** Genera el banner tipográfico (4:5) de una pieza de mensaje. null si falla. */
+async function generarBanner(caption: string, tipo: string): Promise<Buffer | null> {
+  try {
+    const { titulo, subtitulo } = await bannerCampos(caption, tipo);
+    if (!titulo) return null;
+    const variante = Math.random() < 0.5 ? "dark" : "light"; // alterna para variar la parrilla
+    return await bannerMarca({
+      aspectRatio: "4:5", variante,
+      pill: PILL_POR_TIPO[tipo] || "",
+      titulo, subtitulo: subtitulo || null,
+      organizacion: "o2wave.app",
+    });
+  } catch { return null; }
+}
+
 /**
  * Regenera la imagen de una pieza (botón "Regenerar imagen"). Deriva una escena
  * nueva del copy, la genera con el mismo pipeline que C4 (generarImagenIA) y la
  * sube a post-images/autopost. Devuelve la URL pública o un error legible.
  */
-export async function regenerarImagenAutopost(admin: SupabaseClient, cuentaId: string, texto: string): Promise<{ url: string } | { error: string }> {
+export async function regenerarImagenAutopost(admin: SupabaseClient, cuentaId: string, texto: string, tipo?: string): Promise<{ url: string } | { error: string }> {
   try {
-    const escena = await escenaDesdeTexto(texto);
-    const gen = await generarImagenIA(escena, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
-    if (!gen) return { error: "No se pudo generar la imagen (Gemini/Replicate)." };
-    const buffer = await estamparTitular(gen.buffer, texto); // gancho de portada sobre la foto
+    let buffer: Buffer | null = null;
+    if (tipo && TIPOS_BANNER.has(tipo)) buffer = await generarBanner(texto, tipo); // dato/educativa → banner
+    if (!buffer) { // resto de tipos, o fallback si el banner falla
+      const escena = await escenaDesdeTexto(texto);
+      const gen = await generarImagenIA(escena, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
+      if (!gen) return { error: "No se pudo generar la imagen (Gemini/Replicate)." };
+      buffer = await estamparTitular(gen.buffer, texto); // gancho de portada sobre la foto
+    }
     const path = `autopost/${cuentaId}/${Date.now()}-regen.png`;
     const { error } = await admin.storage.from("post-images").upload(path, buffer, { contentType: "image/png", upsert: false });
     if (error) return { error: `No se pudo subir la imagen: ${error.message}` };
@@ -324,12 +389,19 @@ async function crearPieza(
   }
   if (!pieza) return null;
 
-  // Imagen IA (4:5 = 1080×1350, óptimo IG feed + FB cross-post). Tolerante: si falla, la pieza va sin imagen.
+  // Imagen 4:5 (1080×1350, óptimo IG feed + FB cross-post). Tolerante: si falla, la pieza va sin imagen.
+  // Dato/educativa → banner tipográfico (sin foto IA). Resto → foto IA + titular estampado.
   let imagenUrl: string | null = null;
   try {
-    const gen = await generarImagenIA(pieza.img, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
-    if (gen) {
-      const buffer = await estamparTitular(gen.buffer, pieza.texto); // gancho de portada sobre la foto
+    let buffer: Buffer | null = null;
+    if (TIPOS_BANNER.has(entry.tipo)) {
+      buffer = await generarBanner(pieza.texto, entry.tipo);
+    }
+    if (!buffer) { // resto de tipos, o fallback si el banner falla
+      const gen = await generarImagenIA(pieza.img, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
+      if (gen) buffer = await estamparTitular(gen.buffer, pieza.texto); // gancho de portada sobre la foto
+    }
+    if (buffer) {
       const path = `autopost/${cuentaId}/${Date.now()}-${opts.sufijo ?? "0"}.png`;
       const { error: upErr } = await admin.storage.from("post-images").upload(path, buffer, { contentType: "image/png", upsert: false });
       if (!upErr) imagenUrl = admin.storage.from("post-images").getPublicUrl(path).data.publicUrl;

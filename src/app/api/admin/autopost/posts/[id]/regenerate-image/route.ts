@@ -12,13 +12,13 @@ export async function POST(_request: Request, { params }: { params: { id: string
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { data: post } = await auth.admin
-    .from("autopost_posts").select("id, cuenta_id, estado, texto").eq("id", params.id).maybeSingle();
+    .from("autopost_posts").select("id, cuenta_id, estado, texto, tipo").eq("id", params.id).maybeSingle();
   if (!post) return NextResponse.json({ error: "Pieza no encontrada" }, { status: 404 });
   if (post.estado !== "pending_review") {
     return NextResponse.json({ error: `Solo se puede regenerar una pieza pendiente (estado: ${post.estado}).` }, { status: 409 });
   }
 
-  const r = await regenerarImagenAutopost(auth.admin, post.cuenta_id, post.texto);
+  const r = await regenerarImagenAutopost(auth.admin, post.cuenta_id, post.texto, post.tipo ?? undefined);
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: 502 });
 
   const { error } = await auth.admin.from("autopost_posts")
