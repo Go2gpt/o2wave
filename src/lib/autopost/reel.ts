@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
 import { iniciarVideo, iniciarMusica, resultadoPrediccion, descargarUrl } from "@/lib/videoGen";
@@ -45,8 +46,15 @@ export interface ReelJob { keyframe_url: string; video_id: string; music_id: str
 export async function iniciarReel(admin: SupabaseClient, cuentaId: string): Promise<ReelJob | { error: string }> {
   const img = await generarImagenIA(ESCENA_KEYFRAME, "9:16");
   if (!img) return { error: "No se pudo generar el fotograma base (Gemini/Replicate)." };
-  const kfPath = `reels/${cuentaId}/${Date.now()}-keyframe.png`;
-  const upKf = await admin.storage.from("post-images").upload(kfPath, img.buffer, { contentType: "image/png", upsert: false });
+  // Normaliza a JPEG 720×1280 sin alfa: es el formato/tamaño que el modelo de vídeo
+  // procesa de forma fiable. El PNG grande de Gemini hacía que Replicate devolviera
+  // un vídeo VACÍO (probado: wan funciona con 720×1280 JPEG, no con el keyframe crudo).
+  let kfBuffer: Buffer;
+  try {
+    kfBuffer = await sharp(img.buffer).resize(720, 1280, { fit: "cover" }).flatten({ background: "#000000" }).jpeg({ quality: 88 }).toBuffer();
+  } catch { kfBuffer = img.buffer; }
+  const kfPath = `reels/${cuentaId}/${Date.now()}-keyframe.jpg`;
+  const upKf = await admin.storage.from("post-images").upload(kfPath, kfBuffer, { contentType: "image/jpeg", upsert: false });
   if (upKf.error) return { error: `No se pudo subir el fotograma: ${upKf.error.message}` };
   const keyframe_url = admin.storage.from("post-images").getPublicUrl(kfPath).data.publicUrl;
 
