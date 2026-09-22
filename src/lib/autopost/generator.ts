@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
+import { composeImage } from "@/lib/composeImage";
 import { proximaPublicacion } from "@/lib/autopost/schedule";
 import { construirPieza, featuresCandidatas, validarCopy, type Pieza } from "@/lib/autopost/tipos";
 import { reservarSiguiente, type EstadoCiclo } from "@/lib/autopost/rotacion";
@@ -150,6 +151,56 @@ Return ONLY the scene description, one paragraph.`;
 }
 
 /**
+ * Gancho de portada (≤6 palabras) para ESTAMPAR sobre la imagen del autopost.
+ * Antes las fotos salían sin una sola palabra → 0 "stopping power" en la parrilla.
+ * Ignora CTA / URL / hashtags / línea de fuente del caption. Fallback: primeras
+ * palabras del cuerpo. Devuelve "" si no hay nada usable (compose deja la foto tal cual).
+ */
+export async function generarTitular(caption: string): Promise<string> {
+  const cuerpo = (caption || "")
+    .split("\n")
+    .filter((l) => !/o2wave\.app|https?:\/\/|^\s*#|^\s*\(fuente|^\s*─/i.test(l))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const recortar = (s: string) =>
+    s.replace(/[*_`~]/g, "").replace(/^["'«»¡¿]+|["'«».!?…]+$/g, "").trim().split(/\s+/).slice(0, 7).join(" ").trim();
+  try {
+    const prompt = `Eres director creativo de portadas para Instagram. De este post, escribe UN gancho de portada en español que haga parar el scroll.
+REGLAS: MÁXIMO 6 palabras. Potente y concreto (una pregunta directa o una afirmación con fuerza). SIN hashtags, SIN emojis, SIN comillas, SIN punto final, SIN la marca "o2Wave" ni URLs. Mayúscula inicial. Que se entienda solo, sin leer el resto del post.
+
+POST:
+${cuerpo.slice(0, 700)}
+
+Devuelve SOLO el gancho, nada más.`;
+    const res = await anthropic.messages.create({ model: MODEL, max_tokens: 40, messages: [{ role: "user", content: prompt }] });
+    const raw = res.content[0]?.type === "text" ? res.content[0].text : "";
+    const hook = recortar(raw);
+    if (hook.split(/\s+/).length >= 2) return hook;
+  } catch { /* usa fallback */ }
+  return recortar(cuerpo);
+}
+
+/**
+ * Estampa el gancho de portada sobre la imagen 4:5 del autopost (motor composeImage,
+ * el mismo que el pack/crear-contenido). Tolerante: si algo falla, devuelve la
+ * imagen original sin titular (nunca rompe la generación de la pieza).
+ */
+async function estamparTitular(imageBuffer: Buffer, caption: string): Promise<Buffer> {
+  try {
+    const titular = await generarTitular(caption);
+    if (!titular) return imageBuffer;
+    return await composeImage({
+      imageBuffer, headline: titular,
+      positionX: 50, positionY: 80, fontSize: 92,
+      aspectRatio: "4:5", textAlign: "center", watermark: true,
+    });
+  } catch {
+    return imageBuffer;
+  }
+}
+
+/**
  * Regenera la imagen de una pieza (botón "Regenerar imagen"). Deriva una escena
  * nueva del copy, la genera con el mismo pipeline que C4 (generarImagenIA) y la
  * sube a post-images/autopost. Devuelve la URL pública o un error legible.
@@ -159,8 +210,9 @@ export async function regenerarImagenAutopost(admin: SupabaseClient, cuentaId: s
     const escena = await escenaDesdeTexto(texto);
     const gen = await generarImagenIA(escena, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
     if (!gen) return { error: "No se pudo generar la imagen (Gemini/Replicate)." };
+    const buffer = await estamparTitular(gen.buffer, texto); // gancho de portada sobre la foto
     const path = `autopost/${cuentaId}/${Date.now()}-regen.png`;
-    const { error } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
+    const { error } = await admin.storage.from("post-images").upload(path, buffer, { contentType: "image/png", upsert: false });
     if (error) return { error: `No se pudo subir la imagen: ${error.message}` };
     return { url: admin.storage.from("post-images").getPublicUrl(path).data.publicUrl };
   } catch (e) {
@@ -277,8 +329,9 @@ async function crearPieza(
   try {
     const gen = await generarImagenIA(pieza.img, "4:5"); // 1080×1350: óptimo IG feed + FB cross-post (Sebas 04-ago)
     if (gen) {
+      const buffer = await estamparTitular(gen.buffer, pieza.texto); // gancho de portada sobre la foto
       const path = `autopost/${cuentaId}/${Date.now()}-${opts.sufijo ?? "0"}.png`;
-      const { error: upErr } = await admin.storage.from("post-images").upload(path, gen.buffer, { contentType: "image/png", upsert: false });
+      const { error: upErr } = await admin.storage.from("post-images").upload(path, buffer, { contentType: "image/png", upsert: false });
       if (!upErr) imagenUrl = admin.storage.from("post-images").getPublicUrl(path).data.publicUrl;
     }
   } catch { /* pieza sin imagen */ }
