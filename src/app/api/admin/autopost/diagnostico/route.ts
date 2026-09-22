@@ -52,26 +52,26 @@ export async function GET() {
     } catch (e) { ffmpeg.error = e instanceof Error ? e.message : String(e); }
   }
 
-  // ---- 2) token de Meta ----
-  const { data: cuenta } = await auth.admin
-    .from("autopost_cuentas").select("etiqueta, fb_page_id, ig_user_id, token_cifrado")
-    .eq("perfil_publicacion", "producto").maybeSingle();
-  const meta: Record<string, unknown> = { cuenta: cuenta?.etiqueta, fb_page_id: cuenta?.fb_page_id, ig_user_id: cuenta?.ig_user_id };
-  if (cuenta) {
+  // ---- 2) token de Meta (TODAS las cuentas conectadas) ----
+  const { data: cuentas } = await auth.admin
+    .from("autopost_cuentas").select("etiqueta, fb_page_id, ig_user_id, token_cifrado");
+  const appToken = `${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`;
+  const meta: Record<string, unknown>[] = [];
+  for (const cuenta of cuentas || []) {
+    const m: Record<string, unknown> = { cuenta: cuenta.etiqueta, fb_page_id: cuenta.fb_page_id, ig_user_id: cuenta.ig_user_id };
     try {
       const token = descifrarToken(cuenta.token_cifrado);
-      const appToken = `${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`;
       const res = await fetch(`${META_GRAPH}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(appToken)}`, { cache: "no-store" });
       const j = await res.json();
       const d = (j.data || {}) as { type?: string; scopes?: string[]; is_valid?: boolean; profile_id?: string; error?: unknown };
-      meta.token_type = d.type;            // USER | PAGE
-      meta.token_valido = d.is_valid;
-      meta.profile_id = d.profile_id;
-      meta.scopes = d.scopes || [];
-      meta.tiene_permiso_video = (d.scopes || []).some((s) => PERMS_VIDEO.includes(s));
-      meta.permisos_video_presentes = (d.scopes || []).filter((s) => PERMS_VIDEO.includes(s));
-      if (d.error) meta.debug_error = d.error;
-    } catch (e) { meta.error = e instanceof Error ? e.message : String(e); }
+      m.token_type = d.type;            // USER | PAGE
+      m.token_valido = d.is_valid;
+      m.scopes = d.scopes || [];
+      m.tiene_permiso_video = (d.scopes || []).some((s) => PERMS_VIDEO.includes(s));
+      m.permisos_video_presentes = (d.scopes || []).filter((s) => PERMS_VIDEO.includes(s));
+      if (d.error) m.debug_error = d.error;
+    } catch (e) { m.error = e instanceof Error ? e.message : String(e); }
+    meta.push(m);
   }
 
   return NextResponse.json({ ffmpeg, meta }, { status: 200 });
