@@ -81,6 +81,8 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
   const [novOpen, setNovOpen] = useState(false);
   const [novFeature, setNovFeature] = useState(FEATURES[0]?.id || "");
   const [novBusy, setNovBusy] = useState(false);
+  const [reelBusy, setReelBusy] = useState(false);
+  const [reelUrl, setReelUrl] = useState<string | null>(null);
   const sem = semaforo(c.token_expira_at);
   const esOng = perfil === "ong_general";
 
@@ -105,6 +107,20 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
       if (res.ok && data.pieza_id) { notify("Pieza generada. Revísala en «Pendientes de revisión».", "success"); onChanged(); }
       else notify(data.error || "No se pudo generar la pieza", "error");
     } catch { notify("Error de red", "error"); } finally { setGenerando(false); }
+  };
+
+  // Prototipo Reel: genera un vídeo de prueba (no publica) para validar calidad.
+  const generarReel = async () => {
+    setReelBusy(true); setReelUrl(null);
+    try {
+      const res = await fetch("/api/admin/autopost/reel-prueba", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cuenta_id: c.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.video_url) { setReelUrl(data.video_url); notify("Reel de prueba generado.", "success"); }
+      else notify(data.error || "No se pudo generar el Reel", "error");
+    } catch { notify("Error de red", "error"); } finally { setReelBusy(false); }
   };
 
   const guardar = async () => {
@@ -147,9 +163,26 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
               {generando ? "Generando…" : "Generar pack ahora"}
             </button>
           )}
+          {perfil === "producto" && (
+            <button onClick={generarReel} disabled={reelBusy} className={`${btn} border border-white/15 text-white/90`}>
+              {reelBusy ? "Generando Reel… (1-2 min)" : "🎬 Generar Reel de prueba"}
+            </button>
+          )}
           <button onClick={desconectar} className={`${btn} border border-white/15 text-red-300`}>Desconectar</button>
         </div>
       </div>
+
+      {/* Prototipo Reel: previsualización del vídeo generado (aún NO se publica). */}
+      {reelUrl && (
+        <div className="mb-3 flex items-start gap-3">
+          <video src={reelUrl} controls playsInline className="w-[160px] rounded-lg bg-black flex-shrink-0" />
+          <div className="text-xs text-white/60 leading-relaxed">
+            <p className="font-semibold text-white/80">Reel de prueba 🎬</p>
+            <p>Revisa la calidad. Aún no se publica.</p>
+            <a href={reelUrl} target="_blank" rel="noopener" className="underline text-white/50">Abrir a tamaño real</a>
+          </div>
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-2 gap-3">
         <label className="flex items-center justify-between gap-2 text-sm">
