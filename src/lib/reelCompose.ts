@@ -53,9 +53,9 @@ export async function componerReel(
 
     const args = ["-y", "-i", vIn, "-i", oIn];
     if (hasAudio) args.push("-i", aIn);
-    // Escala el overlay al tamaño del vídeo (scale2ref), lo superpone y fuerza
-    // dimensiones PARES (yuv420p las exige; evita vídeos que no reproducen).
-    args.push("-filter_complex", "[1:v][0:v]scale2ref[ov][base];[base][ov]overlay=0:0:format=auto,scale=trunc(iw/2)*2:trunc(ih/2)*2[v]", "-map", "[v]");
+    // Filtro DETERMINISTA (sin scale2ref, que falla en algunos builds de ffmpeg):
+    // escala el vídeo para cubrir 720x1280, escala el overlay a 720x1280 y superpone.
+    args.push("-filter_complex", "[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1[bg];[1:v]scale=720:1280[ov];[bg][ov]overlay=0:0[v]", "-map", "[v]");
     if (hasAudio) {
       // Música: la corta a la duración del vídeo (-shortest) con fade-out al final.
       args.push("-map", "2:a", "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-af", "afade=t=out:st=4:d=1", "-shortest");
