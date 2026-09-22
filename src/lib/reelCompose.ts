@@ -53,13 +53,18 @@ export async function componerReel(
 
     const args = ["-y", "-i", vIn, "-i", oIn];
     if (hasAudio) args.push("-i", aIn);
-    // Escala el overlay al tamaño exacto del vídeo (scale2ref) y lo superpone.
-    args.push("-filter_complex", "[1:v][0:v]scale2ref[ov][base];[base][ov]overlay=0:0:format=auto[v]", "-map", "[v]");
+    // Escala el overlay al tamaño del vídeo (scale2ref), lo superpone y fuerza
+    // dimensiones PARES (yuv420p las exige; evita vídeos que no reproducen).
+    args.push("-filter_complex", "[1:v][0:v]scale2ref[ov][base];[base][ov]overlay=0:0:format=auto,scale=trunc(iw/2)*2:trunc(ih/2)*2[v]", "-map", "[v]");
     if (hasAudio) {
       // Música: la corta a la duración del vídeo (-shortest) con fade-out al final.
-      args.push("-map", "2:a", "-c:a", "aac", "-b:a", "128k", "-af", "afade=t=out:st=4:d=1", "-shortest");
+      args.push("-map", "2:a", "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-af", "afade=t=out:st=4:d=1", "-shortest");
     }
-    args.push("-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-movflags", "+faststart", out);
+    // Perfil main + faststart + fps fijo: máxima compatibilidad (iOS/Android/navegador).
+    args.push(
+      "-c:v", "libx264", "-preset", "veryfast", "-profile:v", "main", "-level", "4.0",
+      "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart", out,
+    );
 
     let stderrTail = "";
     let spawnErr = "";
