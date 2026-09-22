@@ -71,8 +71,12 @@ export async function finalizarReel(
   if (v.status === "starting" || v.status === "processing") return { estado: "generando" };
   if (v.status !== "succeeded" || !v.url) return { error: `El vídeo falló en Replicate (${v.status})${v.error ? ": " + v.error : ""}` };
 
-  // Vídeo listo → descarga.
+  // Vídeo listo → descarga. Guard: si Replicate devuelve un vídeo vacío, lo reporta
+  // con la URL y el tamaño para diagnosticar (no seguir subiendo MP4 vacíos).
   const videoBuffer = await descargarUrl(v.url);
+  if (videoBuffer.length < 10000) {
+    return { error: `Replicate devolvió un vídeo vacío (${videoBuffer.length} bytes). URL: ${v.url}` };
+  }
 
   // Música: si sigue en curso, espera un poco (acotado); si falla, se sigue sin ella.
   let musicBuf: Buffer | null = null;
