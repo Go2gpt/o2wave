@@ -112,18 +112,35 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
     } catch { notify("Error de red", "error"); } finally { setGenerando(false); }
   };
 
-  // Genera un Reel (vídeo + caption automático). No publica: valida calidad primero.
+  // Genera un Reel en 2 fases (async): arranca y hace polling hasta que está listo.
+  // Así el navegador no espera bloqueado (evita el "tiempo agotado"). No publica.
   const generarReel = async () => {
     setReelBusy(true); setReel(null);
     try {
-      const res = await fetch("/api/admin/autopost/reel-prueba", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cuenta_id: c.id }),
-      });
-      const data = await res.json();
-      if (res.ok && data.video_url) { setReel({ video_url: data.video_url, caption: data.caption || "", aviso: data.aviso }); notify(data.aviso ? "Reel generado (con aviso)." : "Reel generado. Revísalo y publícalo.", data.aviso ? "info" : "success"); }
-      else notify(data.error || "No se pudo generar el Reel", "error");
-    } catch { notify("Error de red", "error"); } finally { setReelBusy(false); }
+      const ini = await fetch("/api/admin/autopost/reel-iniciar", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cuenta_id: c.id }),
+      }).then((r) => r.json());
+      if (!ini.ok || !ini.video_id) { notify(ini.error || "No se pudo iniciar el Reel", "error"); setReelBusy(false); return; }
+
+      const body = { cuenta_id: c.id, video_id: ini.video_id, music_id: ini.music_id, caption: ini.caption };
+      const inicio = Date.now();
+      const poll = async () => {
+        try {
+          const est = await fetch("/api/admin/autopost/reel-estado", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+          }).then((r) => r.json());
+          if (est.ok && est.estado === "listo" && est.video_url) {
+            setReel({ video_url: est.video_url, caption: ini.caption, aviso: est.aviso });
+            notify(est.aviso ? "Reel generado (con aviso)." : "Reel generado. Revísalo y publícalo.", est.aviso ? "info" : "success");
+            setReelBusy(false); return;
+          }
+          if (est.error) { notify(est.error, "error"); setReelBusy(false); return; }
+          if (Date.now() - inicio > 360000) { notify("El vídeo tarda demasiado; reinténtalo en un momento.", "error"); setReelBusy(false); return; }
+          setTimeout(poll, 6000);
+        } catch { setTimeout(poll, 6000); } // error de red puntual → reintenta
+      };
+      setTimeout(poll, 8000);
+    } catch { notify("Error de red", "error"); setReelBusy(false); }
   };
 
   // Diagnóstico: estado real de ffmpeg (Vercel) y del token de Meta.
@@ -194,7 +211,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
           )}
           {perfil === "producto" && (
             <button onClick={generarReel} disabled={reelBusy} className={`${btn} border border-white/15 text-white/90`}>
-              {reelBusy ? "Generando Reel… (1-2 min)" : "🎬 Generar Reel de prueba"}
+              {reelBusy ? "Generando Reel… (no cierres esto)" : "🎬 Generar Reel de prueba"}
             </button>
           )}
           <button onClick={diagnostico} disabled={diagBusy} className={`${btn} border border-white/15 text-white/70`}>{diagBusy ? "Diagnosticando…" : "🔧 Diagnóstico"}</button>

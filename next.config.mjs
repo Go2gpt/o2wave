@@ -16,7 +16,7 @@ const nextConfig = {
     // Empaqueta el binario de ffmpeg (ffmpeg-static) en la función que compone el
     // Reel, si no en Vercel no existe. Solo la ruta que lo usa.
     outputFileTracingIncludes: {
-      "/api/admin/autopost/reel-prueba": ["./node_modules/ffmpeg-static/**"],
+      "/api/admin/autopost/reel-estado": ["./node_modules/ffmpeg-static/**"],
       "/api/admin/autopost/diagnostico": ["./node_modules/ffmpeg-static/**"],
     },
   },

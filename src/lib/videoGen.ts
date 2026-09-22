@@ -1,110 +1,82 @@
 /**
- * Generación de vídeo corto (Reel) animando un fotograma (image-to-video) con
- * Replicate. Modelo wan-video/wan-2.2-i2v-fast: barato/rápido, 9:16 según el
- * keyframe, ~5 s. Mismo patrón que generarImagenReplicate (crear predicción +
- * polling + descarga). Devuelve el MP4 en Buffer o un error legible. Solo servidor.
+ * Generación de vídeo (Reel) y música con Replicate, en modo ASÍNCRONO: se crea
+ * la predicción y se consulta su estado por separado, sin polling bloqueante (así
+ * la función del servidor no se queda colgada minutos y no agota el tiempo).
+ * Solo servidor.
  */
 
-// Modelo por defecto. Se puede subir a "bytedance/seedance-1-lite" (calidad) o
-// "google/veo-3.1" (audio nativo, más caro) cambiando solo esta constante y los inputs.
+// Modelo image-to-video. Se puede subir a seedance/veo cambiando esta constante.
 const MODELO_VIDEO = "wan-video/wan-2.2-i2v-fast";
 
-export async function generarVideoIA(
-  imageUrl: string,
-  prompt: string,
-  deadlineMs = 270000,
-): Promise<{ buffer: Buffer; fuente: string } | { error: string }> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) return { error: "Falta REPLICATE_API_TOKEN." };
-  try {
-    // Endpoint por modelo (usa la versión por defecto, como el FLUX de imagen).
-    const startRes = await fetch(`https://api.replicate.com/v1/models/${MODELO_VIDEO}/predictions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: { image: imageUrl, prompt, resolution: "720p", num_frames: 81 } }),
-    });
-    if (!startRes.ok) return { error: `Replicate create ${startRes.status}: ${(await startRes.text()).slice(0, 300)}` };
-    const id = (await startRes.json()).id as string;
-
-    const deadline = Date.now() + deadlineMs;
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const st = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
-      });
-      if (!st.ok) continue;
-      const d = await st.json();
-      if (d.status === "succeeded") {
-        const out = d.output;
-        const url = Array.isArray(out) ? out[0] : typeof out === "string" ? out : out?.video ?? null;
-        if (!url) return { error: "Replicate no devolvió URL de vídeo." };
-        const vid = await fetch(url);
-        return { buffer: Buffer.from(await vid.arrayBuffer()), fuente: MODELO_VIDEO };
-      }
-      if (d.status === "failed" || d.status === "canceled") {
-        return { error: `Replicate ${d.status}: ${(d.error ?? "").toString().slice(0, 300)}` };
-      }
-    }
-    return { error: "Tiempo agotado generando el vídeo (Replicate)." };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "error de vídeo" };
-  }
+function token(): string | null {
+  return process.env.REPLICATE_API_TOKEN || null;
 }
 
-/**
- * Genera una pista de música ORIGINAL con IA (Replicate meta/musicgen). Original
- * = sin problemas de derechos. Devuelve el audio (mp3) en Buffer o un error.
- */
-export async function generarMusicaIA(
-  segundos = 8,
-  deadlineMs = 120000,
-): Promise<{ buffer: Buffer; fuente: string } | { error: string }> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) return { error: "Falta REPLICATE_API_TOKEN." };
+/** Crea una predicción por endpoint de modelo (versión por defecto). Devuelve el id. */
+async function crearPorModelo(modelPath: string, input: Record<string, unknown>): Promise<{ id: string } | { error: string }> {
+  const t = token();
+  if (!t) return { error: "Falta REPLICATE_API_TOKEN." };
   try {
-    // meta/musicgen no expone el endpoint /models/.../predictions → buscamos su
-    // última versión y creamos la predicción versionada (/v1/predictions).
-    const modelRes = await fetch("https://api.replicate.com/v1/models/meta/musicgen", {
-      headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
-    });
-    if (!modelRes.ok) return { error: `Replicate music model ${modelRes.status}: ${(await modelRes.text()).slice(0, 150)}` };
-    const version = (await modelRes.json())?.latest_version?.id as string | undefined;
-    if (!version) return { error: "MusicGen: no se encontró la versión del modelo." };
-
-    const startRes = await fetch("https://api.replicate.com/v1/predictions", {
+    const r = await fetch(`https://api.replicate.com/v1/models/${modelPath}/predictions`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ input }),
+    });
+    if (!r.ok) return { error: `Replicate create ${r.status}: ${(await r.text()).slice(0, 200)}` };
+    return { id: (await r.json()).id as string };
+  } catch (e) { return { error: e instanceof Error ? e.message : "error" }; }
+}
+
+/** Arranca la generación del vídeo (image-to-video). Devuelve el id de predicción. */
+export async function iniciarVideo(imageUrl: string, prompt: string): Promise<{ id: string } | { error: string }> {
+  return crearPorModelo(MODELO_VIDEO, { image: imageUrl, prompt, resolution: "720p", num_frames: 81 });
+}
+
+/** Arranca la generación de música (meta/musicgen: busca versión + crea predicción). */
+export async function iniciarMusica(segundos = 8): Promise<{ id: string } | { error: string }> {
+  const t = token();
+  if (!t) return { error: "Falta REPLICATE_API_TOKEN." };
+  try {
+    const m = await fetch("https://api.replicate.com/v1/models/meta/musicgen", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" });
+    if (!m.ok) return { error: `Replicate music model ${m.status}` };
+    const version = (await m.json())?.latest_version?.id as string | undefined;
+    if (!version) return { error: "MusicGen: sin versión." };
+    const r = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         version,
         input: {
           prompt: "calm uplifting modern corporate background music, gentle piano and soft light beat, hopeful and clean, instrumental",
-          duration: segundos,
-          output_format: "mp3",
+          duration: segundos, output_format: "mp3",
         },
       }),
     });
-    if (!startRes.ok) return { error: `Replicate music create ${startRes.status}: ${(await startRes.text()).slice(0, 200)}` };
-    const id = (await startRes.json()).id as string;
+    if (!r.ok) return { error: `Replicate music create ${r.status}` };
+    return { id: (await r.json()).id as string };
+  } catch (e) { return { error: e instanceof Error ? e.message : "error música" }; }
+}
 
-    const deadline = Date.now() + deadlineMs;
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const st = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
-      });
-      if (!st.ok) continue;
-      const d = await st.json();
-      if (d.status === "succeeded") {
-        const out = d.output;
-        const url = typeof out === "string" ? out : Array.isArray(out) ? out[0] : out?.audio ?? null;
-        if (!url) return { error: "MusicGen no devolvió audio." };
-        const a = await fetch(url);
-        return { buffer: Buffer.from(await a.arrayBuffer()), fuente: "meta/musicgen" };
-      }
-      if (d.status === "failed" || d.status === "canceled") return { error: `MusicGen ${d.status}` };
+/** Consulta el estado de una predicción. status: starting|processing|succeeded|failed|canceled. */
+export async function resultadoPrediccion(id: string): Promise<{ status: string; url?: string; error?: string }> {
+  const t = token();
+  if (!t) return { status: "failed", error: "Falta REPLICATE_API_TOKEN." };
+  try {
+    const r = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" });
+    if (!r.ok) return { status: "processing" }; // reintenta en la siguiente consulta
+    const d = await r.json();
+    if (d.status === "succeeded") {
+      const o = d.output;
+      const url = typeof o === "string" ? o : Array.isArray(o) ? o[0] : o?.video ?? o?.audio ?? null;
+      return { status: "succeeded", url: url || undefined };
     }
-    return { error: "Tiempo agotado generando la música." };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "error de música" };
-  }
+    if (d.status === "failed" || d.status === "canceled") return { status: d.status, error: (d.error ?? "").toString().slice(0, 200) };
+    return { status: d.status || "processing" };
+  } catch { return { status: "processing" }; }
+}
+
+/** Descarga una URL a Buffer. */
+export async function descargarUrl(url: string): Promise<Buffer> {
+  const r = await fetch(url);
+  return Buffer.from(await r.arrayBuffer());
 }

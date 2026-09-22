@@ -1,15 +1,27 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarImagenIA } from "@/lib/imageGen";
-import { generarVideoIA, generarMusicaIA } from "@/lib/videoGen";
+import { iniciarVideo, iniciarMusica, resultadoPrediccion, descargarUrl } from "@/lib/videoGen";
 import { overlayReelPNG } from "@/lib/composeImage";
 import { componerReel } from "@/lib/reelCompose";
 import { generarTitular } from "@/lib/autopost/generator";
+
+/**
+ * Reel de autopost en dos fases (async, sin polling bloqueante):
+ * - iniciarReel: genera el fotograma on-brand, arranca vídeo (image-to-video) y
+ *   música en Replicate, y devuelve sus IDs + caption. Responde rápido.
+ * - finalizarReel: consulta el estado; cuando el vídeo está listo, superpone el
+ *   texto nítido + la música (ffmpeg) y sube el MP4 final. El cliente hace polling.
+ * Solo servidor.
+ */
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = "claude-sonnet-4-6";
 const HASHTAGS_REEL = ["#o2Wave", "#IAparaRedes", "#ContenidoEnRedes", "#GestionDeRedes", "#Reels"];
 const CTA_REEL = "Pruébalo desde tu navegador — o2wave.app ✨";
+
+const ESCENA_KEYFRAME = `A tidy desk in warm afternoon light, vertical composition: an open laptop with its OUTER LID facing the camera (dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee with soft rising steam, an open notebook and a small plant; a person calmly working, focused but not exhausted, natural window light, neutral-to-positive mood. Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
+const MOTION = `Subtle cinematic motion: slow gentle camera push-in, soft rising steam from the coffee, slight natural ambient movement, calm and smooth. Keep the scene stable and realistic. No text, no letters, no logos.`;
 
 /** Caption automático del Reel (cuerpo IA + CTA + hashtags). Sin copiar/pegar. */
 async function generarCaptionReel(): Promise<string> {
@@ -24,24 +36,13 @@ async function generarCaptionReel(): Promise<string> {
   return fallback;
 }
 
+export interface ReelJob { keyframe_url: string; video_id: string; music_id: string | null; caption: string }
+
 /**
- * Reel de autopost (prototipo): genera un fotograma on-brand 9:16 con el pipeline
- * de imagen actual (Gemini/FLUX) y lo anima a un vídeo corto con image-to-video
- * (Replicate). Sube keyframe + MP4 a post-images/reels y devuelve las URLs. NO
- * publica: es para validar calidad antes de automatizar. Solo servidor.
+ * FASE 1 — arranca la generación. Fotograma on-brand (9:16) → sube → arranca vídeo
+ * y música en Replicate (sin esperar). Devuelve IDs + caption para el polling.
  */
-
-// Escena base del keyframe (vertical, cálida, on-brand: persona trabajando + tapa
-// del portátil de frente). La onda del logo la dibuja el modelo por la spec.
-const ESCENA_KEYFRAME = `A tidy desk in warm afternoon light, vertical composition: an open laptop with its OUTER LID facing the camera (dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee with soft rising steam, an open notebook and a small plant; a person calmly working, focused but not exhausted, natural window light, neutral-to-positive mood. Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
-
-// Movimiento suave para el image-to-video (evita deformaciones bruscas).
-const MOTION = `Subtle cinematic motion: slow gentle camera push-in, soft rising steam from the coffee, slight natural ambient movement, calm and smooth. Keep the scene stable and realistic. No text, no letters, no logos.`;
-
-export async function generarReelPrueba(
-  admin: SupabaseClient, cuentaId: string,
-): Promise<{ video_url: string; keyframe_url: string; caption: string; aviso?: string } | { error: string }> {
-  // 1) Fotograma base on-brand (9:16).
+export async function iniciarReel(admin: SupabaseClient, cuentaId: string): Promise<ReelJob | { error: string }> {
   const img = await generarImagenIA(ESCENA_KEYFRAME, "9:16");
   if (!img) return { error: "No se pudo generar el fotograma base (Gemini/Replicate)." };
   const kfPath = `reels/${cuentaId}/${Date.now()}-keyframe.png`;
@@ -49,41 +50,58 @@ export async function generarReelPrueba(
   if (upKf.error) return { error: `No se pudo subir el fotograma: ${upKf.error.message}` };
   const keyframe_url = admin.storage.from("post-images").getPublicUrl(kfPath).data.publicUrl;
 
-  // 2) En paralelo (independientes): animar el fotograma limpio a vídeo, música IA
-  //    y el caption. Ahorra tiempo de servidor (todo dentro del maxDuration).
-  // Vídeo con más margen (Replicate varía); música con tope corto para que no
-  // alargue el total (es opcional, si no llega se compone sin ella).
-  const [vid, musica, caption] = await Promise.all([
-    generarVideoIA(keyframe_url, MOTION, 255000),
-    generarMusicaIA(8, 80000),
+  const [vid, mus, caption] = await Promise.all([
+    iniciarVideo(keyframe_url, MOTION),
+    iniciarMusica(8),
     generarCaptionReel(),
   ]);
-  if ("error" in vid) return { error: vid.error };
+  if ("error" in vid) return { error: `No se pudo arrancar el vídeo: ${vid.error}` };
+  return { keyframe_url, video_id: vid.id, music_id: "id" in mus ? mus.id : null, caption };
+}
 
-  // 3) Gancho de portada (texto en pantalla) derivado del caption.
-  const hook = await generarTitular(caption);
+/**
+ * FASE 2 — el cliente consulta hasta que el vídeo esté listo. Mientras se genera,
+ * devuelve {estado:"generando"}. Cuando el vídeo está listo, compone (texto+música)
+ * y sube el MP4 final → {estado:"listo", video_url}. Errores → {error}.
+ */
+export async function finalizarReel(
+  admin: SupabaseClient, cuentaId: string, job: { video_id: string; music_id: string | null; caption: string },
+): Promise<{ estado: "generando" } | { estado: "listo"; video_url: string; aviso?: string } | { error: string }> {
+  const v = await resultadoPrediccion(job.video_id);
+  if (v.status === "starting" || v.status === "processing") return { estado: "generando" };
+  if (v.status !== "succeeded" || !v.url) return { error: `El vídeo falló en Replicate (${v.status})${v.error ? ": " + v.error : ""}` };
 
-  // 4) Componer: overlay de texto NÍTIDO + música IA sobre el vídeo (ffmpeg).
-  //    Tolerante: si falla la composición o la música, sube el vídeo tal cual y avisa.
-  let finalBuffer = vid.buffer;
+  // Vídeo listo → descarga.
+  const videoBuffer = await descargarUrl(v.url);
+
+  // Música: si sigue en curso, espera un poco (acotado); si falla, se sigue sin ella.
+  let musicBuf: Buffer | null = null;
   let aviso: string | undefined;
-  try {
-    const overlay = await overlayReelPNG({ headline: hook, cta: "Pruébalo en o2wave.app" });
-    const musicBuf = "buffer" in musica ? musica.buffer : null;
-    if (!("buffer" in musica)) aviso = `música falló (${musica.error})`;
-    const comp = await componerReel(vid.buffer, overlay, musicBuf);
-    if ("buffer" in comp) finalBuffer = comp.buffer;
-    else { aviso = `vídeo SIN texto/música — ${comp.error}`; console.warn("reel compose:", comp.error); }
-  } catch (e) {
-    aviso = `vídeo SIN texto/música — ${e instanceof Error ? e.message : e}`;
-    console.warn("reel compose exception:", aviso);
+  if (job.music_id) {
+    for (let i = 0; i < 10; i++) { // ~30s máx esperando la música
+      const m = await resultadoPrediccion(job.music_id);
+      if (m.status === "succeeded" && m.url) { try { musicBuf = await descargarUrl(m.url); } catch { /* sin música */ } break; }
+      if (m.status === "failed" || m.status === "canceled") { aviso = "sin música (falló la generación)"; break; }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    if (!musicBuf && !aviso) aviso = "sin música (tardó demasiado)";
   }
 
-  // 5) Subir el Reel final.
+  // Compone texto nítido + música sobre el vídeo. Si falla, sube el vídeo en crudo.
+  let finalBuffer = videoBuffer;
+  try {
+    const hook = await generarTitular(job.caption);
+    const overlay = await overlayReelPNG({ headline: hook, cta: "Pruébalo en o2wave.app" });
+    const comp = await componerReel(videoBuffer, overlay, musicBuf);
+    if ("buffer" in comp) finalBuffer = comp.buffer;
+    else aviso = `vídeo SIN texto/música — ${comp.error}`;
+  } catch (e) {
+    aviso = `vídeo SIN texto/música — ${e instanceof Error ? e.message : e}`;
+  }
+
   const vPath = `reels/${cuentaId}/${Date.now()}-reel.mp4`;
   const upV = await admin.storage.from("post-images").upload(vPath, finalBuffer, { contentType: "video/mp4", upsert: false });
   if (upV.error) return { error: `No se pudo subir el vídeo: ${upV.error.message}` };
   const video_url = admin.storage.from("post-images").getPublicUrl(vPath).data.publicUrl;
-
-  return { video_url, keyframe_url, caption, aviso };
+  return { estado: "listo", video_url, aviso };
 }
