@@ -420,8 +420,13 @@ export default function ProfileForm({
         <BackLink href="/dashboard">Inicio</BackLink>
         <Logo size="sm" />
       </div>
-      <div className="px-5 pb-4">
+      <div className="px-5 pb-4 flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-gray-900">Mi perfil</h1>
+        <button onClick={logout}
+          className="px-3 py-1.5 rounded-xl border-2 text-xs font-semibold transition-all active:scale-95 flex-shrink-0"
+          style={{ borderColor: "#e5e7eb", color: "#374151" }}>
+          Cerrar sesión
+        </button>
       </div>
 
       <div className="px-5 space-y-6">
@@ -724,13 +729,8 @@ export default function ProfileForm({
           <InstallButton />
         </section>
 
-        {/* Sección 5 — Zona de peligro */}
+        {/* Sección 5 — Zona de peligro (Cerrar sesión se movió arriba, junto al título) */}
         <section className="space-y-2">
-          <button onClick={logout}
-            className="w-full py-3.5 rounded-2xl border-2 text-sm font-semibold transition-all"
-            style={{ borderColor: "#e5e7eb", color: "#374151" }}>
-            Cerrar sesión
-          </button>
           <button onClick={() => setDeleteStep(1)} className="w-full py-3 text-sm font-medium text-red-500">
             Eliminar cuenta
           </button>
