@@ -5,6 +5,25 @@ import path from "path";
 import ffmpegPath from "ffmpeg-static";
 
 /**
+ * Resuelve la ruta real del binario ffmpeg. En Vercel, `ffmpeg-static` calcula la
+ * ruta junto al módulo empaquetado (que no existe), así que probamos también el
+ * node_modules copiado por outputFileTracingIncludes.
+ */
+function resolverFfmpeg(): string | null {
+  const cwd = process.cwd();
+  const cands = [
+    ffmpegPath as string | null,
+    path.join(cwd, "node_modules", "ffmpeg-static", "ffmpeg"),
+    "/var/task/node_modules/ffmpeg-static/ffmpeg",
+    path.join(cwd, ".next", "server", "node_modules", "ffmpeg-static", "ffmpeg"),
+  ].filter(Boolean) as string[];
+  for (const c of cands) {
+    try { if (existsSync(c)) return c; } catch { /* siguiente */ }
+  }
+  return null;
+}
+
+/**
  * Compone el Reel final con ffmpeg: superpone el overlay de texto (PNG con alfa,
  * escalado al tamaño del vídeo) sobre el vídeo base y le añade la música (con
  * fade-out). El texto va NÍTIDO por encima (no deformado por el modelo de vídeo).
@@ -15,11 +34,12 @@ export async function componerReel(
   overlayPng: Buffer,
   musicBuffer: Buffer | null,
 ): Promise<{ buffer: Buffer } | { error: string }> {
-  if (!ffmpegPath || !existsSync(ffmpegPath)) {
-    return { error: `ffmpeg no encontrado en el servidor (bin: ${ffmpegPath || "null"}).` };
+  const bin = resolverFfmpeg();
+  if (!bin) {
+    return { error: `ffmpeg no encontrado en el servidor (probé: require=${ffmpegPath || "null"}, cwd=${process.cwd()}).` };
   }
   // En serverless (Vercel) el binario a veces pierde el bit de ejecución al empaquetarse.
-  try { chmodSync(ffmpegPath, 0o755); } catch { /* no crítico */ }
+  try { chmodSync(bin, 0o755); } catch { /* no crítico */ }
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "reel-"));
   const vIn = path.join(dir, "in.mp4");
   const oIn = path.join(dir, "ov.png");
@@ -44,7 +64,7 @@ export async function componerReel(
     let stderrTail = "";
     let spawnErr = "";
     const code = await new Promise<number>((resolve) => {
-      const p = spawn(ffmpegPath as string, args);
+      const p = spawn(bin, args);
       let err = "";
       p.stderr.on("data", (d) => { err += d.toString(); });
       p.on("error", (e) => { spawnErr = e instanceof Error ? e.message : String(e); resolve(1); });

@@ -29,6 +29,9 @@ export function buildAuthorizeUrl(state: string, redirectUri: string): string {
     state,
     response_type: "code",
     scope: META_SCOPES.join(","),
+    // Fuerza a Meta a RE-preguntar permisos ya concedidos/denegados: así al
+    // reconectar una cuenta antigua se otorgan los scopes de vídeo (pages_read_engagement…).
+    auth_type: "rerequest",
   });
   return `${META_OAUTH_DIALOG}?${p.toString()}`;
 }
