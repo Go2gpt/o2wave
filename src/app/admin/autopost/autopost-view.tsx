@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import Toast, { type ToastState } from "@/components/Toast";
+import { sonarPublicado } from "@/lib/sonido";
 import featuresData from "@/lib/autopost/data/features-piezanovedad.json";
 
 type Notify = (message: string, type: NonNullable<ToastState>["type"]) => void;
@@ -166,7 +167,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
         body: JSON.stringify({ cuenta_id: c.id, video_url: reel.video_url, caption: reel.caption }),
       });
       const data = await res.json();
-      if (res.ok && data.ok) { notify(`Reel publicado ✓${data.detalle ? " — " + data.detalle : ""}`, "success"); setReel(null); }
+      if (res.ok && data.ok) { sonarPublicado(); notify(`Reel publicado ✓${data.detalle ? " — " + data.detalle : ""}`, "success"); setReel(null); }
       else notify(data.error || "No se pudo publicar el Reel", "error");
     } catch { notify("Error de red", "error"); } finally { setReelPub(false); }
   };

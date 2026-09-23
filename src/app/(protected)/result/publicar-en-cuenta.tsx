@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { sonarPublicado } from "@/lib/sonido";
 
 interface CuentaOpt {
   id: string;
@@ -48,6 +49,7 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error");
       setRes({ tipo: "ok", msg: "¡Publicado!", url: d.url });
+      sonarPublicado(); // sonido "✓ publicado" + vibración (identidad sonora)
     } catch (e) {
       setRes({ tipo: "error", msg: e instanceof Error ? e.message : "Error al publicar" });
     } finally {
@@ -86,10 +88,13 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
         )}
         {res && (
           <div className="mt-2 text-sm font-medium" style={{ color: res.tipo === "ok" ? "#3f6212" : "#b91c1c" }}>
-            {res.tipo === "ok" ? "✓ ¡Publicado!" : `⚠️ ${res.msg}`}
+            {res.tipo === "ok"
+              ? <><span style={{ display: "inline-block", animation: "o2pop .45s cubic-bezier(.2,1.4,.4,1)" }}>✓</span> ¡Publicado!</>
+              : `⚠️ ${res.msg}`}
             {res.url && <> · <a href={res.url} target="_blank" rel="noopener" className="underline">ver publicación</a></>}
           </div>
         )}
+        <style>{`@keyframes o2pop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.3)}100%{transform:scale(1);opacity:1}}`}</style>
       </div>
     </div>
   );
