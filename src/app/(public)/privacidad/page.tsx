@@ -37,6 +37,25 @@ export default function PrivacidadPage() {
         <li><strong>Datos técnicos</strong>: dirección IP, identificador de sesión, tipo de navegador y sistema operativo, fecha y hora de acceso.</li>
         <li><strong>Datos de uso</strong>: páginas visitadas dentro del Servicio, acciones realizadas, número de generaciones consumidas.</li>
       </ul>
+      <h3>2.3. Datos de conexión con redes sociales (Meta: Instagram y Facebook)</h3>
+      <p>
+        Si decides conectar tus cuentas de <strong>Instagram</strong> y/o <strong>Facebook</strong> para publicar
+        directamente desde o2Wave, y <strong>únicamente si lo autorizas expresamente</strong> mediante el inicio
+        de sesión de Facebook, tratamos los siguientes datos obtenidos a través de la API de Meta:
+      </p>
+      <ul>
+        <li><strong>Identificadores y nombres</strong> de las Páginas de Facebook y cuentas de Instagram Business/Creator que elijas conectar.</li>
+        <li><strong>Tokens de acceso</strong> que nos permiten publicar en tu nombre. Se almacenan <strong>cifrados</strong> (AES-256) en nuestros servidores y no se comparten con terceros.</li>
+        <li><strong>El contenido que tú decides publicar</strong> (texto e imágenes) a través del Servicio.</li>
+      </ul>
+      <p>
+        Usamos estos datos <strong>exclusivamente</strong> para publicar en las cuentas que tú has conectado,
+        cuando tú lo solicitas. <strong>No</strong> leemos tus mensajes privados, <strong>no</strong> accedemos a
+        tu lista de contactos ni seguidores con fines comerciales, y <strong>no</strong> vendemos ni cedemos esta
+        información. Puedes desconectar tus cuentas en cualquier momento desde <strong>Perfil → Cuentas
+        conectadas</strong>, o revocando el acceso desde la configuración de Facebook. Consulta el detalle en{" "}
+        <Link href="/eliminar-datos">Cómo eliminar tus datos</Link>.
+      </p>
 
       <h2>3. Finalidades del tratamiento</h2>
       <p>Tratamos tus datos para las siguientes finalidades:</p>
