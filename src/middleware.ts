@@ -1,9 +1,9 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/reset-password", "/auth", "/onboarding", "/privacidad", "/terminos", "/cookies", "/plans", "/suspendida"];
+const PUBLIC_ROUTES = ["/welcome", "/login", "/register", "/reset-password", "/auth", "/onboarding", "/privacidad", "/terminos", "/cookies", "/eliminar-datos", "/plans", "/suspendida"];
 const AUTH_ROUTES = ["/login", "/register", "/welcome"];
-const LEGAL_ROUTES = ["/privacidad", "/terminos", "/cookies"];
+const LEGAL_ROUTES = ["/privacidad", "/terminos", "/cookies", "/eliminar-datos"];
 
 export async function middleware(request: NextRequest) {
   // Alias en español: /crear → /create (308, conserva método).
