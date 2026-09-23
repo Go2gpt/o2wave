@@ -116,7 +116,23 @@ export default function CuentasSociales({ cuentas, habilitado = true }: { cuenta
           ))}
         </div>
 
-        <div className="mt-4 rounded-xl px-3 py-2.5 flex items-start gap-2" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
+        <details className="mt-4 rounded-xl overflow-hidden" style={{ border: "1px solid #f9d9a8" }}>
+          <summary className="px-3 py-2.5 text-sm font-bold cursor-pointer list-none flex items-center justify-between" style={{ backgroundColor: "#fff8ef", color: "#b9791a" }}>
+            <span>📋 ¿Cómo preparar tu cuenta? (necesario 1 sola vez)</span>
+            <span className="text-xs">▾</span>
+          </summary>
+          <div className="px-3 py-3 text-xs leading-relaxed text-gray-600 space-y-2" style={{ backgroundColor: "#fffdf9" }}>
+            <p>Para publicar directamente, tu Instagram debe ser <strong>Business o Creator</strong> y estar <strong>vinculado a una Página de Facebook</strong> (es gratis y se hace una vez):</p>
+            <ol className="list-decimal pl-4 space-y-1">
+              <li>En <strong>Instagram</strong> → Ajustes → Cuenta → <strong>“Cambiar a cuenta profesional”</strong> → elige <strong>Business</strong> o <strong>Creator</strong>.</li>
+              <li>Durante ese proceso, Instagram te pedirá <strong>vincular una Página de Facebook</strong>. Conéctala (o créala en el momento, es gratis).</li>
+              <li>Vuelve aquí y pulsa <strong>“Conectar una cuenta”</strong>. Se abrirá Facebook para autorizar y ¡listo!</li>
+            </ol>
+            <p className="text-gray-400">Si tu cuenta ya es Business y tiene Página vinculada, salta directo a “Conectar”.</p>
+          </div>
+        </details>
+
+        <div className="mt-3 rounded-xl px-3 py-2.5 flex items-start gap-2" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
           <span className="text-base leading-none">💻</span>
           <p className="text-xs leading-relaxed" style={{ color: "#1e40af" }}>
             <strong>Conecta desde un ordenador.</strong> El proceso de permisos de Meta es bastante más sencillo en el navegador de un ordenador que en el móvil. Una vez conectada, podrás publicar desde el teléfono sin problema.
