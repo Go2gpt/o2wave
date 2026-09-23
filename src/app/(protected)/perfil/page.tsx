@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import ProfileForm, { type ProfileData } from "./profile-form";
 import CuentasSociales, { type CuentaSocial } from "./cuentas-sociales";
-import { publicacionDirectaAbiertaGlobal } from "@/lib/flags";
+import { publicacionDirectaHabilitada } from "@/lib/flags";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,9 @@ export default async function PerfilPage() {
     .eq("user_id", user.id).eq("activo", true)
     .order("es_predeterminada", { ascending: false }).order("created_at", { ascending: true });
 
+  // ¿Mostrar la publicación directa? (abierta a todos, admin, o cuenta de review).
+  const publicacionDirectaOn = await publicacionDirectaHabilitada(supabase, user.id);
+
   return (
     <>
       <ProfileForm
@@ -36,7 +39,7 @@ export default async function PerfilPage() {
       <Suspense fallback={null}>
         <CuentasSociales
           cuentas={(cuentasRows || []) as CuentaSocial[]}
-          habilitado={publicacionDirectaAbiertaGlobal() || !!data.es_admin}
+          habilitado={publicacionDirectaOn}
         />
       </Suspense>
     </>
