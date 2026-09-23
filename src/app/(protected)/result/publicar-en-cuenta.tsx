@@ -18,6 +18,7 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
   redSocial: string; texto: string; imagenUrl: string | null;
 }) {
   const soportado = redSocial === "Instagram" || redSocial === "Facebook";
+  const [habilitado, setHabilitado] = useState<boolean | null>(null);
   const [cuentas, setCuentas] = useState<CuentaOpt[] | null>(null);
   const [sel, setSel] = useState("");
   const [pub, setPub] = useState(false);
@@ -28,15 +29,18 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
     fetch("/api/social/cuentas")
       .then((r) => r.json())
       .then((d) => {
+        setHabilitado(d.habilitado !== false);
         const cs: CuentaOpt[] = d.cuentas || [];
         setCuentas(cs);
         const def = cs.find((c) => c.es_predeterminada) || cs[0];
         if (def) setSel(def.id);
       })
-      .catch(() => setCuentas([]));
+      .catch(() => { setHabilitado(false); setCuentas([]); });
   }, [soportado]);
 
   if (!soportado) return null;
+  // Función no abierta para este usuario (App Review pendiente) → no mostrar nada.
+  if (habilitado === null || habilitado === false) return null;
 
   const publicar = async () => {
     if (!sel) return;

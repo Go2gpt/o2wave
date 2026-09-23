@@ -17,9 +17,10 @@ const ERRORES: Record<string, string> = {
   state: "La sesión de conexión caducó. Inténtalo de nuevo.",
   sin_paginas: "No encontramos ninguna Página de Facebook con una cuenta de Instagram Business vinculada. Recuerda: la cuenta de Instagram debe ser Business/Creator y estar vinculada a una Página de Facebook.",
   intercambio: "Hubo un problema al conectar con Meta. Inténtalo de nuevo.",
+  nodisponible: "Esta función aún no está disponible para tu cuenta. ¡Muy pronto!",
 };
 
-export default function CuentasSociales({ cuentas }: { cuentas: CuentaSocial[] }) {
+export default function CuentasSociales({ cuentas, habilitado = true }: { cuentas: CuentaSocial[]; habilitado?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const [aviso, setAviso] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null);
@@ -50,6 +51,22 @@ export default function CuentasSociales({ cuentas }: { cuentas: CuentaSocial[] }
       setCargando(null);
     }
   };
+
+  // Publicación directa aún no abierta a todos (App Review de Meta en curso):
+  // mostramos un teaser en vez de un botón que daría error al conectar.
+  if (!habilitado) {
+    return (
+      <div className="max-w-lg mx-auto px-5 pb-8">
+        <div className="bg-white rounded-2xl p-5 shadow-sm" style={{ border: "2px solid #e5e7eb" }}>
+          <h2 className="font-black text-gray-900">Publica directamente en tus redes</h2>
+          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+            Muy pronto podrás conectar tu Instagram y Facebook y publicar tus posts directamente desde o2Wave, sin copiar ni pegar. Estamos ultimando la verificación con Meta. 🚀
+          </p>
+          <span className="inline-block mt-3 text-xs font-bold px-3 py-1 rounded-full" style={{ backgroundColor: "#fff3e0", color: "#b9791a" }}>Próximamente</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-lg mx-auto px-5 pb-8">

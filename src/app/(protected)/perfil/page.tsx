@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import ProfileForm, { type ProfileData } from "./profile-form";
 import CuentasSociales, { type CuentaSocial } from "./cuentas-sociales";
+import { publicacionDirectaAbiertaGlobal } from "@/lib/flags";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,10 @@ export default async function PerfilPage() {
         mostrarDiasEspana={data.mostrar_dias_espana !== false}
       />
       <Suspense fallback={null}>
-        <CuentasSociales cuentas={(cuentasRows || []) as CuentaSocial[]} />
+        <CuentasSociales
+          cuentas={(cuentasRows || []) as CuentaSocial[]}
+          habilitado={publicacionDirectaAbiertaGlobal() || !!data.es_admin}
+        />
       </Suspense>
     </>
   );

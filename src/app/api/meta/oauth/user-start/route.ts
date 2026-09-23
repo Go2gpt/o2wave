@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase-server";
 import { SITE_URL } from "@/lib/siteUrl";
 import { metaOAuthConfigurado, metaRedirectUri } from "@/lib/meta/config";
 import { buildAuthorizeUrl } from "@/lib/meta/oauth";
+import { publicacionDirectaHabilitada } from "@/lib/flags";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,6 +17,11 @@ export async function GET() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.redirect(`${SITE_URL}/login`);
+
+  // Aún no abierto a todos (App Review pendiente): solo admins pueden conectar.
+  if (!(await publicacionDirectaHabilitada(supabase, user.id))) {
+    return NextResponse.redirect(`${SITE_URL}/perfil?social_error=nodisponible`);
+  }
 
   if (!metaOAuthConfigurado()) {
     return NextResponse.redirect(`${SITE_URL}/perfil?social_error=config`);

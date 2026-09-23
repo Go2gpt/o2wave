@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { metaOAuthConfigurado } from "@/lib/meta/config";
 import { publicarPieza, type CuentaPublicable } from "@/lib/meta/publish";
+import { publicacionDirectaHabilitada } from "@/lib/flags";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,6 +22,9 @@ export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!(await publicacionDirectaHabilitada(supabase, user.id))) {
+    return NextResponse.json({ error: "La publicación directa aún no está disponible para tu cuenta." }, { status: 403 });
+  }
   if (!metaOAuthConfigurado()) return NextResponse.json({ error: "Conexión con Meta no configurada" }, { status: 500 });
 
   const { cuenta_id, texto, imagen_url, red_social } =
