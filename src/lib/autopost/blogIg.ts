@@ -33,14 +33,27 @@ function subtituloDe(e: EntradaBlog): string | null {
   return frase.split(/\s+/).slice(0, 14).join(" ");
 }
 
+const IG_MAX = 2200;
+
+/** Recorta sin cortar a mitad de frase: intenta acabar en . ! ? o salto; si no, en palabra. */
+function recortarLimpio(txt: string, max: number): string {
+  if (txt.length <= max) return txt;
+  const cut = txt.slice(0, max);
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "), cut.lastIndexOf("\n"));
+  if (stop > max * 0.6) return cut.slice(0, stop + 1).trim();
+  const sp = cut.lastIndexOf(" ");
+  return ((sp > 0 ? cut.slice(0, sp) : cut).trim()) + "…";
+}
+
 function captionDe(e: EntradaBlog): string {
+  // Texto COMPLETO de la noticia para leerla entera en Instagram (sin "leer más").
+  // Reserva sitio para título + hashtags y recorta el cuerpo de forma limpia.
   const tags = (e.tags || []).join(" ");
-  // Texto COMPLETO de la noticia (hasta el límite de IG) para que se pueda leer
-  // entera en Instagram, sin pasar por la web. Sin "leer más".
-  const cuerpo = (e.texto || e.resumen || "").trim();
-  const partes = [e.titulo, "", cuerpo];
-  if (tags) { partes.push(""); partes.push(tags); }
-  return partes.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2200);
+  const cola = tags ? `\n\n${tags}` : "";
+  const cabecera = `${e.titulo}\n\n`;
+  const espacio = Math.max(0, IG_MAX - cabecera.length - cola.length);
+  const cuerpo = recortarLimpio((e.texto || e.resumen || "").trim(), espacio);
+  return `${cabecera}${cuerpo}${cola}`.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export interface CrearNovedadOpts {
