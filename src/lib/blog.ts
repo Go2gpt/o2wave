@@ -51,7 +51,7 @@ export async function fetchEntradasBlog(limit = 8): Promise<EntradaBlog[]> {
         titulo: decode(title?.rendered || "").trim(),
         fecha: String(p.date || "").slice(0, 10),
         resumen: stripHtml(excerpt?.rendered || "").slice(0, 240),
-        texto: stripHtml(content?.rendered || "").slice(0, 1800),
+        texto: stripHtml(content?.rendered || "").slice(0, 2000),
         imagenUrl: media,
         link: String(p.link || ""),
         tags,

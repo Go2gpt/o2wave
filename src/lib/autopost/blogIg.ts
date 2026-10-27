@@ -35,9 +35,12 @@ function subtituloDe(e: EntradaBlog): string | null {
 
 function captionDe(e: EntradaBlog): string {
   const tags = (e.tags || []).join(" ");
-  const partes = [e.titulo, "", (e.resumen || "").trim(), "", "📲 Lee la noticia completa en generacion-o2.org"];
+  // Texto COMPLETO de la noticia (hasta el límite de IG) para que se pueda leer
+  // entera en Instagram, sin pasar por la web. Sin "leer más".
+  const cuerpo = (e.texto || e.resumen || "").trim();
+  const partes = [e.titulo, "", cuerpo];
   if (tags) { partes.push(""); partes.push(tags); }
-  return partes.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2100);
+  return partes.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2200);
 }
 
 export interface CrearNovedadOpts {
