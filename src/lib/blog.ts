@@ -9,6 +9,7 @@ const WP_BASE = process.env.BLOG_WP_BASE || "https://generacion-o2.org/wp-json/w
 export interface EntradaBlog {
   id: number; titulo: string; fecha: string; resumen: string;
   texto: string; imagenUrl: string | null; link: string; tags: string[];
+  categoria: string | null;
 }
 
 function decode(s: string): string {
@@ -41,6 +42,7 @@ export async function fetchEntradasBlog(limit = 8): Promise<EntradaBlog[]> {
       const terms = ((emb["wp:term"] as { taxonomy?: string; name?: string }[][] | undefined) || []).flat();
       const tags = terms.filter((t) => t?.taxonomy === "post_tag" && t?.name)
         .map((t) => `#${String(t.name).replace(/\s+/g, "")}`).slice(0, 6);
+      const categoria = (terms.find((t) => t?.taxonomy === "category" && t?.name)?.name) || null;
       const title = p.title as { rendered?: string } | undefined;
       const excerpt = p.excerpt as { rendered?: string } | undefined;
       const content = p.content as { rendered?: string } | undefined;
@@ -53,6 +55,7 @@ export async function fetchEntradasBlog(limit = 8): Promise<EntradaBlog[]> {
         imagenUrl: media,
         link: String(p.link || ""),
         tags,
+        categoria: categoria ? decode(categoria) : null,
       };
     });
   } catch {
