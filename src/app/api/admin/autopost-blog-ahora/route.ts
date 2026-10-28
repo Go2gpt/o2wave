@@ -25,15 +25,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
   const ignorarCutoff = url.searchParams.get("ignorarCutoff") === "1";
-  const variante = url.searchParams.get("variante");
   const publicar = url.searchParams.get("publicar") === "1";
   const max = Number(url.searchParams.get("max") || "1");
 
   const admin = createAdminClient();
-  const res = await crearNovedadesBlog(admin, {
-    dryRun, ignorarCutoff, max,
-    forzarVariante: variante === "dark" || variante === "light" ? variante : undefined,
-  });
+  const res = await crearNovedadesBlog(admin, { dryRun, ignorarCutoff, max });
 
   // Si se pide publicar YA, publica inline cada pieza creada (en orden).
   if (res.creadas?.length && publicar) {
