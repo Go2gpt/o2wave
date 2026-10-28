@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 import { fetchEntradasBlog, type EntradaBlog } from "@/lib/blog";
 
 /**
@@ -46,11 +47,13 @@ async function imagenDelBlog(admin: SupabaseClient, e: EntradaBlog): Promise<str
   try {
     const res = await fetch(e.imagenUrl);
     if (res.ok) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      const ct = res.headers.get("content-type") || "image/jpeg";
-      const ext = ct.includes("png") ? "png" : ct.includes("webp") ? "webp" : "jpg";
-      const path = `blog-ig/${e.id}-${Date.now()}.${ext}`;
-      const { error } = await admin.storage.from(BUCKET).upload(path, buf, { contentType: ct, upsert: false });
+      const src = Buffer.from(await res.arrayBuffer());
+      // Normaliza SIEMPRE a 4:5 (1080×1350) y JPEG → formato que exige la API de
+      // publicación de Instagram. La imagen del blog ya es 1080×1350, así que
+      // "cover" no recorta nada; si viniera con otra proporción, la encuadra a 4:5.
+      const buf = await sharp(src).resize(1080, 1350, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toBuffer();
+      const path = `blog-ig/${e.id}-${Date.now()}.jpg`;
+      const { error } = await admin.storage.from(BUCKET).upload(path, buf, { contentType: "image/jpeg", upsert: false });
       if (!error) return admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
     }
   } catch { /* usa la URL del blog como respaldo */ }
