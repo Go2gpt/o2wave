@@ -19,13 +19,6 @@ const BUCKET = "post-images";
 // las que ya estaban en el feed al arrancar). Configurable por env.
 const DESDE = process.env.BLOG_IG_DESDE || "2026-10-27";
 
-function semanaInicioHoy(): string {
-  const base = new Date();
-  base.setUTCHours(0, 0, 0, 0);
-  base.setUTCDate(base.getUTCDate() - ((base.getUTCDay() + 6) % 7));
-  return base.toISOString().slice(0, 10);
-}
-
 function subtituloDe(e: EntradaBlog): string | null {
   const s = (e.resumen || "").replace(/\s+/g, " ").trim();
   if (!s) return null;
@@ -137,7 +130,10 @@ export async function crearNovedadesBlog(admin: SupabaseClient, opts: CrearNoved
     const { data: post, error: insErr } = await admin.from("autopost_posts").insert({
       cuenta_id: cuenta.id, estado: "scheduled", perfil_publicacion: `blog:${e.id}:${variante}`,
       tipo: "blog", texto: captionDe(e), imagen_url: r.imagen_url, red: "instagram",
-      publish_at: new Date().toISOString(), semana_inicio: semanaInicioHoy(),
+      // semana_inicio = null: el índice único uq_autopost_posts_semana es
+      // (cuenta_id, semana_inicio) WHERE semana_inicio IS NOT NULL → con null las
+      // piezas del blog quedan fuera del índice y se pueden crear varias/semana.
+      publish_at: new Date().toISOString(), semana_inicio: null,
     }).select("id").single();
     if (insErr) { if (creadas.length) break; return { error: "No se pudo crear la pieza: " + insErr.message }; }
     creadas.push({ postId: post.id as string, blogId: e.id, titulo: e.titulo, variante, pill: r.pill, imagen_url: r.imagen_url });
