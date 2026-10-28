@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { autopostEnabled } from "@/lib/meta/config";
 import { publicarPieza } from "@/lib/meta/publish";
 import { enviarAutopostFallo } from "@/lib/emails";
+import { crearNovedadesBlog } from "@/lib/autopost/blogIg";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -20,6 +21,13 @@ export async function GET(request: Request) {
   if (!autopostEnabled()) return NextResponse.json({ skipped: "autopost_disabled" });
 
   const admin = createAdminClient();
+
+  // Blog → Instagram (go2.bcn): detecta y PROGRAMA 1 noticia nueva por ejecución,
+  // que se publica en este mismo ciclo (el bloque de abajo la recoge). Enganchado
+  // aquí —en el cron horario de publicación, que sí se ejecuta— en vez de depender
+  // de un cron propio. Tolerante: un fallo del blog no corta la publicación.
+  try { await crearNovedadesBlog(admin, { max: 1 }); } catch (e) { console.error("blog→ig:", e instanceof Error ? e.message : e); }
+
   const ahora = new Date().toISOString();
   const { data: posts } = await admin
     .from("autopost_posts").select("*")
