@@ -41,22 +41,12 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
   const grupoEfectivo: GrupoCuenta = autenticado ? grupo : grupoVista;
   const [loading, setLoading] = useState<PlanActual | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
-  const [promo, setPromo] = useState("");
   const [condicionesAbiertas, setCondicionesAbiertas] = useState(false);
   const [mencion, setMencion] = useState(aceptaMencion);     // opt-in mención Go2 (10% dto.)
   const [mencionLoading, setMencionLoading] = useState(false);
   const [confirmGratis, setConfirmGratis] = useState(false); // modal de requisitos del plan gratis
   const [checks, setChecks] = useState<boolean[]>(() => REQUISITOS_GRATIS.map(() => false));
   const todosMarcados = checks.every(Boolean);
-
-  // Bypass temporal por código promocional: aceptamos cualquier código no vacío
-  // (sin validación todavía) y dejamos pasar fijando la cookie que lee el middleware.
-  // TODO: sustituir por el sistema real de validación de códigos.
-  const aplicarPromo = () => {
-    if (!promo.trim()) return;
-    document.cookie = "o2_promo_bypass=1; path=/; max-age=2592000";
-    router.push("/dashboard");
-  };
 
   useEffect(() => {
     if (success) setToast({ message: "¡Suscripción completada! Puede tardar unos segundos en reflejarse.", type: "success" });
@@ -134,22 +124,14 @@ export default function PlansView({ autenticado, esAdmin, grupo, planActual, ace
         </header>
       )}
 
-      {/* Bloqueo (empresa/particular) sin suscripción: aviso + código promocional */}
+      {/* Bloqueo (empresa/particular) sin suscripción: aviso. El código promocional
+          (p. ej. BETA1MES) se introduce en el checkout de Stripe, que lo valida. */}
       {(empresaSinSub || particularSinSub) && (
         <div className="mx-5 mb-4 mt-2 rounded-2xl p-4" style={{ backgroundColor: "#fff8ef", border: "1px solid #f9d9a8" }}>
           <p className="text-sm font-bold" style={{ color: "#b9791a" }}>Activa tu suscripción para continuar</p>
           <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-            {(particularSinSub ? COPY_SIN_SUB.particular : COPY_SIN_SUB.empresa)} Si tienes un código promocional, ingrésalo aquí.
+            {(particularSinSub ? COPY_SIN_SUB.particular : COPY_SIN_SUB.empresa)} Elige un plan abajo{BETA_ACTIVA ? " y aplica tu código promocional en el pago" : ""}.
           </p>
-          <div className="flex gap-2 mt-3">
-            <input value={promo} onChange={(e) => setPromo(e.target.value)} placeholder="Código promocional"
-              className="flex-1 border-2 border-gray-100 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none"
-              onFocus={(e) => (e.target.style.borderColor = "#f9b23b")} onBlur={(e) => (e.target.style.borderColor = "#f3f4f6")} />
-            <button onClick={aplicarPromo} disabled={!promo.trim()}
-              className="px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: "#f9b23b" }}>
-              Aplicar
-            </button>
-          </div>
         </div>
       )}
 

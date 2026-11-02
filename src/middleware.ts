@@ -108,16 +108,16 @@ export async function middleware(request: NextRequest) {
       }
 
       // Bloqueo duro: empresa o particular sin suscripción activa no accede al
-      // servicio (mismo comportamiento). Whitelist: planes, perfil y verificación;
-      // /api y /onboarding ya quedan fuera. Admin pasa siempre. Bypass por promo.
+      // servicio. Whitelist: planes, perfil y verificación; /api y /onboarding ya
+      // quedan fuera. Admin pasa siempre. El código promocional (p. ej. BETA1MES) se
+      // valida en el checkout de Stripe y se refleja en plan_estado; no hay bypass
+      // por cookie (antes cualquier texto en la casilla de promo colaba gratis).
       const subActiva = profile.plan_estado === "activa" || profile.plan_estado === "trial";
-      const promoBypass = request.cookies.get("o2_promo_bypass")?.value === "1";
       const enWhitelist = ["/plans", "/perfil", "/verificacion"].some((r) => pathname.startsWith(r));
       if (
         (profile.tipo_entidad === "empresa" || profile.tipo_entidad === "particular") &&
         !profile.es_admin &&
         !subActiva &&
-        !promoBypass &&
         !enWhitelist
       ) {
         const qs = profile.tipo_entidad === "particular" ? "particular_sin_sub=1" : "empresa_sin_sub=1";
