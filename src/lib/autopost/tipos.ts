@@ -138,6 +138,7 @@ const ESCENAS_ONG: Escena[] = [
   { en: "A small charity event in a neighborhood square or local hall: a table with leaflets, two or three people attending, a varied local public." },
   { en: "A community workshop with 5-10 people seated in a circle around a table, listening and taking part." },
   { en: "A wall calendar with dates marked in red and blue, stacked envelopes, a phone off the hook." },
+  { en: "A coordinator at a modest NGO desk holding a smartphone to share an update, a notebook and a cup of coffee beside them, warm window light, focused and calm (no screen content visible)." },
 ];
 
 async function piezaArquetipoONG(subIndex = 0): Promise<Pieza | null> {
@@ -338,6 +339,7 @@ const ESCENAS_EDU: Escena[] = [
   { en: "A small chalkboard with a simple hand-drawn arrow or shape (no words), a tidy bright desk." },
   { en: "An armchair with an open book and a notebook beside it, warm natural light." },
   { en: "A person actively jotting an idea on paper at a desk by a window, engaged and calm." },
+  { en: "A person composing a note on their smartphone at a bright desk with a notebook and a cup, focused and content, warm natural light (the phone seen from the side, no screen content visible)." },
 ];
 const EDU_ANIMO = "If a person appears: focused positive expression, a subtle smile or a neutral professional attitude, actively engaged in the activity (writing, reading a note, actively sipping coffee). NOT sad, NOT melancholic, NOT resting the head on the hand, NOT staring pensively through a window.";
 

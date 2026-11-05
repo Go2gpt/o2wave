@@ -114,6 +114,23 @@ REGLAS DURAS de la imagen:
 - PROHIBIDO logos de marcas comerciales reales (Apple/manzana mordida, Windows/cuadrado de 4, Dell, HP, Lenovo, Google, Instagram, Facebook, TikTok, o cualquier otra marca existente).
 - Termina siempre con "no real brand logos, no text, no letters, no watermarks".`;
 
+// Variante MÓVIL de las reglas de imagen (Sebas 05/11): mucha gente crea/publica
+// desde el teléfono, así que no siempre un ordenador. Escena real de móvil, SIN logo
+// en el dispositivo (la marca la pone el titular/banner) y SIN pantalla/UI de app
+// (o2Wave es web, no una app de móvil).
+const IMAGEN_REGLAS_MOVIL = `El "image_prompt_en" es una descripción de ESCENA en INGLÉS (40-80 palabras) para un modelo fotorrealista. Muestra el MOMENTO DE TRABAJO real (la persona creando o publicando su contenido DESDE EL MÓVIL), NO una escena de éxito aspiracional, pero SIN tono lúgubre. Elige y adapta UNA de estas escenas canónicas luminosas:
+  1. A cozy corner in warm afternoon light: a person sitting comfortably holding a smartphone in both hands as if calmly composing a social post, a cup of coffee and an open notebook nearby, a small plant.
+  2. A calm bright room with natural window light: a person setting up a smartphone on a small tripod to film or photograph at home (small scale, not a studio), relaxed and focused.
+  3. A tidy desk in warm daylight: a person holding a smartphone to publish, a closed laptop and a steaming coffee beside them.
+  4. A person on a sofa in warm light, calmly publishing from their phone, focused and content.
+REGLAS DURAS de la imagen:
+- ILUMINACIÓN Y ÁNIMO: "warm afternoon light, natural window light, neutral-to-positive mood, focused expression (not exhausted)". PROHIBIDO: "dark night", "single lamp only", "exhausted / tired / overwhelmed", "hunched despair", estética influencer / ring light, stock pulido.
+- 1-2 personas como máximo, expresión concentrada y tranquila (NUNCA agotamiento ni angustia).
+- El móvil se ve DE LADO o POR DETRÁS: NUNCA una pantalla con contenido o interfaz legible. PROHIBIDO cualquier UI/pantalla de app inventada (o2Wave es web, no una app de móvil).
+- NO un monitor de sobremesa como foco; NO mockups, dashboards ni business charts.
+- PROHIBIDO logos de marcas comerciales reales (Apple, Samsung, Google, Instagram, Facebook, TikTok, o cualquier otra).
+- Termina siempre con "no real brand logos, no text, no letters, no watermarks".`;
+
 /* ============================================================================
  * Logo onda de la tapa del portátil — v1.4: lo DIBUJA Gemini con una spec
  * ultra-detallada (el composite mecánico del SVG se descartó: Gemini colocaba
@@ -132,11 +149,17 @@ PROHIBITED: real brand logos (Apple/Windows/HP/Dell/Lenovo/Asus/Acer/Samsung/Mic
 
 /** Deriva una escena visual EN (40-80 palabras) a partir del copy de una pieza. */
 async function escenaDesdeTexto(texto: string): Promise<string> {
-  const fallback = `A tidy desk in warm afternoon light: an open laptop with its outer lid facing the camera (a dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee and an open notebook, a person calmly thinking while looking at the laptop, focused but not exhausted, natural window light. Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
-  let escena = fallback;
+  // Alterna portátil (con logo de marca en la tapa) y móvil (sin logo): mucha gente
+  // crea/publica desde el teléfono, así que no siempre un ordenador.
+  const usarMovil = Math.random() < 0.45;
+  const fallbackLaptop = `A tidy desk in warm afternoon light: an open laptop with its outer lid facing the camera (a dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee and an open notebook, a person calmly thinking while looking at the laptop, focused but not exhausted, natural window light. Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
+  const fallbackMovil = `A cozy corner in warm afternoon light: a person holding a smartphone in both hands as if calmly composing a social post (the phone seen from the side or the back — no screen content visible), a cup of coffee and an open notebook nearby, a small plant, focused and calm. Documentary photorealistic. no real brand logos, no text, no letters, no watermarks.`;
+  let escena = usarMovil ? fallbackMovil : fallbackLaptop;
   try {
+    const promptLaptop = `The scene MUST include: a SINGLE person calmly working or thinking (focused, NOT tired or overwhelmed); a laptop with its OUTER LID facing the camera (we see the back of the lid, not the screen — dark matte lid, prominent in frame); warm afternoon / natural window light, neutral-to-positive mood. Do NOT describe any logo on the lid (a detailed logo spec is appended automatically). No desktop monitor, no laptop in profile. Avoid dark night, single lamp, exhaustion or despair.`;
+    const promptMovil = `The scene MUST include: a SINGLE person calmly creating or publishing content FROM A SMARTPHONE (the phone seen from the side or the back — NO screen content or app interface visible); warm afternoon / natural window light, neutral-to-positive mood, focused expression (not exhausted). No desktop monitor as focus. Avoid any fake app UI, dark night, single lamp, exhaustion or despair.`;
     const prompt = `You are an art director. From this social post caption, write ONE vivid English VISUAL SCENE (40-80 words) for a photorealistic image model — concrete subjects, setting, objects, lighting, mood. NOT a slogan.
-The scene MUST include: a SINGLE person calmly working or thinking (focused, NOT tired or overwhelmed); a laptop with its OUTER LID facing the camera (we see the back of the lid, not the screen — dark matte lid, prominent in frame); warm afternoon / natural window light, neutral-to-positive mood. Do NOT describe any logo on the lid (a detailed logo spec is appended automatically). No desktop monitor, no laptop in profile. Avoid dark night, single lamp, exhaustion or despair.
+${usarMovil ? promptMovil : promptLaptop}
 End with "no real brand logos, no text, no letters, no watermarks".
 
 Caption:
@@ -147,7 +170,8 @@ Return ONLY the scene description, one paragraph.`;
     const raw = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
     if (raw.split(/\s+/).length >= 15) escena = raw;
   } catch { /* usa fallback */ }
-  return `${escena}\n\n${LOGO_SPEC}`;
+  // Logo de la onda SOLO en la escena de portátil (en el móvil no va logo).
+  return usarMovil ? escena : `${escena}\n\n${LOGO_SPEC}`;
 }
 
 /**
@@ -304,6 +328,8 @@ export interface ResultadoGen { cuenta: string; generadas: number; programadas: 
 async function piezaProducto(foco: Foco, arquetipo: Arquetipo): Promise<{ texto: string; hashtags: string[]; img: string } | null> {
   const sub = arquetipo.subvariantes[Math.floor(Math.random() * arquetipo.subvariantes.length)];
   const cta = CTAS[foco.cta];
+  // ~45% móvil (sin logo) / ~55% portátil (con logo de la onda en la tapa).
+  const usarMovil = Math.random() < 0.45;
   const contexto = foco.usaArquetipo
     ? `PROTAGONISTA (ficticio; NO uses nombres reales de personas, ONGs, empresas ni ciudades): ${arquetipo.nombre}, que ${arquetipo.rol}. Variante concreta: ${sub}. Equipo: ${arquetipo.equipo}. Problema típico: ${arquetipo.problema}.`
     : `SIN protagonista concreto (post genérico).`;
@@ -315,7 +341,7 @@ ${contexto}
 
 ${GUARDARRAILES}
 
-${IMAGEN_REGLAS}
+${usarMovil ? IMAGEN_REGLAS_MOVIL : IMAGEN_REGLAS}
 
 Termina el "texto" con EXACTAMENTE esta llamada a la acción, tal cual y en su propia línea al final: "${cta}"
 
@@ -339,7 +365,7 @@ Responde SOLO con JSON válido:
       if (err) { console.warn(`autopost piezaProducto: copy inválido (${err}) — reintento ${i + 1}/3`); continue; }
       // La spec del logo se anexa VERBATIM (misma onda en todas las piezas).
       // Hashtags SIEMPRE de la lista canónica (el modelo no los inventa).
-      return { texto, hashtags: hashtagsDe(foco, arquetipo), img: `${img}\n\n${LOGO_SPEC}` };
+      return { texto, hashtags: hashtagsDe(foco, arquetipo), img: usarMovil ? img : `${img}\n\n${LOGO_SPEC}` };
     } catch { /* reintento */ }
   }
   return null;
