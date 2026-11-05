@@ -21,7 +21,21 @@ const MODEL = "claude-sonnet-4-6";
 const HASHTAGS_REEL = ["#o2Wave", "#IAparaRedes", "#ContenidoEnRedes", "#GestionDeRedes", "#Reels"];
 const CTA_REEL = "Pruébalo desde tu navegador — o2wave.app ✨";
 
-const ESCENA_KEYFRAME = `A tidy desk in warm afternoon light, vertical composition: an open laptop with its OUTER LID facing the camera (dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee with soft rising steam, an open notebook and a small plant; a person calmly working, focused but not exhausted, natural window light, neutral-to-positive mood. Documentary photorealistic. STRICT: no real brand logos, no text, no letters, no numbers, no watermarks, no icons, no app icons, no screens showing content, no UI elements, no stickers, no decals, no symbols or badges on any object, no floating graphics. Clean real-world objects only.`;
+// Escenas on-brand para el fotograma del Reel. Alternamos portátil y MÓVIL: mucha
+// gente crea y publica desde el teléfono, así que mostrar siempre un portátil no es
+// la realidad. Siguen siendo escenas reales de sobremesa, SIN pantallas ni UI
+// (o2Wave es web, no una app de móvil → nunca mostramos interfaz de app).
+const RESTRICCION = `Documentary photorealistic. STRICT: no real brand logos, no text, no letters, no numbers, no watermarks, no icons, no app icons, no screens showing content, no UI elements, no stickers, no decals, no symbols or badges on any object, no floating graphics. Clean real-world objects only.`;
+const ESCENAS_KEYFRAME: string[] = [
+  // Portátil (original)
+  `A tidy desk in warm afternoon light, vertical composition: an open laptop with its OUTER LID facing the camera (dark matte lid, prominent in frame — we see the back of the lid, not the screen), a cup of coffee with soft rising steam, an open notebook and a small plant; a person calmly working, focused but not exhausted, natural window light, neutral-to-positive mood. ${RESTRICCION}`,
+  // Móvil en mano (crear/publicar desde el teléfono)
+  `A cozy corner in warm afternoon light, vertical composition: a person sitting comfortably holding a smartphone in both hands as if calmly composing a social post, the phone seen slightly from the side or from the back so NO screen content is visible; a cup of coffee with soft rising steam and an open notebook nearby, a small plant, natural window light, neutral-to-positive mood. ${RESTRICCION}`,
+  // Creación de contenido con el móvil (a pequeña escala, en casa)
+  `A calm, bright room in warm afternoon light, vertical composition: a person setting up a smartphone on a small tripod to film or photograph, relaxed and focused (small-scale content creation at home, not a studio), a cup of coffee and a notebook on a nearby table, a small plant, natural window light, neutral-to-positive mood. ${RESTRICCION}`,
+  // Mixto: portátil + móvil juntos ("desde donde quieras")
+  `A tidy desk in warm afternoon light, vertical composition: a smartphone propped upright next to a closed laptop, a cup of coffee with soft rising steam, an open notebook and a small plant; a person calmly working, relaxed and focused, natural window light, neutral-to-positive mood. ${RESTRICCION}`,
+];
 const MOTION = `Subtle cinematic motion: slow gentle camera push-in, soft rising steam from the coffee, slight natural ambient movement, calm and smooth. Keep the scene stable and realistic. No text, no letters, no logos.`;
 
 /** Caption automático del Reel (cuerpo IA + CTA + hashtags). Sin copiar/pegar. */
@@ -44,7 +58,8 @@ export interface ReelJob { keyframe_url: string; video_id: string; music_id: str
  * y música en Replicate (sin esperar). Devuelve IDs + caption para el polling.
  */
 export async function iniciarReel(admin: SupabaseClient, cuentaId: string): Promise<ReelJob | { error: string }> {
-  const img = await generarImagenIA(ESCENA_KEYFRAME, "9:16");
+  const escena = ESCENAS_KEYFRAME[Math.floor(Math.random() * ESCENAS_KEYFRAME.length)];
+  const img = await generarImagenIA(escena, "9:16");
   if (!img) return { error: "No se pudo generar el fotograma base (Gemini/Replicate)." };
   // Normaliza a JPEG 720×1280 sin alfa: es el formato/tamaño que el modelo de vídeo
   // procesa de forma fiable. El PNG grande de Gemini hacía que Replicate devolviera
