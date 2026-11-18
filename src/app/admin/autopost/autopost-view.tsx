@@ -193,8 +193,8 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
 
   return (
     <div className={card}>
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+        <div className="min-w-0">
           <p className="font-bold flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sem.c }} title={sem.t} />
             {c.etiqueta}
@@ -206,7 +206,7 @@ function CuentaCard({ c, onChanged, notify }: { c: Cuenta; onChanged: () => void
             FB: {sem.t}{c.ig_user_id ? " · IG publica con el Page token" : " · IG: reconecta FB para vincular"}
           </p>
         </div>
-        <div className="flex flex-col gap-2 flex-shrink-0">
+        <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-shrink-0">
           {perfil === "producto" && (
             <button onClick={generarPack} disabled={generando} className={`${btn} text-[#0F0F0F]`} style={{ backgroundColor: "#93bf30" }}>
               {generando ? "Generando…" : "Generar pack ahora"}
@@ -504,9 +504,9 @@ export default function AutopostView({ cuentas, pendientes, programados, histori
 
         {/* Cuentas */}
         <section className="mb-8">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-sm font-bold text-white/80">Cuentas conectadas ({cuentas.length})</h2>
-            <a href="/api/meta/oauth/start" className={`${btn} text-[#0F0F0F] ${enabled ? "" : "pointer-events-none opacity-40"}`} style={{ backgroundColor: "#f9b23b" }}>
+            <a href="/api/meta/oauth/start" className={`${btn} text-[#0F0F0F] whitespace-nowrap ${enabled ? "" : "pointer-events-none opacity-40"}`} style={{ backgroundColor: "#f9b23b" }}>
               + Conectar cuenta
             </a>
           </div>
