@@ -593,7 +593,7 @@ function ResultContent() {
             )}
           </div>
 
-          <PublicarEnCuenta redSocial={post.red_social} texto={post.texto || ""} imagenUrl={post.imagen_url ?? null} />
+          <PublicarEnCuenta redSocial={post.red_social} texto={post.texto || ""} imagenUrl={post.imagen_url ?? null} formato={post.formato} />
 
           {/* Caso B: soporta texto pero no archivos → sugerir descargar para compartir */}
           {!canShareFiles && canShareText && (

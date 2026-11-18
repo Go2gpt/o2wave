@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { metaOAuthConfigurado } from "@/lib/meta/config";
-import { publicarPieza, type CuentaPublicable } from "@/lib/meta/publish";
+import { publicarPieza, publicarStory, type CuentaPublicable } from "@/lib/meta/publish";
 import { publicacionDirectaHabilitada } from "@/lib/flags";
 
 export const dynamic = "force-dynamic";
@@ -27,15 +27,21 @@ export async function POST(request: NextRequest) {
   }
   if (!metaOAuthConfigurado()) return NextResponse.json({ error: "Conexión con Meta no configurada" }, { status: 500 });
 
-  const { cuenta_id, texto, imagen_url, red_social } =
-    await request.json() as { cuenta_id?: string; texto?: string; imagen_url?: string | null; red_social?: string };
+  const { cuenta_id, texto, imagen_url, video_url, red_social, formato } =
+    await request.json() as { cuenta_id?: string; texto?: string; imagen_url?: string | null; video_url?: string | null; red_social?: string; formato?: string | null };
 
   const red = red_social ? RED_MAP[red_social] : undefined;
   if (!cuenta_id || !red) {
     return NextResponse.json({ error: "Solo se puede publicar directamente en Instagram o Facebook. Para otras redes, usa Compartir." }, { status: 400 });
   }
-  if (red === "instagram" && !imagen_url) {
+  // Las stories (9:16) van por su propio camino (media_type=STORIES) más abajo;
+  // aceptan imagen O vídeo, así que no exigimos imagen_url aquí para ellas.
+  const esStory = formato === "Story 9:16";
+  if (red === "instagram" && !esStory && !imagen_url) {
     return NextResponse.json({ error: "Instagram requiere una imagen." }, { status: 400 });
+  }
+  if (esStory && red !== "instagram") {
+    return NextResponse.json({ error: "Las stories solo se publican en Instagram por ahora." }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -56,6 +62,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const cuentaPub: CuentaPublicable = { fb_page_id: c.fb_page_id, ig_user_id: c.ig_user_id, token_cifrado: c.token_cifrado };
+
+    // Story (9:16): publicación por API con media_type=STORIES (imagen o vídeo).
+    // Sin stickers interactivos (menciones/encuestas/enlaces): solo el medio con
+    // el texto ya impreso. El caption se ignora en stories.
+    if (esStory) {
+      const mediaUrl = video_url || imagen_url;
+      if (!mediaUrl) {
+        return NextResponse.json({ error: "La story necesita una imagen o un vídeo." }, { status: 400 });
+      }
+      const resultadoStory = await publicarStory(cuentaPub, { mediaUrl, esVideo: !!video_url });
+      const rs = resultadoStory.instagram;
+      if (!rs?.ok) return NextResponse.json({ error: rs?.error || "No se pudo publicar la story" }, { status: 502 });
+      return NextResponse.json({ ok: true, url: rs.url, id: rs.id });
+    }
+
     const resultado = await publicarPieza(cuentaPub, { texto: texto || "", imagenUrl: imagen_url ?? null, red });
     const r = red === "instagram" ? resultado.instagram : resultado.facebook;
     if (!r?.ok) return NextResponse.json({ error: r?.error || "No se pudo publicar" }, { status: 502 });

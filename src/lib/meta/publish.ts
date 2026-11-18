@@ -211,3 +211,69 @@ export async function publicarPieza(
   }
   return out;
 }
+
+/**
+ * Publica una Story en Instagram: contenedor con media_type=STORIES + image_url
+ * (o video_url) → poll → media_publish. Mismo flujo y Page token que post/reel.
+ *
+ * ⚠️ LÍMITE DE LA API: las stories publicadas por API NO admiten stickers
+ * interactivos (menciones clicables, encuestas, enlaces, música, ubicación):
+ * solo suben la imagen/vídeo con el texto que ya lleve IMPRESO. El caption se
+ * ignora en stories. Para menciones clicables, sigue siendo publicación manual.
+ */
+export async function publicarStoryEnInstagram(
+  igUserId: string, pageToken: string, mediaUrl: string, esVideo = false,
+): Promise<ResultadoRed> {
+  try {
+    if (!/^https:\/\//i.test(mediaUrl)) {
+      return { ok: false, error: `El ${esVideo ? "vídeo" : "la imagen"} de la story debe servirse por HTTPS público.` };
+    }
+    if (!esVideo) {
+      const invalida = await validarImagenParaIG(mediaUrl);
+      if (invalida) return { ok: false, error: invalida };
+    }
+
+    const params: Record<string, string> = { media_type: "STORIES", access_token: pageToken };
+    if (esVideo) params.video_url = mediaUrl; else params.image_url = mediaUrl;
+    const cont = await graphPost<{ id: string }>(`/${igUserId}/media`, params);
+
+    // Poll del contenedor hasta FINISHED (el vídeo tarda más que la imagen).
+    const maxIntentos = esVideo ? 60 : 30;
+    const esperaMs = esVideo ? 3000 : 2000;
+    let estado = "";
+    for (let i = 0; i < maxIntentos; i++) {
+      await dormir(esperaMs);
+      const st = await graphGet<{ status_code: string }>(`/${cont.id}`, { fields: "status_code", access_token: pageToken });
+      estado = st.status_code;
+      if (estado === "FINISHED") break;
+      if (estado === "ERROR" || estado === "EXPIRED") return { ok: false, error: `Contenedor Story IG en estado ${estado}` };
+    }
+    if (estado !== "FINISHED") return { ok: false, error: "La Story de IG no quedó lista a tiempo." };
+
+    const pub = await graphPost<{ id: string }>(`/${igUserId}/media_publish`, { creation_id: cont.id, access_token: pageToken });
+    let url: string | undefined;
+    try {
+      const perma = await graphGet<{ permalink: string }>(`/${pub.id}`, { fields: "permalink", access_token: pageToken });
+      url = perma.permalink;
+    } catch { /* permalink opcional (las stories no siempre lo devuelven) */ }
+    return { ok: true, id: pub.id, url };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "fallo Story IG" };
+  }
+}
+
+/**
+ * Publica una Story de una cuenta. Por ahora SOLO Instagram (las stories de
+ * Página de Facebook usan endpoints distintos; se añadirán aparte si hace falta).
+ */
+export async function publicarStory(
+  cuenta: CuentaPublicable,
+  story: { mediaUrl: string; esVideo?: boolean },
+): Promise<ResultadoPublicacion> {
+  const out: ResultadoPublicacion = {};
+  if (cuenta.ig_user_id) {
+    const pageToken = descifrarToken(cuenta.token_cifrado);
+    out.instagram = await publicarStoryEnInstagram(cuenta.ig_user_id, pageToken, story.mediaUrl, story.esVideo ?? false);
+  }
+  return out;
+}

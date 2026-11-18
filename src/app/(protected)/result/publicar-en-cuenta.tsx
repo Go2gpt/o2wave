@@ -14,10 +14,11 @@ interface CuentaOpt {
 // Publica el post directamente (server-side) en la cuenta conectada elegida.
 // Solo para Instagram/Facebook (el resto va por Compartir nativo). Se auto-oculta
 // si la red no aplica.
-export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
-  redSocial: string; texto: string; imagenUrl: string | null;
+export default function PublicarEnCuenta({ redSocial, texto, imagenUrl, formato }: {
+  redSocial: string; texto: string; imagenUrl: string | null; formato?: string | null;
 }) {
   const soportado = redSocial === "Instagram" || redSocial === "Facebook";
+  const esStory = formato === "Story 9:16";
   const [habilitado, setHabilitado] = useState<boolean | null>(null);
   const [cuentas, setCuentas] = useState<CuentaOpt[] | null>(null);
   const [sel, setSel] = useState("");
@@ -39,6 +40,8 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
   }, [soportado]);
 
   if (!soportado) return null;
+  // Stories: solo por Instagram (la API de Stories de Facebook es aparte).
+  if (esStory && redSocial !== "Instagram") return null;
   // Función no abierta para este usuario (App Review pendiente) → no mostrar nada.
   if (habilitado === null || habilitado === false) return null;
 
@@ -48,11 +51,11 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
     try {
       const r = await fetch("/api/social/publicar", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cuenta_id: sel, texto, imagen_url: imagenUrl, red_social: redSocial }),
+        body: JSON.stringify({ cuenta_id: sel, texto, imagen_url: imagenUrl, red_social: redSocial, formato }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error");
-      setRes({ tipo: "ok", msg: "¡Publicado!", url: d.url });
+      setRes({ tipo: "ok", msg: esStory ? "¡Story publicada!" : "¡Publicado!", url: d.url });
       sonarPublicado(); // sonido "✓ publicado" + vibración (identidad sonora)
     } catch (e) {
       setRes({ tipo: "error", msg: e instanceof Error ? e.message : "Error al publicar" });
@@ -64,7 +67,10 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
   return (
     <div className="px-4 pt-1 pb-3">
       <div className="rounded-xl p-3" style={{ backgroundColor: "#fff8ef", border: "1px solid #f9d9a8" }}>
-        <p className="text-sm font-bold" style={{ color: "#b9791a" }}>Publicar en tu cuenta · {redSocial}</p>
+        <p className="text-sm font-bold" style={{ color: "#b9791a" }}>Publicar {esStory ? "story" : "en tu cuenta"} · {redSocial}</p>
+        {esStory && (
+          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">Se publica la imagen tal cual. Las menciones y stickers (si los necesitas) se añaden a mano al publicar.</p>
+        )}
         {cuentas === null ? (
           <p className="text-xs text-gray-400 mt-1">Cargando cuentas…</p>
         ) : cuentas.length === 0 ? (
@@ -86,14 +92,14 @@ export default function PublicarEnCuenta({ redSocial, texto, imagenUrl }: {
             <button onClick={publicar} disabled={pub || !sel}
               className="mt-2 w-full py-2.5 rounded-xl font-bold text-white text-sm active:scale-[0.98] transition-all disabled:opacity-50"
               style={{ backgroundColor: "#f9b23b" }}>
-              {pub ? "Publicando…" : `Publicar en ${redSocial}`}
+              {pub ? "Publicando…" : (esStory ? "Publicar story" : `Publicar en ${redSocial}`)}
             </button>
           </>
         )}
         {res && (
           <div className="mt-2 text-sm font-medium" style={{ color: res.tipo === "ok" ? "#3f6212" : "#b91c1c" }}>
             {res.tipo === "ok"
-              ? <><span style={{ display: "inline-block", animation: "o2pop .45s cubic-bezier(.2,1.4,.4,1)" }}>✓</span> ¡Publicado!</>
+              ? <><span style={{ display: "inline-block", animation: "o2pop .45s cubic-bezier(.2,1.4,.4,1)" }}>✓</span> {res.msg}</>
               : `⚠️ ${res.msg}`}
             {res.url && <> · <a href={res.url} target="_blank" rel="noopener" className="underline">ver publicación</a></>}
           </div>
