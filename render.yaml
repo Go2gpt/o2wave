@@ -1,0 +1,95 @@
+# Render Blueprint para o2Wave — migración desde Vercel Pro.
+# Guía completa de la migración: docs/RENDER-MIGRACION.md
+#
+# Este archivo NO contiene secretos: cada variable marcada "sync: false" se
+# rellena a mano en el panel de Render (copiándola de Vercel). Así no se sube
+# ninguna clave al repositorio.
+#
+# Los 5 crons NO van aquí (los Render Cron Jobs se cobran aparte). Se disparan
+# gratis desde cron-job.org contra los endpoints /api/cron/* — ver el runbook.
+
+services:
+  - type: web
+    name: o2wave
+    runtime: node
+    region: frankfurt          # Misma zona que Supabase (eu-central-1). Ajustar si Supabase está en otra región.
+    plan: starter              # 7 $/mes, siempre activo (512 MB RAM). Si Reels/pack agotan la RAM, subir a "standard" (25 $).
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # OJO: NO añadir NODE_ENV=production a mano. Render ya lo pone en ejecución;
+      # ponerlo manualmente haría que npm se saltara las devDependencies (typescript,
+      # tailwind, postcss) y el build fallaría.
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://www.o2wave.app
+      # --- Supabase ---
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # --- Stripe ---
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_BETA_COUPON_ID
+        sync: false
+      - key: STRIPE_COUPON_MENCION_GO2
+        sync: false
+      # --- Meta / Instagram ---
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_REDIRECT_URI
+        sync: false
+      - key: META_IG_APP_ID
+        sync: false
+      - key: META_IG_APP_SECRET
+        sync: false
+      - key: META_IG_REDIRECT_URI
+        sync: false
+      # TOKEN_ENC_KEY debe ser EXACTAMENTE la misma que en Vercel. Si cambia, los
+      # tokens de Meta ya guardados en la base de datos no se podrán descifrar.
+      - key: TOKEN_ENC_KEY
+        sync: false
+      # --- IA ---
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: REPLICATE_API_TOKEN
+        sync: false
+      # --- Correo (Resend) ---
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFICATION_EMAIL
+        sync: false
+      # --- Crons / autopost ---
+      - key: CRON_SECRET
+        sync: false
+      - key: CRON_TOKEN
+        sync: false
+      - key: AUTOPOST_ENABLED
+        sync: false
+      - key: BLOG_WP_BASE
+        sync: false
+      - key: BLOG_IG_CUENTA
+        sync: false
+      - key: BLOG_IG_DESDE
+        sync: false
+      - key: PUBLICACION_DIRECTA_ABIERTA
+        sync: false
+      - key: PUBLICACION_DIRECTA_EMAILS
+        sync: false
